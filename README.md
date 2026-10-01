@@ -1,87 +1,89 @@
 # CLAWD — Latent Space
 
-2D hra s Clawdom v hlavnej úlohe. **World 1** je skákačka v štýle Astro Bota. Na jeho konci Clawd nájde
-**Token Blaster** a **World 2** je už strieľačka: mieri sa myšou, strieľa tokenmi a v shope sa kupujú lepšie
-zbrane a upgrady. Hlavný boss World 2 je **Codex**.
+![CLAWD title screen](docs/title-screen.png)
 
-Vizuál je „dot-matrix“: terén, hory aj nepriatelia sú z bodiek a ASCII znakov, výrazne oranžový je len Clawd
-a to, čo je dôležité. Všetko beží lokálne v prehliadači: žiadne CDN, žiadne externé fonty ani zvukové súbory
-(zvuk sa generuje cez WebAudio).
+A 2D game starring Clawd. **World 1** is an Astro Bot style platformer. At its end Clawd finds the
+**Token Blaster**, and **World 2** turns into a shooter: aim with the mouse, fire tokens, and buy better
+weapons and upgrades in the shop. The final boss of World 2 is **Codex**.
 
-## Spustenie
+The look is "dot-matrix": terrain, mountains and enemies are built from dots and ASCII characters, and only
+Clawd and the things that matter are bright orange. Everything runs locally in the browser: no CDN, no external
+fonts and no audio files (all sound is synthesized with WebAudio).
+
+## Getting started
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit testy + test prejditeľnosti všetkých levelov
-npm run build      # produkčný build do dist/
+npm test           # unit tests + a completability check for every level
+npm run build      # production build into dist/
 ```
 
-## Ovládanie
+## Controls
 
-| Vstup | Akcia |
+| Input | Action |
 |---|---|
-| ← → / A D | pohyb |
-| Space / K | skok (dlhšie držanie = vyšší skok) |
-| držať skok vo vzduchu | hover (jet zraňuje nepriateľov) |
-| X / J | World 1: spin · World 2: streľba |
-| C / L / pravé tlačidlo myši | spin |
-| ↓ + spin vo vzduchu | ground pound (rozbije fialové „corrupted“ bloky) |
-| ↓ + Space | prepadnutie cez platformu |
-| myš + ľavé tlačidlo | World 2: mierenie a streľba |
-| ↑ / ↓ + X | mierenie bez myši (8 smerov) |
-| 1–5 · Q E · koliesko | prepnutie zbrane |
-| B (na mape) | shop |
-| Esc / P · M · H | pauza · zvuk · ovládanie |
-| F1 / F2 | debug overlay / noclip (v debug režime) |
+| ← → / A D | Move |
+| Space / K | Jump (hold longer to jump higher) |
+| Hold jump in the air | Hover (the jet hurts enemies) |
+| X / J | World 1: spin · World 2: shoot |
+| C / L / right mouse button | Spin |
+| ↓ + spin in the air | Ground pound (breaks purple "corrupted" blocks) |
+| ↓ + Space | Drop through a platform |
+| Mouse + left button | World 2: aim and shoot |
+| ↑ / ↓ + X | Aim without a mouse (8 directions) |
+| 1–5 · Q E · mouse wheel | Switch weapon |
+| B (on the map) | Shop |
+| Esc / P · M · H | Pause · mute · controls |
+| F1 / F2 | Debug overlay / noclip (in debug mode) |
 
-Gamepad: A skok, X streľba, B spin, pravá páčka mieri, LB/RB/Y prepínajú zbrane, Start pauza.
+Gamepad: A jump, X shoot, B spin, right stick aims, LB/RB/Y switch weapons, Start pauses.
 
-## Obsah
+## Content
 
-**World 1 — Latent Space** (skákačka)
+**World 1 — Latent Space** (platformer)
 - 1-1 Token Plains, 1-2 Gradient Caves, 1-3 Context Window
-- 1-B The Hallucination: po porážke zanechá Token Blaster, odomkne sa World 2 a shop
+- 1-B The Hallucination: drops the Token Blaster when defeated, unlocking World 2 and the shop
 
-**World 2 — Benchmark Wars** (strieľačka)
-- 2-1 Merge Conflict Mesa: turrety, drony, shield boty
-- 2-2 GPU Forge: horúce prieduchy, stropné turrety, 429 drviče, pohyblivé platformy
-- 2-3 Prompt Injection Swamp: injectory (po zničení sa rozpadnú na bugy), ostrovy
-- 2-4 The Diff Towers: vertikálne stúpanie so streľbou
-- 2-B Codex: monitor s dvoma kurzorovými rukami, autocomplete steny, `{ }` salvy,
-  „npm test“ bugy a `rm -rf` lúče, 3 fázy
+**World 2 — Benchmark Wars** (shooter)
+- 2-1 Merge Conflict Mesa: turrets, drones, shield bots
+- 2-2 GPU Forge: hot vents, ceiling turrets, 429 crushers, moving platforms
+- 2-3 Prompt Injection Swamp: injectors (they split into bugs when destroyed), islands
+- 2-4 The Diff Towers: a vertical climb under fire
+- 2-B Codex: a monitor with two giant cursor hands, autocomplete walls, `{ }` volleys,
+  "npm test" bugs and `rm -rf` beams, in 3 phases
 
-**Zbrane** (Context = prehrievanie; pri pretečení sa zbraň musí schladiť)
+**Weapons** (Context = heat; when it overflows the weapon has to cool down)
 
-| Zbraň | Cena | Vlastnosti |
+| Weapon | Price | Notes |
 |---|---|---|
-| Token Blaster | nájdená | spoľahlivá, stredná kadencia |
-| Context Spreader | 120 tokenov | 5 tokenov naraz, krátky dosah |
-| Stream Output | 220 tokenov + 3 sparky | veľmi rýchla streľba znakmi |
-| Attention Beam | 380 tokenov + 8 sparkov | lúč, prejde cez všetkých nepriateľov v línii |
-| Opus Cannon | 520 tokenov + 12 sparkov | výbušná guľa, rozbíja corrupted bloky |
+| Token Blaster | found | reliable, medium fire rate |
+| Context Spreader | 120 tokens | 5 tokens at once, short range |
+| Stream Output | 220 tokens + 3 sparks | very fast stream of characters |
+| Attention Beam | 380 tokens + 8 sparks | a beam that pierces every enemy in line |
+| Opus Cannon | 520 tokens + 12 sparks | explosive orb, breaks corrupted blocks |
 
-**Upgrady**: Extra Heart, Bigger Model (poškodenie), Faster Inference (kadencia), Longer Context,
+**Upgrades**: Extra Heart, Bigger Model (damage), Faster Inference (fire rate), Longer Context,
 Jet Tuning (hover), Token Magnet.
 
-Tokeny zozbierané v leveli sa po jeho dokončení pripíšu do peňaženky. Sparky sa v shope míňajú, ale na mape
-zostávajú započítané ako nájdené. Progres sa ukladá do `localStorage`.
+Tokens collected in a level are added to your wallet when you finish it. Sparks are spent in the shop but
+still count as found on the map. Progress is saved to `localStorage`.
 
-## Štruktúra
+## Project layout
 
-- `src/config.ts`: konštanty pohybu („feel“)
-- `src/weapons.ts`: zbrane a upgrady (ceny, poškodenie, kadencia, prehrievanie)
-- `src/entities/player.ts`: fyzika a stavy Clawda
-- `src/entities/gun.ts`, `bullets.ts`: streľba, strely, prehrievanie
-- `src/entities/enemies.ts`, `enemies2.ts`: nepriatelia World 1 / World 2
-- `src/entities/boss/`: Hallucination a Codex
-- `src/world/levels/*.ts`: levely ako ASCII mapy (legenda je na začiatku každého súboru)
-- `src/scenes/`: titulka, mapa sveta, hra, shop, výsledky
-- `tests/reachability.test.ts`: prejde každý level skutočnou fyzikou Clawda a overí, že exit, všetky sparky
-  aj sub-agenti sú dosiahnuteľní. Po úprave mapy stačí spustiť `npm test`.
+- `src/config.ts`: movement constants (the game "feel")
+- `src/weapons.ts`: weapons and upgrades (prices, damage, fire rate, heat)
+- `src/entities/player.ts`: Clawd's physics and states
+- `src/entities/gun.ts`, `bullets.ts`: shooting, bullets, heat
+- `src/entities/enemies.ts`, `enemies2.ts`: World 1 / World 2 enemies
+- `src/entities/boss/`: The Hallucination and Codex
+- `src/world/levels/*.ts`: levels as ASCII maps (each file starts with a legend)
+- `src/scenes/`: title, world map, game, shop, results
+- `tests/reachability.test.ts`: plays through every level with Clawd's real physics and checks that the exit,
+  every spark and every sub-agent can be reached. After editing a map, just run `npm test`.
 
-## Dev skratky (len `npm run dev`)
+## Dev shortcuts (only with `npm run dev`)
 
-- `?map` / `?shop` otvorí mapu / shop, `?rich` naplní peňaženku (2000 tokenov, 30 sparkov)
-- `?level=4` spustí level podľa indexu (0–8), `?level=4&tx=120&ty=16` presunie Clawda na dlaždicu
-- `?ff=300&hold=KeyD,KeyX` odsimuluje N krokov s držanými klávesmi (na headless screenshoty)
+- `?map` / `?shop` open the map / shop, `?rich` fills the wallet (2000 tokens, 30 sparks)
+- `?level=4` starts a level by index (0–8), `?level=4&tx=120&ty=16` moves Clawd to a tile
+- `?ff=300&hold=KeyD,KeyX` simulates N ticks with keys held (useful for headless screenshots)
