@@ -17,6 +17,8 @@ export interface LevelDef {
   map: string[];
   /** Texts for '?' signs, in reading order (top-to-bottom, left-to-right). */
   signs?: string[];
+  /** Same signs reworded for the on-screen touch controls (falls back to `signs`). */
+  touchSigns?: (string | undefined)[];
   /** Darkness with a light radius around Clawd. */
   dark?: boolean;
   /** A wall of null data that rises from the bottom (px/s, start delay s). */

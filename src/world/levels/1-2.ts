@@ -16,6 +16,7 @@ export const LEVEL_1_2: LevelDef = {
     'IT IS DARK DOWN HERE\nsparks glow — follow them',
     'CORRUPTED FLOOR\n↓ + X in the air to pound through',
   ],
+  touchSigns: [undefined, 'CORRUPTED FLOOR\n↓ + SPIN in the air to pound through'],
   map: [
     '######################################################################################################################################################',
     '######################################################################################################################################################',

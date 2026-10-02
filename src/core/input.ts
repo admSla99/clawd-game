@@ -68,6 +68,7 @@ export class Input implements InputView {
   private latched = new Set<Action>();
   private padHeld = new Set<Action>();
   private mouseHeld = new Set<Action>();
+  private touchHeld = new Set<Action>();
   private heldSet = new Set<Action>();
   private prevHeld = new Set<Action>();
   private pressedSet = new Set<Action>();
@@ -81,11 +82,16 @@ export class Input implements InputView {
   mouseMovedAt = -1e9;
   /** Right-stick aim direction, or null when the stick is centred. */
   padAim: { x: number; y: number } | null = null;
+  /** Aim from dragging the on-screen fire button, or null when it is not dragged. */
+  touchAim: { x: number; y: number } | null = null;
+  /** True while the player is using the touch screen; switches the UI to on-screen controls. */
+  touchMode = false;
 
   keyDown(code: string): void {
     if (this.keys.has(code)) return;
     this.keys.add(code);
     this.anyInput = true;
+    this.touchMode = false;
     // A second key for an action that is already held is not a new press.
     for (const a of KEYMAP[code] ?? []) if (!this.heldSet.has(a)) this.latched.add(a);
   }
@@ -95,6 +101,7 @@ export class Input implements InputView {
   }
 
   mouseMove(x: number, y: number, now: number): void {
+    this.touchMode = false;
     this.mouseX = x;
     this.mouseY = y;
     this.mouseMovedAt = now;
@@ -127,15 +134,29 @@ export class Input implements InputView {
       if (!this.padHeld.has(a)) {
         this.latched.add(a);
         this.anyInput = true;
+        this.touchMode = false;
       }
     }
     this.padHeld = actions;
+  }
+
+  /** Feed the actions currently held on the on-screen touch controls. */
+  setTouch(actions: Set<Action>): void {
+    for (const a of actions) {
+      if (!this.touchHeld.has(a)) {
+        this.latched.add(a);
+        this.anyInput = true;
+      }
+    }
+    this.touchHeld = actions;
   }
 
   clear(): void {
     this.keys.clear();
     this.padHeld.clear();
     this.mouseHeld.clear();
+    this.touchHeld.clear();
+    this.touchAim = null;
     this.latched.clear();
   }
 
@@ -143,6 +164,7 @@ export class Input implements InputView {
   tick(): void {
     const next = new Set<Action>(this.padHeld);
     for (const a of this.mouseHeld) next.add(a);
+    for (const a of this.touchHeld) next.add(a);
     for (const k of this.keys) for (const a of KEYMAP[k] ?? []) next.add(a);
     this.prevHeld = this.heldSet;
     this.heldSet = next;
@@ -187,19 +209,22 @@ export function attachKeyboard(input: Input, target: Window): void {
   target.addEventListener('blur', () => input.clear());
 }
 
-/** Mouse: move to aim, left button shoots, right button spins, wheel switches weapons. */
+/** Mouse: move to aim, left button shoots, right button spins, wheel switches weapons. Touches are handled by TouchControls. */
 export function attachMouse(input: Input, canvas: HTMLCanvasElement, toView: (cx: number, cy: number) => { x: number; y: number }): void {
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return;
     const p = toView(e.clientX, e.clientY);
     input.mouseMove(p.x, p.y, performance.now());
   });
   canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
     const p = toView(e.clientX, e.clientY);
     input.mouseMove(p.x, p.y, performance.now());
     if (e.button === 0) input.mouseButton('attack', true, performance.now());
     if (e.button === 2) input.mouseButton('spin', true, performance.now());
   });
   window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') return;
     if (e.button === 0) input.mouseButton('attack', false, performance.now());
     if (e.button === 2) input.mouseButton('spin', false, performance.now());
   });

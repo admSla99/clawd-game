@@ -20,6 +20,8 @@ if (import.meta.env.DEV) {
   if (level !== null) app.startLevel(Number(level), q.has('tx') ? { tx: Number(q.get('tx')), ty: Number(q.get('ty') ?? 0) } : undefined);
   // ?ff=240&hold=KeyD,Space simulates ticks up front (handy for headless screenshots).
   if (q.has('ff')) app.fastForward(Number(q.get('ff')), (q.get('hold') ?? '').split(',').filter(Boolean));
+  // ?touch shows the on-screen touch controls on a desktop browser.
+  if (q.has('touch')) app.input.touchMode = true;
 }
 
 // Start after the bundled font is ready so the first frames already use it.

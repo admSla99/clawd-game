@@ -24,6 +24,7 @@ export interface HudState {
 export interface HudRegions {
   controls: Rect;
   mute: Rect;
+  pause: Rect;
 }
 
 const H = 13;
@@ -31,7 +32,7 @@ const TOP = 7;
 
 export function drawHud(r: Renderer, s: HudState): HudRegions {
   const ctx = r.ctx;
-  let x = 8;
+  let x = 8 + r.safe.left;
 
   // Hearts.
   const heartsW = s.maxHearts * 9 + 9;
@@ -75,7 +76,7 @@ export function drawHud(r: Renderer, s: HudState): HudRegions {
   }
 
   // Right side: CONTROLS · speaker · label.
-  let rx = r.viewW - 8;
+  let rx = r.viewW - 8 - r.safe.right;
   const labW = r.measure(s.label, 5.5) + 12;
   rx -= labW;
   panel(ctx, rx, TOP, labW, H);
@@ -84,6 +85,12 @@ export function drawHud(r: Renderer, s: HudState): HudRegions {
   const mute = { x: rx, y: TOP, w: 18, h: H };
   panel(ctx, rx, TOP, 18, H);
   drawSpeaker(ctx, rx + 4, TOP + H / 2 - 0.5, s.muted, COLORS.text);
+  rx -= 4 + 18;
+  const pause = { x: rx, y: TOP, w: 18, h: H };
+  panel(ctx, rx, TOP, 18, H);
+  ctx.fillStyle = COLORS.text;
+  ctx.fillRect(rx + 6, TOP + 3.5, 2, 6);
+  ctx.fillRect(rx + 10, TOP + 3.5, 2, 6);
   const ctlW = r.measure('CONTROLS', 5.5) + 12;
   rx -= 4 + ctlW;
   const controls = { x: rx, y: TOP, w: ctlW, h: H };
@@ -91,7 +98,7 @@ export function drawHud(r: Renderer, s: HudState): HudRegions {
   r.text('CONTROLS', rx + 6, TOP + H / 2 + 0.5, { size: 5.5 });
 
   if (s.boss) drawBossBar(r, s.boss, s.time);
-  return { controls, mute };
+  return { controls, mute, pause };
 }
 
 function drawBossBar(r: Renderer, b: { name: string; hp: number; maxHp: number }, time: number): void {
@@ -137,19 +144,34 @@ export const CONTROL_LINES: [string, string][] = [
   ['GAMEPAD', 'A jump · X shoot · B spin · R-stick aim'],
 ];
 
-export function drawControlsOverlay(r: Renderer): void {
+export const TOUCH_CONTROL_LINES: [string, string][] = [
+  ['LEFT THUMB', 'Touch anywhere on the left half to move'],
+  ['JUMP', 'Jump (hold = higher)'],
+  ['HOLD JUMP (air)', 'Hover — the jet hurts enemies'],
+  ['SPIN', 'Spin attack'],
+  ['↓ + SPIN (air)', 'Ground pound — breaks corrupted data'],
+  ['↓ + JUMP', 'Drop through platforms'],
+  ['FIRE', 'World 2: shoot, auto-aims at the nearest enemy'],
+  ['DRAG FIRE', 'Aim by hand in any direction'],
+  ['SWAP', 'Switch weapon'],
+  ['II · SPEAKER', 'Pause · mute (top right)'],
+];
+
+export function drawControlsOverlay(r: Renderer, touch = false): void {
   const ctx = r.ctx;
-  const w = 230;
-  const h = 26 + CONTROL_LINES.length * 11;
+  const lines = touch ? TOUCH_CONTROL_LINES : CONTROL_LINES;
+  const w = Math.min(r.viewW - 16, Math.max(230, 102 + Math.max(...lines.map(([, v]) => r.measure(v, 5.5)))));
+  const h = 26 + lines.length * 11 + (touch ? 10 : 0);
   const x = r.viewW / 2 - w / 2;
   const y = r.viewH / 2 - h / 2;
   ctx.fillStyle = 'rgba(10,10,10,0.6)';
   ctx.fillRect(0, 0, r.viewW, r.viewH);
   panel(ctx, x, y, w, h, '#4A4A4A', 'rgba(20,20,20,0.96)');
   r.text('CONTROLS', x + w / 2, y + 11, { size: 6.5, align: 'center', bold: true, color: COLORS.orange });
-  CONTROL_LINES.forEach(([k, v], i) => {
+  lines.forEach(([k, v], i) => {
     const ly = y + 26 + i * 11;
     r.text(k, x + 12, ly, { size: 5.5, color: COLORS.textBright });
     r.text(v, x + 90, ly, { size: 5.5, color: COLORS.text });
   });
+  if (touch) r.text('tap to close', x + w / 2, y + h - 9, { size: 4.5, align: 'center', color: COLORS.textDim });
 }

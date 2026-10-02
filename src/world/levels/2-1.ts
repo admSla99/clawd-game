@@ -17,6 +17,12 @@ export const LEVEL_2_1: LevelDef = {
     'SHIELD BOTS BLOCK SHOTS FROM THE FRONT\njump over them, or hit them from above',
     'CORRUPTED DATA: ↓ + C in the air\n(the Opus Cannon blasts it too)',
   ],
+  touchSigns: [
+    'HOLD FIRE TO SHOOT · it aims at the nearest enemy\ndrag FIRE to aim by hand',
+    undefined,
+    undefined,
+    'CORRUPTED DATA: ↓ + SPIN in the air\n(the Opus Cannon blasts it too)',
+  ],
   map: [
     '',
     '',

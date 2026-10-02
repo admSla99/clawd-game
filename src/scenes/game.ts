@@ -21,6 +21,7 @@ import { drawControlsOverlay, drawHud, type HudRegions } from '../render/hud';
 import { Parallax } from '../render/parallax';
 import { Particles } from '../render/particles';
 import { panel } from '../render/shapes';
+import { drawTouchControls } from '../render/touchView';
 import { grantWeapon, progressFor, recordRun } from '../save';
 import { WEAPON_ORDER, loadoutFromSave, type Loadout, type WeaponId } from '../weapons';
 import { rectTouchesTile } from '../world/collision';
@@ -72,6 +73,7 @@ export class GameScene implements Scene, GameContext {
   private popups: Popup[] = [];
   private paused = false;
   private pauseIndex = 0;
+  private pauseRows: Rect[] = [];
   private showControls = false;
   private debug = false;
   private hud: HudRegions | null = null;
@@ -182,7 +184,7 @@ export class GameScene implements Scene, GameContext {
           break;
         }
         case 'sign':
-          this.add(new Sign(s.x, s.y, signs[s.index] ?? '...'));
+          this.add(new Sign(s.x, s.y, signs[s.index] ?? '...', this.level.def.touchSigns?.[s.index]));
           break;
         case 'boss': {
           const floorY = this.findFloorBelow(s.tx, s.ty);
@@ -214,6 +216,10 @@ export class GameScene implements Scene, GameContext {
 
   get audio() {
     return this.app.audio;
+  }
+
+  get touchMode(): boolean {
+    return this.app.input.touchMode;
   }
 
   spawn(e: Entity): void {
@@ -424,12 +430,13 @@ export class GameScene implements Scene, GameContext {
     }
   }
 
-  /** Where Clawd aims: right stick, then mouse, then keyboard 8-way. */
+  /** Where Clawd aims: right stick, dragged fire button, mouse, touch auto-aim, then keyboard 8-way. */
   private computeAim(): number {
     const input = this.app.input;
     const p = this.player;
     const pv = gunPivot(p, p.cx, p.bottom);
-    if (input.padAim) return Math.atan2(input.padAim.y, input.padAim.x);
+    const stick = input.padAim ?? input.touchAim;
+    if (stick) return Math.atan2(stick.y, stick.x);
     if (input.mouseAiming(performance.now())) {
       const wx = input.mouseX + this.camera.x;
       const wy = input.mouseY + this.camera.y;
@@ -439,9 +446,38 @@ export class GameScene implements Scene, GameContext {
     const down = input.held('down') && !p.grounded;
     const side = input.held('left') || input.held('right');
     const f = p.facing;
+    if (input.touchMode && !up && !down) {
+      const target = this.autoAimTarget(pv.x, pv.y, f);
+      if (target) return Math.atan2(target.y - pv.y, target.x - pv.x);
+    }
     if (up) return side ? Math.atan2(-1, f) : -Math.PI / 2;
     if (down) return side ? Math.atan2(1, f) : Math.PI / 2;
     return f > 0 ? 0 : Math.PI;
+  }
+
+  /** Touch screens have no mouse: aim at the nearest visible enemy on the side Clawd faces. */
+  private autoAimTarget(x: number, y: number, facing: number): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null;
+    let bestD = 230;
+    for (const e of this.entities) {
+      if (!(e instanceof Enemy) || !e.alive || e.projectile || e.invincible) continue;
+      const tx = e.x + e.w / 2;
+      const ty = e.y + e.h / 2;
+      const d = Math.hypot(tx - x, ty - y);
+      if (d >= bestD || (tx - x) * facing < -6 || !this.lineOfSight(x, y, tx, ty)) continue;
+      best = { x: tx, y: ty };
+      bestD = d;
+    }
+    return best;
+  }
+
+  private lineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    for (let d = 8; d < len; d += 6) {
+      const k = d / len;
+      if (isSolidTile(this.level.get(Math.floor((x0 + (x1 - x0) * k) / TILE), Math.floor((y0 + (y1 - y0) * k) / TILE)))) return false;
+    }
+    return true;
   }
 
   private updateWeapon(dt: number): void {
@@ -545,6 +581,11 @@ export class GameScene implements Scene, GameContext {
     if (input.pressed('noclip') && this.debug) this.player.noclip = !this.player.noclip;
     if (input.pressed('controls')) this.showControls = !this.showControls;
 
+    const touch = this.app.touch;
+    touch.setEnabled(!this.paused && !this.showControls && this.phase !== 'complete');
+    touch.armed = !!this.gun;
+    touch.canSwap = this.app.save.weapons.length > 1;
+
     if (this.paused) {
       this.updatePause();
       return;
@@ -553,11 +594,7 @@ export class GameScene implements Scene, GameContext {
       if (this.showControls) {
         this.showControls = false;
       } else {
-        this.paused = true;
-        this.pauseIndex = 0;
-        this.app.audio.hoverStop();
-        this.wasHovering = false;
-        this.sfx('select');
+        this.openPause();
         return;
       }
     }
@@ -797,6 +834,15 @@ export class GameScene implements Scene, GameContext {
     });
   }
 
+  private openPause(): void {
+    if (this.phase !== 'playing' || this.paused) return;
+    this.paused = true;
+    this.pauseIndex = 0;
+    this.app.audio.hoverStop();
+    this.wasHovering = false;
+    this.sfx('select');
+  }
+
   private updatePause(): void {
     const input = this.app.input;
     if (input.pressed('pause') || input.pressed('back')) {
@@ -811,27 +857,40 @@ export class GameScene implements Scene, GameContext {
       this.pauseIndex = (this.pauseIndex + PAUSE_ITEMS.length - 1) % PAUSE_ITEMS.length;
       this.sfx('select');
     }
-    if (input.pressed('confirm')) {
-      this.sfx('confirm');
-      const item = PAUSE_ITEMS[this.pauseIndex];
-      if (item === 'RESUME') this.paused = false;
-      else if (item === 'RESTART FROM CHECKPOINT') {
-        this.paused = false;
-        this.hearts = Math.max(1, this.hearts);
-        this.respawn();
-      } else if (item === 'RESTART LEVEL') this.app.startLevel(this.levelIndex);
-      else if (item === 'CRT FILTER') {
-        this.app.renderer.crt = !this.app.renderer.crt;
-        this.app.persist();
-      } else if (item === 'QUIT TO MAP') this.app.goToLevelSelect(this.levelIndex);
-    }
+    if (input.pressed('confirm')) this.activatePause();
+  }
+
+  private activatePause(): void {
+    this.sfx('confirm');
+    const item = PAUSE_ITEMS[this.pauseIndex];
+    if (item === 'RESUME') this.paused = false;
+    else if (item === 'RESTART FROM CHECKPOINT') {
+      this.paused = false;
+      this.hearts = Math.max(1, this.hearts);
+      this.respawn();
+    } else if (item === 'RESTART LEVEL') this.app.startLevel(this.levelIndex);
+    else if (item === 'CRT FILTER') {
+      this.app.renderer.crt = !this.app.renderer.crt;
+      this.app.persist();
+    } else if (item === 'QUIT TO MAP') this.app.goToLevelSelect(this.levelIndex);
   }
 
   onClick(x: number, y: number): void {
+    // Fingers are less precise than a mouse: give every button a few units of slack.
+    const pad = this.app.input.touchMode ? 4 : 0;
+    const inside = (r: Rect) => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
+    if (this.paused) {
+      const i = this.pauseRows.findIndex(inside);
+      if (i >= 0) {
+        this.pauseIndex = i;
+        this.activatePause();
+      }
+      return;
+    }
     if (!this.hud) return;
-    const inside = (r: Rect) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
     if (inside(this.hud.controls)) this.showControls = !this.showControls;
     else if (inside(this.hud.mute)) this.app.toggleMute();
+    else if (inside(this.hud.pause)) this.openPause();
     else if (this.showControls) this.showControls = false;
   }
 
@@ -911,7 +970,10 @@ export class GameScene implements Scene, GameContext {
       boss: bossHud,
     });
 
+    const touch = this.app.input.touchMode;
+    if (touch && this.app.touch.enabled && this.phase === 'playing') drawTouchControls(r, this.app.touch, this.app.input.touchAim);
     if (this.gun) this.drawWeaponHud();
+    if (this.gun && touch && this.phase === 'playing' && !this.paused) this.drawAimMarker(camX, camY, a);
     this.drawIntroCard();
     if (this.phase === 'complete') this.drawCompleteBanner();
     const crosshair = !!this.gun && !this.paused && !this.showControls && this.app.input.mouseAiming(performance.now());
@@ -920,9 +982,22 @@ export class GameScene implements Scene, GameContext {
     r.canvas.style.cursor = crosshair ? 'none' : 'default';
     if (this.debug) this.drawDebugText();
     if (this.paused) this.drawPause();
-    if (this.showControls) drawControlsOverlay(r);
+    if (this.showControls) drawControlsOverlay(r, touch);
 
     r.postFx();
+  }
+
+  /** Touch has no crosshair: a short dotted line shows where the gun points. */
+  private drawAimMarker(camX: number, camY: number, a: number): void {
+    const ctx = this.app.renderer.ctx;
+    const p = this.player;
+    const pv = gunPivot(p, lerp(p.prevX, p.x, a) + p.w / 2, lerp(p.prevY, p.y, a) + p.h);
+    const dx = Math.cos(p.aim);
+    const dy = Math.sin(p.aim);
+    ctx.fillStyle = this.gun && this.gun.overheated > 0 ? COLORS.red : COLORS.orange;
+    ctx.globalAlpha = 0.55;
+    for (let d = 24; d <= 44; d += 5) ctx.fillRect(pv.x - camX + dx * d - 0.75, pv.y - camY + dy * d - 0.75, 1.5, 1.5);
+    ctx.globalAlpha = 1;
   }
 
   private drawBeams(): void {
@@ -957,8 +1032,9 @@ export class GameScene implements Scene, GameContext {
     if (!gun) return;
     const r = this.app.renderer;
     const ctx = r.ctx;
-    const x = 8;
-    const y = r.viewH - 30;
+    const x = 8 + r.safe.left;
+    // On touch screens the bottom corners belong to the thumbs: sit under the top bar instead.
+    const y = this.app.input.touchMode ? 24 : r.viewH - 30;
     const w = 150;
     panel(ctx, x, y, w, 22);
     const owned = WEAPON_ORDER.filter((id) => this.app.save.weapons.includes(id));
@@ -1087,17 +1163,23 @@ export class GameScene implements Scene, GameContext {
     const ctx = r.ctx;
     ctx.fillStyle = 'rgba(10,10,10,0.7)';
     ctx.fillRect(0, 0, r.viewW, r.viewH);
+    const touch = this.app.input.touchMode;
+    // Taller rows on touch screens so each item is a comfortable target.
+    const row = touch ? 19 : 13;
     const w = 160;
-    const h = 30 + PAUSE_ITEMS.length * 13;
+    const h = 30 + PAUSE_ITEMS.length * row;
     const x = r.viewW / 2 - w / 2;
     const y = r.viewH / 2 - h / 2;
     panel(ctx, x, y, w, h, '#4A4A4A', 'rgba(20,20,20,0.96)');
     r.text('PAUSED', x + w / 2, y + 12, { size: 7, align: 'center', bold: true, color: COLORS.orange });
+    this.pauseRows = [];
     PAUSE_ITEMS.forEach((item, i) => {
       const sel = i === this.pauseIndex;
       const label = item === 'CRT FILTER' ? `CRT FILTER: ${r.crt ? 'ON' : 'OFF'}` : item;
-      const ly = y + 30 + i * 13;
-      if (sel) r.text('>', x + 14, ly, { size: 6, color: COLORS.orange, bold: true });
+      const ly = y + 30 + i * row;
+      this.pauseRows.push({ x: x + 6, y: ly - row / 2, w: w - 12, h: row });
+      if (touch) panel(ctx, x + 8, ly - row / 2 + 1.5, w - 16, row - 3, sel ? COLORS.orange : '#2C2C2C', 'rgba(18,18,18,0.85)');
+      else if (sel) r.text('>', x + 14, ly, { size: 6, color: COLORS.orange, bold: true });
       r.text(label, x + 24, ly, { size: 6, color: sel ? COLORS.textBright : COLORS.text });
     });
   }

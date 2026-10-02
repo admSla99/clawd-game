@@ -3,6 +3,8 @@
 export const TILE = 16;
 export const DOT = 4; // spacing of the dot-matrix grid in world px
 export const BASE_VIEW_H = 270;
+/** Narrow screens zoom out until the view is at least this wide. */
+export const MIN_VIEW_W = 420;
 export const STEP = 1 / 60;
 
 export const PLAYER = {

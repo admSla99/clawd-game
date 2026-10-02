@@ -18,6 +18,8 @@ export class LevelSelectScene implements Scene {
   private parallax = new Parallax('plains');
   private totals: { sparks: number; agents: number }[];
   private shopRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private backRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private infoRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(
     private app: App,
@@ -118,18 +120,36 @@ export class LevelSelectScene implements Scene {
   }
 
   onClick(x: number, y: number): void {
-    const s = this.shopRect;
-    if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) {
+    const touch = this.app.input.touchMode;
+    const pad = touch ? 4 : 0;
+    const inside = (b: Rect) => x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad;
+    if (inside(this.shopRect)) {
       this.openShop();
       return;
     }
+    if (touch && inside(this.backRect)) {
+      this.app.audio.play('select');
+      this.app.goToTitle();
+      return;
+    }
+    const reach = touch ? 19 : 16;
     for (let i = 0; i < this.app.levels.length; i++) {
       const p = this.nodePos(i);
-      if (Math.abs(x - p.x) < 16 && Math.abs(y - p.y) < 16 && this.app.isUnlocked(i)) {
-        if (this.sel === i) this.app.startLevel(i);
-        else this.sel = i;
-        this.app.audio.play('select');
+      if (Math.abs(x - p.x) < reach && Math.abs(y - p.y) < reach && this.app.isUnlocked(i)) {
+        if (this.sel === i) {
+          this.app.audio.play('confirm');
+          this.app.startLevel(i);
+        } else {
+          this.sel = i;
+          this.app.audio.play('select');
+        }
+        return;
       }
+    }
+    // The info card doubles as a big PLAY button.
+    if (inside(this.infoRect)) {
+      this.app.audio.play('confirm');
+      this.app.startLevel(this.sel);
     }
   }
 
@@ -141,14 +161,23 @@ export class LevelSelectScene implements Scene {
     this.parallax.draw(ctx, this.t * 6, 0, 0, r.viewW, r.viewH, this.t);
     const levels = this.app.levels;
 
-    r.text('WORLD MAP', 14, 16, { size: 8, bold: true, color: COLORS.textBright });
+    const touch = this.app.input.touchMode;
+    const left = 14 + r.safe.left;
+    if (touch) {
+      this.backRect = { x: left - 6, y: 6, w: 20, h: 19 };
+      panel(ctx, this.backRect.x, 6, 20, 19);
+      r.text('<', this.backRect.x + 10, 16, { size: 8, align: 'center', bold: true, color: COLORS.text });
+    }
+    r.text('WORLD MAP', touch ? left + 22 : left, 16, { size: 8, bold: true, color: COLORS.textBright });
 
     // Shop button + wallet.
-    const shopLabel = this.shopOpen ? 'B · SHOP' : 'SHOP (locked)';
-    const sw = r.measure(shopLabel, 5.5, true) + 14;
-    this.shopRect = { x: r.viewW - 14 - sw, y: 8, w: sw, h: 14 };
-    panel(ctx, this.shopRect.x, 8, sw, 14, this.shopOpen ? COLORS.orange : '#333', 'rgba(18,18,18,0.9)');
-    r.text(shopLabel, this.shopRect.x + sw / 2, 15.5, { size: 5.5, align: 'center', bold: true, color: this.shopOpen ? COLORS.orangeLight : COLORS.textDim });
+    const shopLabel = this.shopOpen ? (touch ? 'SHOP' : 'B · SHOP') : 'SHOP (locked)';
+    const sw = r.measure(shopLabel, 5.5, true) + (touch ? 22 : 14);
+    const sh = touch ? 19 : 14;
+    const sy = touch ? 6 : 8;
+    this.shopRect = { x: r.viewW - 14 - r.safe.right - sw, y: sy, w: sw, h: sh };
+    panel(ctx, this.shopRect.x, sy, sw, sh, this.shopOpen ? COLORS.orange : '#333', 'rgba(18,18,18,0.9)');
+    r.text(shopLabel, this.shopRect.x + sw / 2, sy + sh / 2 + 0.5, { size: 5.5, align: 'center', bold: true, color: this.shopOpen ? COLORS.orangeLight : COLORS.textDim });
     const walletX = this.shopRect.x - 8;
     const sparkTxt = String(sparksAvailable(save));
     r.text(sparkTxt, walletX, 15.5, { size: 6, align: 'right', color: COLORS.textBright });
@@ -214,8 +243,11 @@ export class LevelSelectScene implements Scene {
     const tot = this.totals[this.sel];
     const iw = 220;
     const ix = r.viewW / 2 - iw / 2;
-    const iy = r.viewH * 0.7;
-    panel(ctx, ix, iy, iw, 44, gray(70), 'rgba(18,18,18,0.92)');
+    // Stay clear of the world 2 row (and its hint) on short screens.
+    const iy = Math.max(r.viewH * 0.7, r.viewH * 0.56 + 42);
+    this.infoRect = { x: ix, y: iy, w: iw, h: 44 };
+    const glow = touch && Math.floor(this.t * 2) % 2 === 0;
+    panel(ctx, ix, iy, iw, 44, glow ? COLORS.orangeShade : gray(70), 'rgba(18,18,18,0.92)');
     r.text(`${def.id} · ${def.name.toUpperCase()}`, ix + iw / 2, iy + 10, { size: 7, align: 'center', bold: true, color: COLORS.textBright });
     r.text(def.subtitle, ix + iw / 2, iy + 20, { size: 5, align: 'center', color: COLORS.text });
     if (tot.sparks > 0) {
@@ -230,8 +262,10 @@ export class LevelSelectScene implements Scene {
     if (prog.bestTime !== null) r.text(formatTime(prog.bestTime), ix + iw - 8, iy + 33.5, { size: 5, align: 'right', color: COLORS.textDim });
 
     const total = levels.reduce((n, _d, i) => n + this.totals[i].sparks, 0);
-    r.text(`SPARKS FOUND ${totalSparks(save)} / ${total}`, 10, r.viewH - 10, { size: 5, color: COLORS.textDim });
-    r.text('← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   ESC TITLE', r.viewW - 10, r.viewH - 10, { size: 5, align: 'right', color: COLORS.textDim });
+    const by = r.viewH - 10 - r.safe.bottom;
+    r.text(`SPARKS FOUND ${totalSparks(save)} / ${total}`, 10 + r.safe.left, by, { size: 5, color: COLORS.textDim });
+    const help = touch ? 'TAP A LEVEL TO PICK IT · TAP AGAIN OR TAP THE CARD TO PLAY' : '← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   ESC TITLE';
+    r.text(help, r.viewW - 10 - r.safe.right, by, { size: 5, align: 'right', color: COLORS.textDim });
     r.postFx();
   }
 }

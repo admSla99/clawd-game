@@ -31,6 +31,8 @@ export interface GameContext {
   explode(x: number, y: number, radius: number, damage: number): void;
   /** Hit-scan beam from (x, y) along `angle`. */
   fireBeam(x: number, y: number, angle: number, damage: number): void;
+  /** The player is on a touch screen (signs describe the on-screen buttons). */
+  touchMode?: boolean;
   /** Radius in which loose tokens fly to Clawd (0 = no magnet). */
   magnet: number;
 }

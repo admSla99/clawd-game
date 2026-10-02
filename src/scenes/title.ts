@@ -1,10 +1,10 @@
 import type { App, Scene } from '../app';
 import { COLORS, gray } from '../config';
-import { easeOutCubic } from '../core/math';
+import { easeOutCubic, type Rect } from '../core/math';
 import { mulberry32 } from '../core/noise';
 import { drawControlsOverlay } from '../render/hud';
 import { Parallax } from '../render/parallax';
-import { drawSpark } from '../render/shapes';
+import { drawSpark, drawSpeaker, panel } from '../render/shapes';
 import { CLAWD, CLAWD_PALETTE, LOGO_FONT, drawSprite } from '../render/sprites';
 
 interface LogoDot {
@@ -22,6 +22,8 @@ export class TitleScene implements Scene {
   private parallax = new Parallax('plains');
   private showControls = false;
   private logoW: number;
+  private controlsBtn: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private muteBtn: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(private app: App) {
     const rand = mulberry32(42);
@@ -68,13 +70,23 @@ export class TitleScene implements Scene {
     }
   }
 
-  onClick(): void {
+  onClick(x: number, y: number): void {
     if (this.showControls) {
       this.showControls = false;
       return;
     }
+    const inside = (b: Rect) => x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4;
+    if (this.app.input.touchMode && inside(this.controlsBtn)) {
+      this.showControls = true;
+      return;
+    }
+    if (this.app.input.touchMode && inside(this.muteBtn)) {
+      this.app.toggleMute();
+      return;
+    }
     this.app.audio.unlock();
     this.app.audio.play('confirm');
+    this.app.requestFullscreen();
     this.app.goToLevelSelect();
   }
 
@@ -120,13 +132,28 @@ export class TitleScene implements Scene {
     drawSprite(ctx, Math.sin(this.t * 0.7) > 0.95 ? CLAWD.blink : CLAWD.idle, CLAWD_PALETTE, cx - 14, groundY + bob, { px: 3 });
     drawSpark(ctx, cx + 30, groundY - 18 + Math.sin(this.t * 2.5) * 2, this.t);
 
+    const touch = this.app.input.touchMode;
     if (this.t > 1.6 && Math.floor(this.t * 1.6) % 2 === 0) {
-      r.text('PRESS SPACE TO START', r.viewW / 2, r.viewH * 0.66, { size: 6, align: 'center', color: COLORS.textBright, bold: true });
+      r.text(touch ? 'TAP TO START' : 'PRESS SPACE TO START', r.viewW / 2, r.viewH * 0.66, { size: 6, align: 'center', color: COLORS.textBright, bold: true });
     }
-    r.text('H — CONTROLS     M — MUTE', r.viewW / 2, r.viewH - 10, { size: 5, align: 'center', color: COLORS.textDim, alpha: a });
-    r.text('v0.2 · a Clawd fan game', r.viewW - 8, r.viewH - 10, { size: 4.5, align: 'right', color: '#444', alpha: a });
+    if (touch) {
+      // Real buttons instead of key hints.
+      ctx.globalAlpha = a;
+      const cw = r.measure('CONTROLS', 5.5) + 16;
+      const by = r.viewH - 10 - r.safe.bottom - 9;
+      this.controlsBtn = { x: r.viewW / 2 - cw - 3, y: by, w: cw, h: 18 };
+      this.muteBtn = { x: r.viewW / 2 + 3, y: by, w: 24, h: 18 };
+      panel(ctx, this.controlsBtn.x, by, cw, 18);
+      r.text('CONTROLS', this.controlsBtn.x + cw / 2, by + 9.5, { size: 5.5, align: 'center', color: COLORS.text });
+      panel(ctx, this.muteBtn.x, by, 24, 18);
+      drawSpeaker(ctx, this.muteBtn.x + 7, by + 8.5, this.app.audio.muted, COLORS.text);
+      ctx.globalAlpha = 1;
+    } else {
+      r.text('H — CONTROLS     M — MUTE', r.viewW / 2, r.viewH - 10, { size: 5, align: 'center', color: COLORS.textDim, alpha: a });
+    }
+    r.text('v0.2 · a Clawd fan game', r.viewW - 8 - r.safe.right, r.viewH - 10, { size: 4.5, align: 'right', color: '#444', alpha: a });
 
-    if (this.showControls) drawControlsOverlay(r);
+    if (this.showControls) drawControlsOverlay(r, touch);
     r.postFx();
   }
 }

@@ -39,6 +39,13 @@ npm run build      # production build into dist/
 
 Gamepad: A jump, X shoot, B spin, right stick aims, LB/RB/Y switch weapons, Start pauses.
 
+**Phones and tablets** (landscape): touch anywhere on the left half for a floating stick, and use the JUMP and
+SPIN / FIRE buttons on the right. In World 2, FIRE aims at the nearest visible enemy by itself; drag the
+FIRE button to aim by hand. SPIN and SWAP (switch weapon) appear above it. Pause and mute are at the top
+right. Menus are tapped: tap a level or shop item to select it, then tap it again (or the info card) to
+play / buy. On Android the game goes fullscreen in landscape after the first tap; on iPhone use
+"Add to Home Screen" for fullscreen.
+
 ## Content
 
 **World 1 — Latent Space** (platformer)
@@ -87,3 +94,4 @@ still count as found on the map. Progress is saved to `localStorage`.
 - `?map` / `?shop` open the map / shop, `?rich` fills the wallet (2000 tokens, 30 sparks)
 - `?level=4` starts a level by index (0–8), `?level=4&tx=120&ty=16` moves Clawd to a tile
 - `?ff=300&hold=KeyD,KeyX` simulates N ticks with keys held (useful for headless screenshots)
+- `?touch` shows the touch UI on a desktop browser

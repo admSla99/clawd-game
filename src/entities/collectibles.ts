@@ -267,6 +267,7 @@ export class Sign extends Entity {
     x: number,
     bottom: number,
     readonly text: string,
+    readonly touchText?: string,
   ) {
     super();
     this.w = 12;
@@ -281,7 +282,7 @@ export class Sign extends Entity {
     this.show += ((near ? 1 : 0) - this.show) * Math.min(1, dt * 10);
   }
 
-  draw(r: Renderer): void {
+  draw(r: Renderer, g: GameContext): void {
     const ctx = r.ctx;
     const x = this.x;
     const y = this.y;
@@ -290,7 +291,7 @@ export class Sign extends Entity {
     panel(ctx, x - 1, y, 14, 10, '#8A8A8A', '#181818');
     r.text('?', x + 6, y + 5.5, { size: 6, align: 'center', color: COLORS.orange, bold: true });
     if (this.show > 0.02) {
-      const lines = this.text.split('\n');
+      const lines = ((g.touchMode && this.touchText) || this.text).split('\n');
       const w = Math.max(...lines.map((l) => r.measure(l, 5.5))) + 12;
       const h = lines.length * 8 + 6;
       const bx = x + 6 - w / 2;

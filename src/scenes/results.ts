@@ -33,11 +33,14 @@ export class ResultsScene implements Scene {
       this.lastShown = shown;
     }
     const input = this.app.input;
-    if (this.t > 1 && (input.pressed('confirm') || input.pressed('jump') || input.pressed('back'))) {
-      this.app.audio.play('confirm');
-      const next = this.res.levelIndex + 1;
-      this.app.goToLevelSelect(next < this.app.levels.length && this.app.isUnlocked(next) ? next : this.res.levelIndex);
-    }
+    if (input.pressed('confirm') || input.pressed('jump') || input.pressed('back')) this.onClick();
+  }
+
+  onClick(): void {
+    if (this.t <= 1) return;
+    this.app.audio.play('confirm');
+    const next = this.res.levelIndex + 1;
+    this.app.goToLevelSelect(next < this.app.levels.length && this.app.isUnlocked(next) ? next : this.res.levelIndex);
   }
 
   render(): void {
@@ -92,12 +95,12 @@ export class ResultsScene implements Scene {
       r.text('THANKS FOR PLAYING!', cx, y + 124, { size: 7, align: 'center', bold: true, color: COLORS.orangeLight });
       r.text('Codex has been deprecated. Clawd ships the fix. The benchmarks are safe… for now.', cx, y + 136, { size: 5, align: 'center', color: COLORS.text });
     } else if (this.res.firstClear && def.boss === 'hallucination') {
-      r.text('TOKEN BLASTER FOUND · WORLD 2 UNLOCKED · SHOP OPEN (B on the map)', cx, y + 124, { size: 6, align: 'center', bold: true, color: COLORS.orangeLight });
+      r.text(`TOKEN BLASTER FOUND · WORLD 2 UNLOCKED · SHOP OPEN${this.app.input.touchMode ? ' on the map' : ' (B on the map)'}`, cx, y + 124, { size: 6, align: 'center', bold: true, color: COLORS.orangeLight });
     } else if (this.res.firstClear) {
       r.text(`${this.app.levels[this.res.levelIndex + 1].name.toUpperCase()} UNLOCKED`, cx, y + 124, { size: 6, align: 'center', bold: true, color: COLORS.orangeLight });
     }
     if (this.t > 1 && Math.floor(this.t * 1.6) % 2 === 0) {
-      r.text('PRESS SPACE', cx, r.viewH - 22, { size: 6, align: 'center', bold: true, color: COLORS.textBright });
+      r.text(this.app.input.touchMode ? 'TAP TO CONTINUE' : 'PRESS SPACE', cx, r.viewH - 22, { size: 6, align: 'center', bold: true, color: COLORS.textBright });
     }
     r.postFx();
   }

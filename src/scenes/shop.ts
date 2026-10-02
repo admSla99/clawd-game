@@ -31,6 +31,8 @@ export class ShopScene implements Scene {
   private haikuT = 0;
   private bounce = 0;
   private rows: Rect[] = [];
+  private backRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  private detailRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private parallax = new Parallax('mesa');
 
   constructor(private app: App) {
@@ -115,7 +117,19 @@ export class ShopScene implements Scene {
   }
 
   onClick(x: number, y: number): void {
-    const i = this.rows.findIndex((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+    const touch = this.app.input.touchMode;
+    const inside = (b: Rect) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+    if (touch && inside(this.backRect)) {
+      this.app.audio.play('select');
+      this.app.goToLevelSelect();
+      return;
+    }
+    // On touch screens the detail card is the BUY / EQUIP button.
+    if (touch && inside(this.detailRect)) {
+      this.activate();
+      return;
+    }
+    const i = this.rows.findIndex(inside);
     if (i < 0) return;
     if (i === this.sel) this.activate();
     else {
@@ -131,11 +145,19 @@ export class ShopScene implements Scene {
     r.begin();
     this.parallax.draw(ctx, this.t * 4, 0, 0, r.viewW, r.viewH, this.t);
 
-    r.text('SHOP', 14, 18, { size: 10, bold: true, color: COLORS.orange });
-    r.text('run by HAIKU · 5-7-5 customer service', 52, 19, { size: 5, color: COLORS.textDim });
+    const touch = this.app.input.touchMode;
+    const left = 14 + r.safe.left;
+    const titleX = touch ? left + 22 : left;
+    if (touch) {
+      this.backRect = { x: left - 6, y: 8, w: 20, h: 19 };
+      panel(ctx, this.backRect.x, 8, 20, 19);
+      r.text('<', this.backRect.x + 10, 18, { size: 8, align: 'center', bold: true, color: COLORS.text });
+    }
+    r.text('SHOP', titleX, 18, { size: 10, bold: true, color: COLORS.orange });
+    r.text('run by HAIKU · 5-7-5 customer service', titleX + 38, 19, { size: 5, color: COLORS.textDim });
 
     // Wallet.
-    const wx = r.viewW - 14;
+    const wx = r.viewW - 14 - r.safe.right;
     const sp = sparksAvailable(save);
     const sparkLabel = String(sp);
     r.text(sparkLabel, wx, 18, { size: 7, align: 'right', bold: true, color: COLORS.textBright });
@@ -147,8 +169,11 @@ export class ShopScene implements Scene {
     drawToken(ctx, tx - r.measure(tokLabel, 7, true) - 7, 18, this.t);
 
     // Item list.
-    const lx = 14;
+    const lx = left;
     const lw = Math.min(210, r.viewW * 0.45);
+    // Taller rows for fingers, as long as the whole list still fits on screen.
+    const step = Math.max(13, Math.min(touch ? 18 : 14, Math.floor((r.viewH - 34 - 18 - 16) / this.items.length)));
+    const rowH = step - 2;
     let y = 34;
     this.rows = [];
     this.items.forEach((item, i) => {
@@ -157,40 +182,42 @@ export class ShopScene implements Scene {
         y += 9;
       }
       const sel = i === this.sel;
-      const row = { x: lx, y, w: lw, h: 12 };
+      const row = { x: lx, y, w: lw, h: rowH };
+      const mid = y + rowH / 2 + 0.5;
       this.rows.push(row);
       panel(ctx, row.x, row.y, row.w, row.h, sel ? COLORS.orange : '#2C2C2C', sel ? 'rgba(217,119,87,0.08)' : 'rgba(18,18,18,0.85)');
-      if (item.type === 'weapon') drawGun(ctx, item.def.id, lx + 5, y + 6.5, 0, 1);
-      else drawUpgradeIcon(ctx, item.def.id, lx + 9, y + 6);
-      r.text(item.def.name, lx + 20, y + 6.5, { size: 5, color: sel ? COLORS.textBright : COLORS.text });
+      if (item.type === 'weapon') drawGun(ctx, item.def.id, lx + 5, mid, 0, 1);
+      else drawUpgradeIcon(ctx, item.def.id, lx + 9, mid - 0.5);
+      r.text(item.def.name, lx + 20, mid, { size: 5, color: sel ? COLORS.textBright : COLORS.text });
       // Right side: state or price.
       const right = lx + lw - 5;
       if (item.type === 'weapon') {
         const owned = save.weapons.includes(item.def.id);
         if (owned) {
           const eq = save.equipped === item.def.id;
-          r.text(eq ? 'EQUIPPED' : 'OWNED', right, y + 6.5, { size: 4.5, align: 'right', bold: eq, color: eq ? COLORS.orange : COLORS.textDim });
+          r.text(eq ? 'EQUIPPED' : 'OWNED', right, mid, { size: 4.5, align: 'right', bold: eq, color: eq ? COLORS.orange : COLORS.textDim });
         } else {
-          this.drawPrice(right, y + 6.5, item.def.price, item.def.sparks);
+          this.drawPrice(right, mid, item.def.price, item.def.sparks);
         }
       } else {
         const lv = upgradeLevel(save, item.def.id);
         const max = item.def.prices.length;
         for (let k = 0; k < max; k++) {
           ctx.fillStyle = k < lv ? COLORS.orange : '#3A3A3A';
-          ctx.fillRect(lx + lw - 70 + k * 5, y + 4.5, 3, 3);
+          ctx.fillRect(lx + lw - 70 + k * 5, mid - 2, 3, 3);
         }
-        if (lv >= max) r.text('MAX', right, y + 6.5, { size: 4.5, align: 'right', color: COLORS.textDim });
-        else this.drawPrice(right, y + 6.5, item.def.prices[lv], item.def.sparks?.[lv] ?? 0);
+        if (lv >= max) r.text('MAX', right, mid, { size: 4.5, align: 'right', color: COLORS.textDim });
+        else this.drawPrice(right, mid, item.def.prices[lv], item.def.sparks?.[lv] ?? 0);
       }
-      y += 14;
+      y += step;
     });
 
     // Detail panel.
     const dx = lx + lw + 10;
-    const dw = r.viewW - dx - 14;
+    const dw = r.viewW - dx - 14 - r.safe.right;
     const dy = 34;
     const dh = 120;
+    this.detailRect = { x: dx, y: dy, w: dw, h: dh };
     panel(ctx, dx, dy, dw, dh, '#4A4A4A', 'rgba(20,20,20,0.95)');
     const item = this.items[this.sel];
     r.text(item.def.name.toUpperCase(), dx + 8, dy + 10, { size: 7, bold: true, color: COLORS.textBright });
@@ -220,11 +247,17 @@ export class ShopScene implements Scene {
     const hint =
       item.type === 'weapon' && save.weapons.includes(item.def.id)
         ? save.equipped === item.def.id
-          ? 'equipped — switch in game with 1-5 / Q E / wheel'
-          : 'SPACE / CLICK: EQUIP'
+          ? touch
+            ? 'equipped — switch in game with SWAP'
+            : 'equipped — switch in game with 1-5 / Q E / wheel'
+          : touch
+            ? 'TAP HERE: EQUIP'
+            : 'SPACE / CLICK: EQUIP'
         : price
           ? save.wallet >= price.tokens && sp >= price.sparks
-            ? 'SPACE / CLICK: BUY'
+            ? touch
+              ? 'TAP HERE: BUY'
+              : 'SPACE / CLICK: BUY'
             : 'NOT ENOUGH ' + (save.wallet < price.tokens ? 'TOKENS' : 'SPARKS')
           : 'FULLY UPGRADED';
     r.text(hint, dx + 8, dy + dh - 9, { size: 5, bold: true, color: hint.startsWith('NOT') ? COLORS.red : COLORS.orange });
@@ -249,7 +282,8 @@ export class ShopScene implements Scene {
     });
     r.text('HAIKU', hx, hy + 7, { size: 4.5, align: 'center', bold: true, color: '#7F9CC6' });
 
-    r.text('↑ ↓ CHOOSE    SPACE BUY / EQUIP    ESC BACK', r.viewW / 2, r.viewH - 9, { size: 5, align: 'center', color: COLORS.textDim });
+    const help = touch ? 'TAP AN ITEM TO SEE IT · TAP IT AGAIN TO BUY / EQUIP' : '↑ ↓ CHOOSE    SPACE BUY / EQUIP    ESC BACK';
+    r.text(help, r.viewW / 2, r.viewH - 9 - r.safe.bottom, { size: 5, align: 'center', color: COLORS.textDim });
     r.postFx();
   }
 

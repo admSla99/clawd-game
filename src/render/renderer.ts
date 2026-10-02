@@ -1,4 +1,5 @@
-import { BASE_VIEW_H, COLORS } from '../config';
+import { BASE_VIEW_H, COLORS, MIN_VIEW_W } from '../config';
+import type { Insets } from '../core/touch';
 
 export const FONT = '"JetBrains Mono", ui-monospace, Consolas, monospace';
 
@@ -13,6 +14,8 @@ export class Renderer {
   viewW = 480;
   viewH = BASE_VIEW_H;
   crt = true;
+  /** Screen notches / home indicator, in view units. */
+  safe: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
   private scanlines: CanvasPattern | null = null;
 
   constructor(readonly canvas: HTMLCanvasElement) {
@@ -31,11 +34,19 @@ export class Renderer {
     this.canvas.height = h;
     this.canvas.style.width = `${window.innerWidth}px`;
     this.canvas.style.height = `${window.innerHeight}px`;
-    this.scale = Math.max(1, Math.round(h / BASE_VIEW_H));
+    this.scale = Math.max(1, Math.round(Math.min(h / BASE_VIEW_H, w / MIN_VIEW_W)));
     this.viewW = w / this.scale;
     this.viewH = h / this.scale;
     this.ctx.imageSmoothingEnabled = false;
     this.scanlines = null;
+    const css = getComputedStyle(document.documentElement);
+    const inset = (name: string) => ((parseFloat(css.getPropertyValue(name)) || 0) * dpr) / this.scale;
+    this.safe = { top: inset('--safe-top'), right: inset('--safe-right'), bottom: inset('--safe-bottom'), left: inset('--safe-left') };
+  }
+
+  /** Phone held upright: the game needs landscape. */
+  get portrait(): boolean {
+    return this.viewH > this.viewW * 1.1;
   }
 
   begin(bg: string = COLORS.bg): void {

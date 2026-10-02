@@ -17,6 +17,12 @@ export const LEVEL_1_1: LevelDef = {
     'HOLD SPACE IN THE AIR\nTO HOVER — the jet hurts too',
     'IN THE AIR:  ↓ + X  =  GROUND POUND\nit breaks corrupted data',
   ],
+  touchSigns: [
+    'LEFT THUMB MOVES      TAP JUMP\nhold JUMP longer to jump higher',
+    'BUGS!  jump on them\nor tap SPIN',
+    'HOLD JUMP IN THE AIR\nTO HOVER — the jet hurts too',
+    'IN THE AIR:  ↓ + SPIN  =  GROUND POUND\nit breaks corrupted data',
+  ],
   map: [
     '',
     '',
