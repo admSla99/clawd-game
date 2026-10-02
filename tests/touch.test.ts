@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { STEP } from '../src/config';
 import { Input } from '../src/core/input';
 import { TouchControls, touchLayout } from '../src/core/touch';
+import { Player } from '../src/entities/player';
+import { makeLevel } from './helpers';
 
 const W = 480;
 const H = 270;
@@ -92,6 +95,44 @@ describe('touch controls', () => {
     input.tick();
     expect(input.held('jump')).toBe(false);
     expect(touch.down(6, jump.x, jump.y)).toBe(false);
+  });
+
+  it('holding the jump button jumps as high as holding Space, even while running', () => {
+    const level = makeLevel(['', '', '', '', '', '', '', '', '', '', '', '', '  @', '#'.repeat(40)]);
+    const rise = (press: (i: Input, t: TouchControls) => void, release: (i: Input, t: TouchControls) => void, holdTicks: number) => {
+      const { input, touch } = setup();
+      const p = new Player(level.start.x, level.start.y);
+      const step = () => {
+        input.tick();
+        p.update(STEP, input, { level, platforms: [] });
+      };
+      for (let i = 0; i < 10; i++) step();
+      const y0 = p.y;
+      let top = y0;
+      for (let i = 0; i < 60; i++) {
+        if (i === 0) press(input, touch);
+        if (i === holdTicks) release(input, touch);
+        step();
+        top = Math.min(top, p.y);
+      }
+      return y0 - top;
+    };
+    const jump = touchLayout(W, H, SAFE, false, false).buttons.jump!;
+    const keyboard = rise((i) => i.keyDown('Space'), (i) => i.keyUp('Space'), 30);
+    const held = rise((_, t) => t.down(7, jump.x, jump.y), (_, t) => t.up(7), 30);
+    const running = rise(
+      (_, t) => {
+        t.down(1, 60, 200);
+        t.move(1, 90, 200);
+        t.down(7, jump.x, jump.y);
+      },
+      (_, t) => t.up(7),
+      30,
+    );
+    const tapped = rise((_, t) => t.down(7, jump.x, jump.y), (_, t) => t.up(7), 3);
+    expect(held).toBeCloseTo(keyboard);
+    expect(running).toBeCloseTo(keyboard);
+    expect(tapped).toBeLessThan(keyboard * 0.6);
   });
 
   it('keyboard input switches back out of touch mode', () => {

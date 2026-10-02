@@ -25,7 +25,7 @@ export interface TouchLayout {
 const HUD_RESERVE = 28;
 const STICK_R = 24;
 /** Extra radius around buttons that still counts as a hit. */
-const SLOP = 7;
+const SLOP = 11;
 /** Fire button drag distance (view units) before it starts aiming. */
 const AIM_DEADZONE = 9;
 
@@ -41,7 +41,7 @@ export function touchLayout(viewW: number, viewH: number, safe: Insets, armed: b
   const right = viewW - safe.right;
   const bottom = viewH - safe.bottom;
   const buttons: TouchLayout['buttons'] = {
-    jump: { x: right - 30, y: bottom - 30, r: 19 },
+    jump: { x: right - 31, y: bottom - 31, r: 21 },
     attack: { x: right - 75, y: bottom - 22, r: 16 },
   };
   if (armed) {
@@ -185,24 +185,45 @@ export class TouchControls {
   }
 }
 
+/**
+ * Fingers use Touch Events rather than Pointer Events: cancelling `touchstart`
+ * is the only reliable way to stop mobile browsers (iOS Safari above all) from
+ * treating a second finger as a pinch and cancelling the held buttons.
+ */
 export function attachTouch(touch: TouchControls, canvas: HTMLCanvasElement, toView: (cx: number, cy: number) => { x: number; y: number }, onTap: (x: number, y: number) => void): void {
   canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return;
     const p = toView(e.clientX, e.clientY);
-    if (e.pointerType === 'touch') {
-      e.preventDefault();
-      if (touch.down(e.pointerId, p.x, p.y)) return;
-    }
     onTap(p.x, p.y);
   });
-  canvas.addEventListener('pointermove', (e) => {
-    if (e.pointerType !== 'touch') return;
-    const p = toView(e.clientX, e.clientY);
-    touch.move(e.pointerId, p.x, p.y);
-  });
-  const up = (e: PointerEvent) => {
-    if (e.pointerType === 'touch') touch.up(e.pointerId);
+  const opts = { passive: false };
+  canvas.addEventListener(
+    'touchstart',
+    (e) => {
+      e.preventDefault();
+      for (const t of Array.from(e.changedTouches)) {
+        const p = toView(t.clientX, t.clientY);
+        if (!touch.down(t.identifier, p.x, p.y)) onTap(p.x, p.y);
+      }
+    },
+    opts,
+  );
+  canvas.addEventListener(
+    'touchmove',
+    (e) => {
+      e.preventDefault();
+      for (const t of Array.from(e.changedTouches)) {
+        const p = toView(t.clientX, t.clientY);
+        touch.move(t.identifier, p.x, p.y);
+      }
+    },
+    opts,
+  );
+  const end = (e: TouchEvent) => {
+    e.preventDefault();
+    for (const t of Array.from(e.changedTouches)) touch.up(t.identifier);
   };
-  window.addEventListener('pointerup', up);
-  window.addEventListener('pointercancel', up);
+  canvas.addEventListener('touchend', end, opts);
+  canvas.addEventListener('touchcancel', end, opts);
   window.addEventListener('blur', () => touch.reset());
 }

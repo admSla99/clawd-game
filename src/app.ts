@@ -50,10 +50,11 @@ export class App {
     const unlock = () => this.audio.unlock();
     window.addEventListener('keydown', unlock);
     window.addEventListener('pointerdown', unlock);
-    // iOS only lets audio start from the end of a touch.
-    window.addEventListener('pointerup', (e) => {
+    window.addEventListener('pointerup', unlock);
+    // iOS only lets audio start from the end of a touch; fullscreen also needs a finished tap.
+    window.addEventListener('touchend', () => {
       unlock();
-      if (e.pointerType === 'touch' && this.fullscreenPending) {
+      if (this.fullscreenPending) {
         this.fullscreenPending = false;
         this.enterFullscreen();
       }

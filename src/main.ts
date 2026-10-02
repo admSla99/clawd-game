@@ -8,6 +8,8 @@ const app = new App(canvas);
 
 // Dev shortcuts: ?map / ?shop open those screens, ?rich fills the wallet, ?level=2 jumps into a level, ?tx=40&ty=10 moves Clawd to a tile.
 if (import.meta.env.DEV) {
+  // Handy from the console and for headless checks.
+  (window as unknown as { clawd: App }).clawd = app;
   const q = new URLSearchParams(location.search);
   const level = q.get('level');
   if (q.has('rich')) {
