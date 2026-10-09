@@ -28,7 +28,7 @@ npm run build      # production build into dist/
 | Hold jump in the air | Hover (the jet hurts enemies) |
 | X / J | World 1: spin · World 2: shoot |
 | C / L / right mouse button | Spin |
-| ↓ + spin in the air | Ground pound (breaks purple "corrupted" blocks) |
+| ↓ / S in the air | Ground pound (breaks purple "corrupted" blocks) |
 | ↓ + Space | Drop through a platform |
 | Mouse + left button | World 2: aim and shoot |
 | ↑ / ↓ + X | Aim without a mouse (8 directions) |

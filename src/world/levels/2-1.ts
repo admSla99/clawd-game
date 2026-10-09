@@ -15,13 +15,12 @@ export const LEVEL_2_1: LevelDef = {
     'AIM WITH THE MOUSE · HOLD LEFT CLICK TO SHOOT\nno mouse? X shoots, hold ↑ / ↓ to aim',
     'LINT TURRETS TRACK YOU\nshoot them before they shoot you',
     'SHIELD BOTS BLOCK SHOTS FROM THE FRONT\njump over them, or hit them from above',
-    'CORRUPTED DATA: ↓ + C in the air\n(the Opus Cannon blasts it too)',
+    'CORRUPTED DATA: ↓ in the air\n(the Opus Cannon blasts it too)',
   ],
   touchSigns: [
     'HOLD FIRE TO SHOOT · it aims at the nearest enemy\ndrag FIRE to aim by hand',
     undefined,
     undefined,
-    'CORRUPTED DATA: ↓ + SPIN in the air\n(the Opus Cannon blasts it too)',
   ],
   map: [
     '',

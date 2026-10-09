@@ -199,7 +199,9 @@ export class Player implements Body {
     // Actions.
     if (this.state === 'normal' || this.state === 'spin') {
       const spinPressed = input.pressed('spin') || (!this.armed && input.pressed('attack'));
-      if (!this.grounded && input.held('down') && spinPressed) {
+      // Down alone pounds in the air; while shooting it aims down instead.
+      const downPressed = input.pressed('down') && !(this.armed && input.held('attack'));
+      if (!this.grounded && (downPressed || (input.held('down') && spinPressed))) {
         this.startPound();
       } else if (spinPressed && this.spinCooldown <= 0 && this.state !== 'spin') {
         this.startSpin();
