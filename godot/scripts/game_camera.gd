@@ -1,9 +1,15 @@
 class_name GameCamera
-extends Camera2D
+extends Camera3D
 
 ## Platformer camera ported from src/core/camera.ts: horizontal look-ahead, vertical deadzone,
 ## level bounds (levels smaller than the view are centred / bottom-aligned) and trauma shake.
-## `top_left` is the view's top-left corner in level coordinates, like Camera.x / Camera.y.
+## The logic runs in level pixels: `top_left` is the view's top-left corner on the gameplay plane,
+## like Camera.x / Camera.y. The camera looks at the view centre from DISTANCE, pitched down a little
+## so block tops and Clawd's shadow show.
+
+## Visible height of the gameplay plane in pixels, BASE_VIEW_H in src/config.ts.
+const VIEW_H := 270.0
+const PITCH := deg_to_rad(14.0)
 
 var top_left := Vector2.ZERO
 var bounds := Vector2.ZERO
@@ -11,12 +17,13 @@ var look_ahead := 0.0
 var trauma := 0.0
 
 
-func _ready() -> void:
-	anchor_mode = ANCHOR_MODE_FIXED_TOP_LEFT
+func distance() -> float:
+	return VIEW_H * Px.M / 2 / tan(deg_to_rad(fov) / 2)
 
 
 func view_size() -> Vector2:
-	return get_viewport_rect().size
+	var s := get_viewport().get_visible_rect().size
+	return Vector2(VIEW_H * s.x / s.y, VIEW_H)
 
 
 func snap_to(target: Vector2) -> void:
@@ -25,11 +32,6 @@ func snap_to(target: Vector2) -> void:
 	look_ahead = 0.0
 	_apply()
 	reset_physics_interpolation()
-
-
-## Lowest the camera can go; parallax uses it as the reference height.
-func max_y() -> float:
-	return _clamp_y(INF)
 
 
 func follow(dt: float, target: Vector2, facing: int, grounded: bool, vy: float) -> void:
@@ -60,9 +62,11 @@ func shake(amount: float) -> void:
 
 
 func _apply() -> void:
-	position = top_left
 	var s := trauma * trauma * 7
-	offset = Vector2(randf_range(-s, s), randf_range(-s, s))
+	var centre := Px.to3(top_left + view_size() / 2 + Vector2(randf_range(-s, s), randf_range(-s, s)))
+	var d := distance()
+	rotation = Vector3(-PITCH, 0, 0)
+	position = centre + Vector3(0, sin(PITCH) * d, cos(PITCH) * d)
 
 
 func _clamp_x(x: float) -> float:

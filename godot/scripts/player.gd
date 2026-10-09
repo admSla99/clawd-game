@@ -1,12 +1,13 @@
 class_name Player
-extends CharacterBody2D
+extends CharacterBody3D
 
 ## Clawd's movement, ported from src/entities/player.ts with the PLAYER constants from src/config.ts.
-## The origin is at the feet, horizontally centred.
+## The origin is at the feet, horizontally centred. Movement runs in level pixels (`pos`, `vel`, y down,
+## see Px) like the TS game and is converted to metres only for move_and_slide().
 ## Not ported yet: spin, ground pound, hover beam, drop-through, corner correction.
 
 ## Moments the game reacts to with particles and camera shake (events in the TS player):
-## jump, land, hard_land, hurt, stomp. `at` is where it happened, in level coordinates.
+## jump, land, hard_land, hurt, stomp. `at` is where it happened, in level pixels.
 signal event(kind: StringName, at: Vector2)
 
 const RUN_SPEED := 150.0
@@ -40,6 +41,8 @@ const HITBOX := Rect2(-7, -15, 14, 15)
 const SPIKE_PROBE := Rect2(-6, -6, 12, 6)
 
 const PALETTE := {"O": Color("#D97757"), "o": Color("#B35E40"), "E": Color("#1A1311")}
+## Voxel depth per palette character: a thick body, thinner arms and legs, eyes on both faces.
+const DEPTH := {"O": 6, "o": 2, "E": 6}
 const ORANGE := Color("#D97757")
 const ORANGE_LIGHT := Color("#F0A585")
 const ARM_ROWS := {"mid": [4, 5], "up": [2, 3], "high": [1, 2]}
@@ -50,6 +53,7 @@ const LEGS := {
 	"tuck": ["..o.o...o.o..", "............."],
 	"dangle": ["...o.o...o.o.", "...o.o...o.o."],
 }
+## Frame name -> text grid; MESHES holds their voxel meshes.
 static var FRAMES := {
 	"idle": clawd_frame("mid", "stand"),
 	"blink": clawd_frame("mid", "stand", true),
@@ -60,9 +64,16 @@ static var FRAMES := {
 	"hover": clawd_frame("mid", "dangle"),
 	"hurt": clawd_frame("high", "dangle", true),
 }
+static var MESHES := build_meshes()
+static var FLASH := flash_material()
 
-var terrain: TileMapLayer
+var level: Level
 var spawn_point: Vector2
+## Position and velocity in level pixels, y down.
+var pos: Vector2:
+	get: return Px.of(position)
+	set(v): position = Px.to3(v)
+var vel := Vector2.ZERO
 var kill_y := INF
 var hearts := MAX_HEARTS
 var invuln := 0.0
@@ -74,16 +85,15 @@ var hover_left := HOVER_DURATION
 var hovering := false
 var facing := 1
 var anim := 0.0
-var prev_position: Vector2
-## Drawing scale for squash & stretch; eases back to 1. Applied in _draw, not to the body,
-## so the collision shape keeps its size.
+var prev_pos: Vector2
+## Scale of $Visual for squash & stretch; eases back to 1. The collision shape keeps its size.
 var squash := Vector2.ONE
 ## Counts down; Clawd blinks while it is below 0 (0.12 s), then it restarts at 2..5 s.
 var blink_timer := 2.5
-# Halo drawn by GlowLayer (group "glow").
-var glow_color := Color(0.851 * 0.3, 0.467 * 0.3, 0.341 * 0.3)
-var glow_radius := 22.0
-var glow_offset := Vector2(0, -9)
+
+@onready var visual: Node3D = $Visual
+@onready var body: MeshInstance3D = $Visual/Body
+@onready var jets: Array[Node] = $Visual/Jets.get_children()
 
 
 ## 13x10 Clawd frame facing right, same layout as clawdFrame() in src/render/sprites.ts.
@@ -105,8 +115,22 @@ static func clawd_frame(arms: String, legs: String, squint := false) -> Array:
 	return rows
 
 
-func enter_level(level: TileMapLayer, start: Vector2, level_bottom: float) -> void:
-	terrain = level
+static func build_meshes() -> Dictionary:
+	var meshes := {}
+	for f in FRAMES:
+		meshes[f] = Voxel.mesh(FRAMES[f], PALETTE, DEPTH)
+	return meshes
+
+
+## Hit flash: replaces every colour with white, like `tint` in the 2D drawing.
+static func flash_material() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return m
+
+
+func enter_level(l: Level, start: Vector2, level_bottom: float) -> void:
+	level = l
 	spawn_point = start
 	kill_y = level_bottom + 24
 	hearts = MAX_HEARTS
@@ -114,9 +138,10 @@ func enter_level(level: TileMapLayer, start: Vector2, level_bottom: float) -> vo
 
 
 func respawn() -> void:
-	position = spawn_point
-	prev_position = position
-	velocity = Vector2.ZERO
+	pos = spawn_point
+	prev_pos = pos
+	vel = Vector2.ZERO
+	velocity = Vector3.ZERO
 	squash = Vector2.ONE
 	hurt_timer = 0.0
 	invuln = 1.0
@@ -136,17 +161,17 @@ func hurt(from_x: float) -> bool:
 		return false
 	hurt_timer = HURT_STUN
 	invuln = HURT_INVULN
-	velocity = Vector2((-1.0 if position.x < from_x else 1.0) * HURT_KNOCK_X, -HURT_KNOCK_Y)
+	vel = Vector2((-1.0 if pos.x < from_x else 1.0) * HURT_KNOCK_X, -HURT_KNOCK_Y)
 	jumping = false
 	hovering = false
-	event.emit(&"hurt", position)
+	event.emit(&"hurt", pos)
 	return true
 
 
 func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
-	prev_position = position
+	prev_pos = pos
 	anim += dt
 	blink_timer -= dt
 	if blink_timer < -0.12:
@@ -167,132 +192,128 @@ func _physics_process(dt: float) -> void:
 
 	var dir := signf(Input.get_axis("left", "right"))
 	if hurt_timer > 0:
-		velocity.x = move_toward(velocity.x, 0.0, AIR_DECEL * dt)
+		vel.x = move_toward(vel.x, 0.0, AIR_DECEL * dt)
 	else:
 		var accel: float
 		if grounded:
 			if dir == 0:
 				accel = GROUND_DECEL
-			elif velocity.x != 0 and signf(velocity.x) != dir:
+			elif vel.x != 0 and signf(vel.x) != dir:
 				accel = TURN_ACCEL
 			else:
 				accel = GROUND_ACCEL
 		else:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
-		velocity.x = move_toward(velocity.x, dir * RUN_SPEED, accel * dt)
+		vel.x = move_toward(vel.x, dir * RUN_SPEED, accel * dt)
 		if dir != 0:
 			facing = int(dir)
 		if jump_buffer > 0 and (grounded or coyote > 0):
-			velocity.y = -JUMP_VELOCITY
+			vel.y = -JUMP_VELOCITY
 			jumping = true
 			coyote = 0.0
 			jump_buffer = 0.0
 			squash = Vector2(0.72, 1.3)
-			event.emit(&"jump", position)
+			event.emit(&"jump", pos)
 
 	# Variable jump height.
-	if jumping and velocity.y < 0 and not Input.is_action_pressed("jump"):
-		velocity.y *= JUMP_CUT_MULT
+	if jumping and vel.y < 0 and not Input.is_action_pressed("jump"):
+		vel.y *= JUMP_CUT_MULT
 		jumping = false
-	if velocity.y >= 0:
+	if vel.y >= 0:
 		jumping = false
 
 	# Hover: hold jump in the air once rising has (almost) stopped.
 	hovering = hurt_timer <= 0 and not grounded and coyote <= 0 and hover_left > 0 \
-		and Input.is_action_pressed("jump") and velocity.y > -40
+		and Input.is_action_pressed("jump") and vel.y > -40
 	if hovering:
 		hover_left -= dt
-		velocity.y = move_toward(velocity.y, HOVER_FALL_SPEED, HOVER_ACCEL * dt)
+		vel.y = move_toward(vel.y, HOVER_FALL_SPEED, HOVER_ACCEL * dt)
 	else:
 		var g := GRAVITY
-		if absf(velocity.y) < APEX_THRESHOLD and Input.is_action_pressed("jump"):
+		if absf(vel.y) < APEX_THRESHOLD and Input.is_action_pressed("jump"):
 			g *= APEX_GRAVITY_MULT
-		elif velocity.y > 0:
+		elif vel.y > 0:
 			g *= FALL_GRAVITY_MULT
-		velocity.y = minf(velocity.y + g * dt, MAX_FALL)
+		vel.y = minf(vel.y + g * dt, MAX_FALL)
 
-	var fall_speed := velocity.y
+	var fall_speed := vel.y
+	# One-way platforms block only a falling Clawd whose body is clear of them.
+	# ponytail: checks all one-way tiles the body overlaps, not the one landed on; fine for 1-tile slabs.
+	set_collision_mask_value(4, vel.y >= 0 and not _touches_tile(Level.ONEWAY, Rect2(-SIZE.x / 2, -SIZE.y, SIZE.x, SIZE.y)))
+	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
 	move_and_slide()
+	vel = Vector2(velocity.x, -velocity.y) / Px.M
 	if is_on_ceiling():
 		jumping = false
 	if not grounded and is_on_floor() and fall_speed > 120:
 		var k := minf(1.0, fall_speed / MAX_FALL)
 		squash = Vector2(1 + 0.35 * k, 1 - 0.3 * k)
-		event.emit(&"hard_land" if fall_speed > 300 else &"land", position)
+		event.emit(&"hard_land" if fall_speed > 300 else &"land", pos)
 	_check_hazards()
-	queue_redraw()
+	_update_visual()
 
 
 func _check_hazards() -> void:
-	if position.y > kill_y:
+	if pos.y > kill_y:
 		hearts -= 1
 		if hearts <= 0:
 			hearts = MAX_HEARTS
 		respawn()
 		return
-	if invuln <= 0 and _touches_tile("spike", SPIKE_PROBE):
-		if hurt(position.x + 10.0 * signf(velocity.x)):
-			velocity.y = -HURT_KNOCK_Y * 1.3
+	if invuln <= 0 and _touches_tile(Level.SPIKE, SPIKE_PROBE):
+		if hurt(pos.x + 10.0 * signf(vel.x)):
+			vel.y = -HURT_KNOCK_Y * 1.3
 
-	var hb := Rect2(position + HITBOX.position, HITBOX.size)
+	var hb := Rect2(pos + HITBOX.position, HITBOX.size)
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if not hb.intersects(e.rect()):
 			continue
 		# Stomp: falling onto the top part of an enemy.
-		if velocity.y > 0 and prev_position.y <= e.stomp_line():
-			event.emit(&"stomp", e.position)
+		if vel.y > 0 and prev_pos.y <= e.stomp_line():
+			event.emit(&"stomp", e.pos)
 			e.stomped()
 			squash = Vector2(0.8, 1.25)
 			var held := Input.is_action_pressed("jump")
-			velocity.y = -(STOMP_BOUNCE_HELD if held else STOMP_BOUNCE)
+			vel.y = -(STOMP_BOUNCE_HELD if held else STOMP_BOUNCE)
 			jumping = held
 			hover_left = HOVER_DURATION
 		elif hb.intersects(e.hurtbox()):
-			hurt(e.position.x)
+			hurt(e.pos.x)
 
 
-func _touches_tile(kind: String, probe: Rect2) -> bool:
-	var a := terrain.local_to_map(position + probe.position)
-	var b := terrain.local_to_map(position + probe.end - Vector2(0.001, 0.001))
-	for y in range(a.y, b.y + 1):
-		for x in range(a.x, b.x + 1):
-			var data := terrain.get_cell_tile_data(Vector2i(x, y))
-			if data and data.get_custom_data("kind") == kind:
+func _touches_tile(item: int, probe: Rect2) -> bool:
+	var a := pos + probe.position
+	var b := pos + probe.end - Vector2(0.001, 0.001)
+	for y in range(floori(a.y / 16), floori(b.y / 16) + 1):
+		for x in range(floori(a.x / 16), floori(b.x / 16) + 1):
+			if level.tile(Vector2(x, y) * 16) == item:
 				return true
 	return false
 
 
 ## Frame choice and overlays follow drawClawd() in src/render/clawdView.ts.
-func _draw() -> void:
+func _update_visual() -> void:
 	var t := Game.time
-	if invuln > 0 and hurt_timer <= 0 and floori(t * 14) % 2 == 0:
-		return
-	var frame: Array = FRAMES.idle
+	visible = not (invuln > 0 and hurt_timer <= 0 and floori(t * 14) % 2 == 0)
+	var frame := &"idle"
 	var y_off := 0.0
 	if hurt_timer > 0:
-		frame = FRAMES.hurt
+		frame = &"hurt"
 	elif not is_on_floor():
-		frame = FRAMES.hover if hovering else FRAMES.jump if velocity.y < 0 else FRAMES.fall
-	elif absf(velocity.x) > 12:
-		var phase := floori(anim * (6 + absf(velocity.x) / 14)) % 4
-		frame = FRAMES.runA if phase == 0 else FRAMES.runB if phase == 2 else FRAMES.idle
-		y_off = -1.0 if phase % 2 == 1 else 0.0
+		frame = &"hover" if hovering else &"jump" if vel.y < 0 else &"fall"
+	elif absf(vel.x) > 12:
+		var phase := floori(anim * (6 + absf(vel.x) / 14)) % 4
+		frame = &"runA" if phase == 0 else &"runB" if phase == 2 else &"idle"
+		y_off = 1.0 if phase % 2 == 1 else 0.0
 	else:
-		frame = FRAMES.blink if blink_timer < 0 else FRAMES.idle
-		y_off = -0.5 if sin(anim * 3) > 0.6 else 0.0
-
+		frame = &"blink" if blink_timer < 0 else &"idle"
+		y_off = 0.5 if sin(anim * 3) > 0.6 else 0.0
+	body.mesh = MESHES[frame]
+	body.material_override = FLASH if hurt_timer > 0 and floori(t * 20) % 2 == 0 else null
+	visual.position.y = y_off * Px.M
+	visual.scale = Vector3(squash.x, squash.y, squash.x)
+	visual.rotation.y = 0.0 if facing > 0 else PI
 	# Hover jet: two flickering beams from the legs.
-	if hovering:
-		for i in 6:
-			var c := ORANGE_LIGHT if randf() > 0.5 else ORANGE
-			c.a = 1 - i / 7.0
-			draw_rect(Rect2(-6, 1 + i * 3, 2, 2), c)
-			draw_rect(Rect2(4, 1 + i * 3, 2, 2), c)
-
-	PixelArt.draw(self, frame, PALETTE, Vector2(0, y_off), {
-		px = 2,
-		flip = facing < 0,
-		sx = squash.x,
-		sy = squash.y,
-		tint = Color.WHITE if hurt_timer > 0 and floori(t * 20) % 2 == 0 else null,
-	})
+	for j: Node3D in jets:
+		j.visible = hovering
+		j.scale.y = randf_range(0.6, 1.0)

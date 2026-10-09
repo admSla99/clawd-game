@@ -2,13 +2,66 @@
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
 
-[sub_resource type="RectangleShape2D" id="body"]
-size = Vector2(18, 18)
+[sub_resource type="BoxShape3D" id="body"]
+size = Vector3(1.125, 1.125, 0.5)
 
-[node name="Player" type="CharacterBody2D" groups=["glow"]]
+[sub_resource type="StandardMaterial3D" id="jet_mat"]
+shading_mode = 0
+albedo_color = Color(0.94, 0.65, 0.52, 1)
+emission_enabled = true
+emission = Color(0.85, 0.47, 0.34, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="BoxMesh" id="jet"]
+material = SubResource("jet_mat")
+size = Vector3(0.125, 1.125, 0.125)
+
+[sub_resource type="Gradient" id="shadow_grad"]
+colors = PackedColorArray(0, 0, 0, 0.7, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="shadow_tex"]
+gradient = SubResource("shadow_grad")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[node name="Player" type="CharacterBody3D"]
 collision_layer = 2
+collision_mask = 9
+axis_lock_linear_z = true
+floor_snap_length = 0.0625
 script = ExtResource("1")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -9)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5625, 0)
 shape = SubResource("body")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="Visual"]
+layers = 2
+
+[node name="Jets" type="Node3D" parent="Visual"]
+
+[node name="Left" type="MeshInstance3D" parent="Visual/Jets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3125, -0.625, 0)
+visible = false
+layers = 2
+cast_shadow = 0
+mesh = SubResource("jet")
+
+[node name="Right" type="MeshInstance3D" parent="Visual/Jets"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3125, -0.625, 0)
+visible = false
+layers = 2
+cast_shadow = 0
+mesh = SubResource("jet")
+
+[node name="Shadow" type="Decal" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, 0)
+size = Vector3(1.1, 8, 0.9)
+texture_albedo = SubResource("shadow_tex")
+upper_fade = 0.05
+lower_fade = 0.6
+cull_mask = 1
+normal_fade = 0.5

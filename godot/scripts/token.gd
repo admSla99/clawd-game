@@ -1,37 +1,30 @@
-extends Area2D
+extends Area3D
 
 ## Token from src/entities/collectibles.ts: a spinning, bobbing coin that is collected on touch.
 
 const COLOR := Color("#FFD34D")
-
-# Halo drawn by GlowLayer (group "glow").
-var glow_color := Color(COLOR.r * 0.3, COLOR.g * 0.3, COLOR.b * 0.3)
-var glow_radius := 7.0
-var glow_offset := Vector2.ZERO
+const ROWS := [".TT.", "TTTT", "TTTT", ".TT."]
+static var MESH := Voxel.mesh(ROWS, {"T": COLOR}, {}, Px.M, Voxel.material(2.0, COLOR))
 
 var t := randf() * 10
+
+@onready var coin: MeshInstance3D = $Coin
 
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
+	coin.mesh = MESH
 
 
 func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
 	t += dt
-	queue_redraw()
+	coin.rotation.y = t * 4
+	coin.position.y = (sin(t * 3 + position.x) * 1.5 - 2) * Px.M
 
 
-func _on_body_entered(body: Node2D) -> void:
+func _on_body_entered(body: Node3D) -> void:
 	if body is Player:
-		Fx.burst(self, global_position, {count = 4, speed = 40, life = 0.25, color = [COLOR]})
+		Fx.burst(self, Px.of(global_position), {count = 4, speed = 40, life = 0.25, color = [COLOR]})
 		queue_free()
-
-
-func _draw() -> void:
-	var w := absf(cos(t * 4))
-	var y := sin(t * 3 + position.x) * 1.5
-	var hw := maxf(0.5, 2 * w)
-	draw_rect(Rect2(-hw, y - 1, hw * 2, 2), COLOR)
-	draw_rect(Rect2(-maxf(0.5, w), y - 2, maxf(1, 2 * w), 4), COLOR)

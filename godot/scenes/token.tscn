@@ -2,13 +2,15 @@
 
 [ext_resource type="Script" path="res://scripts/token.gd" id="1"]
 
-[sub_resource type="CircleShape2D" id="shape"]
-radius = 4.0
+[sub_resource type="SphereShape3D" id="shape"]
+radius = 0.25
 
-[node name="Token" type="Area2D" groups=["glow"]]
+[node name="Token" type="Area3D"]
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("1")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("shape")
+
+[node name="Coin" type="MeshInstance3D" parent="."]

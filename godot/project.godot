@@ -17,17 +17,13 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 [autoload]
 
 Game="*res://scripts/game.gd"
-ViewScale="*res://scripts/view_scale.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 
-window/size/viewport_width=480
-window/size/viewport_height=270
-window/size/window_width_override=1440
-window/size/window_height_override=810
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/size/viewport_width=1440
+window/size/viewport_height=810
+window/vsync/vsync_mode=3
 
 [editor_plugins]
 
@@ -92,13 +88,12 @@ next_level={
 
 [layer_names]
 
-2d_physics/layer_1="world"
-2d_physics/layer_2="player"
-2d_physics/layer_3="enemies"
+3d_physics/layer_1="world"
+3d_physics/layer_2="player"
+3d_physics/layer_3="enemies"
+3d_physics/layer_4="oneway"
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.0862745, 0.0862745, 0.0862745, 1)
-2d/snap/snap_2d_transforms_to_pixel=true

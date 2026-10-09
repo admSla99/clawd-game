@@ -1,7 +1,7 @@
 class_name Main
-extends Node2D
+extends Node3D
 
-## Root of the vertical slice. $Terrain is a converted level (levels/<id>.tscn, see
+## Root of the vertical slice. $Level is a converted level (levels/<id>.tscn, see
 ## tools/convert_level.gd); load_level() swaps it and puts the player on its Start marker.
 
 const LEVELS_INDEX := "res://levels/index.json"
@@ -16,16 +16,12 @@ var levels: Array
 var level_ids: Array
 var level_id: String
 ## Metadata of the current level from levels/index.json (theme, dark, risingVoid, terrainSeed, ...).
-var level: Dictionary
+var info: Dictionary
 var player: Player
 
-@onready var terrain: TileMapLayer = $Terrain
-@onready var camera: GameCamera = $Camera2D
+@onready var level: Level = $Level
+@onready var camera: GameCamera = $Camera3D
 @onready var particles: Particles = $Particles
-@onready var terrain_view: TerrainView = $TerrainView
-@onready var parallax: Parallax = $Background/Parallax
-@onready var screen_fx: ScreenFx = $ScreenFx
-@onready var glow_layer: GlowLayer = $GlowLayer
 
 
 func _ready() -> void:
@@ -47,31 +43,22 @@ func next_level() -> void:
 
 
 func load_level(id: String) -> void:
-	var layer: TileMapLayer = load("res://levels/%s.tscn" % id).instantiate()
-	# The TileMapLayer keeps collision and the spawned nodes; TerrainView draws the tiles.
-	layer.self_modulate = Color.TRANSPARENT
+	var next: Level = load("res://levels/%s.tscn" % id).instantiate()
 	# Free the old level at once, so its bugs leave the "enemies" group before the next physics frame.
-	remove_child(terrain)
-	terrain.free()
-	terrain = layer
-	add_child(terrain)
-	move_child(terrain, terrain_view.get_index() + 1)
+	remove_child(level)
+	level.free()
+	level = next
+	add_child(level)
 	level_id = id
-	level = levels[level_ids.find(id)]
-	terrain_view.build(terrain, level.terrainSeed)
-	glow_layer.terrain_view = terrain_view
-	parallax.setup(level.theme, camera)
-	screen_fx.setup(level.get("dark", false), player, camera)
-	RenderingServer.set_default_clear_color(Color("#111111") if level.theme == "caves" else Color("#161616"))
+	info = levels[level_ids.find(id)]
 	Game.reset()
 	particles.clear()
 
-	# Level size like Level.pixelW / pixelH in TS: widest map row by number of rows.
-	var cells := terrain.get_used_rect()
-	camera.bounds = Vector2(cells.end) * 16
+	camera.bounds = level.size()
 	camera.trauma = 0
-	player.enter_level(terrain, terrain.get_node("Start").position, camera.bounds.y)
-	camera.snap_to(player.position + Vector2(0, -Player.SIZE.y))
+	var start := Px.of(level.get_node("Start").position)
+	player.enter_level(level, start, camera.bounds.y)
+	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 
 
 func shake(amount: float) -> void:
@@ -82,7 +69,7 @@ func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
-	camera.follow(dt, player.position + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.velocity.y)
+	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
 
 
 # Same counts, speeds and colors as the matching particles.emit() calls in src/scenes/game.ts.

@@ -9,7 +9,7 @@ const PLAYER_SIZE := Vector2(18, 18)
 const TILE_CHARS := "#=^X"
 
 var failures := 0
-var tileset: TileSet
+var level_script: GDScript
 
 
 func ok(cond: bool, what: String) -> void:
@@ -42,11 +42,10 @@ func section(title: String, f: Callable) -> void:
 
 
 func _init() -> void:
-	tileset = load("res://tiles/terrain.tres")
 	await process_frame
+	level_script = load("res://scripts/level.gd")
 	await section("noise (golden values from src/core/noise.ts)", check_noise)
 	await section("levels match levels/<id>.txt", check_levels)
-	await section("terrain and parallax bakes match the TS renderer", check_bakes)
 	await section("player physics (tests/player.test.ts)", check_physics)
 	await section("level select and main scene", check_scenes)
 	await section("hazards and enemies in 1-1", check_hazards)
@@ -71,7 +70,9 @@ func check_levels() -> bool:
 	ok(index.size() == 9, "9 levels in index.json")
 	for l in index:
 		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).trim_suffix("\n").split("\n")
-		var level: TileMapLayer = load("res://levels/%s.tscn" % l.id).instantiate()
+		var level: Node3D = load("res://levels/%s.tscn" % l.id).instantiate()
+		var terrain: GridMap = level.get_node("Terrain")
+		var oneway: GridMap = level.get_node("OneWay")
 		var want_tiles := 0
 		var want := {"@": 0, "E": 0, "o": 0}
 		var bad := 0
@@ -80,72 +81,26 @@ func check_levels() -> bool:
 				var ch := rows[y][x]
 				if ch in want:
 					want[ch] += 1
-				var atlas := level.get_cell_atlas_coords(Vector2i(x, y))
+				var c := Vector3i(x, -y - 1, 0)
+				var item := oneway.get_cell_item(c) if ch == "=" else terrain.get_cell_item(c)
 				if TILE_CHARS.contains(ch):
 					want_tiles += 1
-					bad += int(atlas != Vector2i(TILE_CHARS.find(ch), 0))
+					bad += int(item != TILE_CHARS.find(ch))
 				else:
-					bad += int(atlas != Vector2i(-1, -1))
+					bad += int(terrain.get_cell_item(c) != -1 or oneway.get_cell_item(c) != -1)
 		var spawns := level.get_children()
 		var bugs := spawns.filter(func(n): return n.is_in_group("enemies")).size()
-		var tokens := spawns.filter(func(n): return n is Area2D).size()
-		ok(bad == 0 and level.get_used_cells().size() == want_tiles and want["@"] == 1 and level.has_node("Start")
-			and bugs == want["E"] and tokens == want["o"],
+		var tokens := spawns.filter(func(n): return n is Area3D).size()
+		ok(bad == 0 and terrain.get_used_cells().size() + oneway.get_used_cells().size() == want_tiles and want["@"] == 1
+			and level.has_node("Start") and bugs == want["E"] and tokens == want["o"],
 			"%s: %d tiles, 0 misplaced, 1 start, %d bugs, %d tokens" % [l.id, want_tiles, bugs, tokens])
 		level.free()
 	return true
 
 
-## MD5 of the RGBA bytes TerrainRenderer.bake() / the Parallax layers produce in TS, rendered in
-## Node with a canvas stub (whole pixels; partial coverage over two rows for the factory columns,
-## which sit at fractional y and are antialiased by a real canvas).
-const TS_BAKES := {
-	"terrain 1-1 chunk 0,0": "28b78e0f10a450c91fd85d0f28c82267",
-	"terrain 1-2 chunk 2,1": "e751a6078c8f179c8da4c3a2ee2280bc",
-	"terrain 2-2 chunk 3,0": "c07fff5197a5c6e66abf40551cb2f7a1",
-	"parallax plains 0": "0fef56dd57ef41b1f10f1d457c317840",
-	"parallax caves 0": "4d5f182e689d9fa6b9242dc20bc76937",
-	"parallax forge 0": "c986a8f1285a740145ccd5cb77f5ef50",
-	"parallax towers 0": "2bd88e5cb4f5869ebc10c57a9104e1f7",
-}
-
-
-func check_bakes() -> bool:
-	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
-	var tv = load("res://scripts/terrain_view.gd").new()
-	for spec in [["1-1", 0, 0], ["1-2", 2, 1], ["2-2", 3, 0]]:
-		var l: Dictionary = index.filter(func(e): return e.id == spec[0])[0]
-		var layer: TileMapLayer = load("res://levels/%s.tscn" % l.id).instantiate()
-		tv.build(layer, l.terrainSeed)
-		var name := "terrain %s chunk %d,%d" % spec
-		ok(_md5(tv._bake(spec[1], spec[2])) == TS_BAKES[name], name)
-		layer.free()
-	tv.free()
-	var par = load("res://scripts/parallax.gd").new()
-	for theme in ["plains", "caves", "forge", "towers"]:
-		par.setup(theme, null)
-		var name := "parallax %s 0" % theme
-		ok(_md5(par.layers[0].tex.get_image()) == TS_BAKES[name], name)
-	par.free()
-	return true
-
-
-func _md5(img: Image) -> String:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_MD5)
-	ctx.update(img.get_data())
-	return ctx.finish().hex_encode()
-
-
 ## Tiny level from ASCII rows, like makeLevel() in tests/helpers.ts.
-func make_level(rows: Array) -> TileMapLayer:
-	var layer := TileMapLayer.new()
-	layer.tile_set = tileset
-	for y in rows.size():
-		for x in rows[y].length():
-			if rows[y][x] == "#":
-				layer.set_cell(Vector2i(x, y), 0, Vector2i(0, 0))
-	return layer
+func make_level(rows: Array) -> Node3D:
+	return level_script.build(PackedStringArray(rows))
 
 
 ## Runs the player on `rows` from '@'. `script` is called once per physics frame with the frame
@@ -224,8 +179,8 @@ func check_physics() -> bool:
 	var top := [ground]
 	var p = await simulate(flat, func(i, pl):
 		if i >= 63: return null
-		top[0] = minf(top[0], pl.position.y)
-		return ["jump"] if i >= 3 and (i == 3 or pl.velocity.y < 0) else [])
+		top[0] = minf(top[0], pl.pos.y)
+		return ["jump"] if i >= 3 and (i == 3 or pl.vel.y < 0) else [])
 	var h: float = ground - top[0]
 	ok(h > TILE * 4.2 and h < TILE * 5, "full jump height %.1f tiles (TS: 4.2..5)" % (h / TILE))
 	cleanup(p)
@@ -243,7 +198,7 @@ func cross_gap(gap: int, hover: bool) -> bool:
 	var p = await simulate(gap_map(gap), func(i, pl):
 		if i < 3: return []
 		if state.phase == 0:
-			if pl.position.x + PLAYER_SIZE.x / 2 > 9 * TILE - 1:
+			if pl.pos.x + PLAYER_SIZE.x / 2 > 9 * TILE - 1:
 				state.phase = 1
 				return ["right", "jump"]
 			return ["right"]
@@ -251,9 +206,9 @@ func cross_gap(gap: int, hover: bool) -> bool:
 		if state.phase > 3 and pl.is_on_floor():
 			state.landed = true
 			return null
-		if pl.position.y > 20 * TILE or state.phase > 240: return null
-		return ["right", "jump"] if pl.velocity.y < 0 or hover else ["right"])
-	var crossed: bool = state.landed and p.position.x - PLAYER_SIZE.x / 2 > (9 + gap) * TILE - PLAYER_SIZE.x
+		if pl.pos.y > 20 * TILE or state.phase > 240: return null
+		return ["right", "jump"] if pl.vel.y < 0 or hover else ["right"])
+	var crossed: bool = state.landed and p.pos.x - PLAYER_SIZE.x / 2 > (9 + gap) * TILE - PLAYER_SIZE.x
 	cleanup(p)
 	return crossed
 
@@ -263,16 +218,16 @@ func climb(height: int) -> bool:
 	var p = await simulate(step_map(height), func(i, pl):
 		if i < 3: return []
 		if state.phase == 0:
-			if pl.position.x + PLAYER_SIZE.x / 2 > 10 * TILE - 8:
+			if pl.pos.x + PLAYER_SIZE.x / 2 > 10 * TILE - 8:
 				state.phase = 1
 				return ["right", "jump"]
 			return ["right"]
 		state.phase += 1
-		if pl.is_on_floor() and pl.position.x - PLAYER_SIZE.x / 2 > 10 * TILE:
+		if pl.is_on_floor() and pl.pos.x - PLAYER_SIZE.x / 2 > 10 * TILE:
 			state.up = true
 			return null
 		if state.phase > 120: return null
-		return ["right", "jump"] if pl.velocity.y < 0 else ["right"])
+		return ["right", "jump"] if pl.vel.y < 0 else ["right"])
 	var up: bool = state.up
 	cleanup(p)
 	return up
@@ -288,8 +243,7 @@ func check_scenes() -> bool:
 		current_scene.get_node("%Levels/" + id).pressed.emit()
 		await scene_ready("Main")
 		var m = current_scene
-		var start: Vector2 = m.terrain.get_node("Start").position
-		if m.level_id == id and m.player.position == start:
+		if m.level_id == id and m.player.pos.is_equal_approx(_start(m)):
 			opened += 1
 		change_scene_to_file("res://scenes/level_select.tscn")
 		await scene_ready("LevelSelect")
@@ -300,7 +254,7 @@ func check_scenes() -> bool:
 	await scene_ready("Main")
 	await frames(60)
 	var m = current_scene
-	ok(m.player.is_on_floor() and m.player.position == m.terrain.get_node("Start").position, "1-1: player stands on '@'")
+	ok(m.player.is_on_floor() and m.player.pos.is_equal_approx(_start(m)), "1-1: player stands on '@'")
 	var seen := []
 	for i in 9:
 		m.next_level()
@@ -319,7 +273,7 @@ func check_hazards() -> bool:
 	# Spikes start at column 179 in 1-1.
 	m.load_level("1-1")
 	await frames(3)
-	p.position = Vector2(175 * TILE, 15 * TILE)
+	p.pos = Vector2(175 * TILE, 15 * TILE)
 	p.invuln = 0
 	var hearts: int = p.hearts
 	Input.action_press("right")
@@ -327,7 +281,7 @@ func check_hazards() -> bool:
 		await physics_frame
 		if p.hearts < hearts: break
 	Input.action_release("right")
-	ok(p.hearts == hearts - 1 and p.velocity.y < 0, "spike costs a heart and knocks up")
+	ok(p.hearts == hearts - 1 and p.vel.y < 0, "spike costs a heart and knocks up")
 	ok(root.get_node("Game").hitstop_left > 0, "hurt triggers hitstop")
 	var h2: int = p.hearts
 	Input.action_press("right")
@@ -338,38 +292,42 @@ func check_hazards() -> bool:
 	m.load_level("1-1")
 	await frames(3)
 	var bug = get_nodes_in_group("enemies")[0]
-	var bug_x: float = bug.position.x
-	p.position = bug.position + Vector2(-40, 0)
+	var bug_x: float = bug.pos.x
+	p.pos = bug.pos + Vector2(-40, 0)
 	p.invuln = 0
 	hearts = p.hearts
 	for i in 180:
 		await physics_frame
 		if p.hearts < hearts: break
-	ok(bug.position.x != bug_x and p.hearts == hearts - 1, "bug patrols and hurts on contact")
+	ok(bug.pos.x != bug_x and p.hearts == hearts - 1, "bug patrols and hurts on contact")
 
 	m.load_level("1-1")
 	await frames(3)
 	var n := get_nodes_in_group("enemies").size()
 	bug = get_nodes_in_group("enemies")[0]
-	p.position = bug.position + Vector2(0, -40)
-	p.velocity = Vector2.ZERO
+	p.pos = bug.pos + Vector2(0, -40)
+	p.vel = Vector2.ZERO
 	p.invuln = 0
 	var bounced := false
 	for i in 60:
 		await physics_frame
 		if get_nodes_in_group("enemies").size() < n:
-			bounced = p.velocity.y < 0
+			bounced = p.vel.y < 0
 			break
 	ok(bounced, "stomping a bug kills it and bounces")
 	ok(m.particles.list.size() > 0, "stomp emits particles")
 
-	var tokens: Array = m.terrain.get_children().filter(func(c): return c is Area2D)
-	p.position = tokens[0].position + Vector2(0, 8)
+	var tokens: Array = m.level.get_children().filter(func(c): return c is Area3D)
+	p.pos = Px.of(tokens[0].position) + Vector2(0, 8)
 	await frames(5)
 	ok(not is_instance_valid(tokens[0]) or tokens[0].is_queued_for_deletion(), "touching a token collects it")
 
 	p.hearts = 1
 	p.invuln = 0
-	p.hurt(p.position.x + 10)
-	ok(p.hearts == p.MAX_HEARTS and p.position == m.terrain.get_node("Start").position, "losing the last heart respawns on '@'")
+	p.hurt(p.pos.x + 10)
+	ok(p.hearts == p.MAX_HEARTS and p.pos.is_equal_approx(_start(m)), "losing the last heart respawns on '@'")
 	return true
+
+
+func _start(m: Node) -> Vector2:
+	return Px.of(m.level.get_node("Start").position)

@@ -1,12 +1,30 @@
 class_name Particles
-extends Node2D
+extends MultiMeshInstance3D
 
 ## CPU particle list ported from src/render/particles.ts: squares that fly, fall, slow down with
 ## drag, fade out and shrink near the end of their life. Capped at 1500 like the TS version.
+## Simulated in level pixels like the TS version (plus a random drift in depth), drawn as cubes.
 
 const MAX := 1500
 
 var list: Array[Dictionary] = []
+
+
+func _ready() -> void:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * Px.M * 2
+	box.material = mat
+	multimesh = MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = box
+	multimesh.instance_count = MAX
+	multimesh.visible_instance_count = 0
+	cast_shadow = SHADOW_CASTING_SETTING_OFF
 
 
 ## Same options and defaults as Particles.emit() in TS: count 8, speed 80 (x0.4..1), life 0.5
@@ -19,6 +37,8 @@ func emit(at: Vector2, o: Dictionary = {}) -> void:
 		var life: float = o.get("life", 0.5) * (0.6 + randf() * 0.4)
 		list.append({
 			"p": at,
+			"z": 0.0,
+			"vz": randf_range(-1, 1) * speed,
 			"v": Vector2(cos(angle), sin(angle)) * speed + Vector2(o.get("vx", 0.0), o.get("vy", 0.0)),
 			"life": life,
 			"max": life,
@@ -47,15 +67,15 @@ func _physics_process(dt: float) -> void:
 		if p.drag:
 			p.v *= maxf(0, 1 - p.drag * dt)
 		p.p += p.v * dt
+		p.z += p.vz * dt
 		alive.append(p)
 	list = alive
-	queue_redraw()
-
-
-func _draw() -> void:
-	for p in list:
+	multimesh.visible_instance_count = list.size()
+	for i in list.size():
+		var p: Dictionary = list[i]
 		var t: float = p.life / p.max
 		var s: float = p.size * (1.0 if t > 0.3 else 0.6)
 		var c: Color = p.color
 		c.a *= minf(1, t * 1.6)
-		draw_rect(Rect2(p.p - Vector2(s, s) / 2, Vector2(s, s)), c)
+		multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * s), Px.to3(p.p) + Vector3(0, 0, p.z * Px.M)))
+		multimesh.set_instance_color(i, c)
