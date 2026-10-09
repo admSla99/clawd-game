@@ -1,3 +1,4 @@
+import type { Bindable } from './core/input';
 import type { UpgradeId, WeaponId } from './weapons';
 
 export interface LevelProgress {
@@ -19,12 +20,14 @@ export interface SaveData {
   weapons: WeaponId[];
   equipped: WeaponId | null;
   upgrades: Partial<Record<UpgradeId, number>>;
+  /** Rebound keys; actions not listed use the defaults. */
+  keys: Partial<Record<Bindable, string[]>>;
 }
 
 const KEY = 'clawd-latent-space-save-v1';
 
 export function emptySave(): SaveData {
-  return { version: 1, levels: {}, muted: false, crt: true, wallet: 0, sparksSpent: 0, weapons: [], equipped: null, upgrades: {} };
+  return { version: 1, levels: {}, muted: false, crt: true, wallet: 0, sparksSpent: 0, weapons: [], equipped: null, upgrades: {}, keys: {} };
 }
 
 export function loadSave(): SaveData {

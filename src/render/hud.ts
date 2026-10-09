@@ -1,4 +1,5 @@
 import { COLORS } from '../config';
+import { DEFAULT_BINDINGS, keyLabel, type Bindable, type Bindings } from '../core/input';
 import type { Rect } from '../core/math';
 import type { Renderer } from './renderer';
 import { drawSpark, drawSpeaker, drawToken, panel } from './shapes';
@@ -128,21 +129,24 @@ function drawBossBar(r: Renderer, b: { name: string; hp: number; maxHp: number }
   }
 }
 
-export const CONTROL_LINES: [string, string][] = [
-  ['← → / A D', 'Move'],
-  ['SPACE / K', 'Jump (hold = higher)'],
-  ['HOLD JUMP (air)', 'Hover — the jet hurts enemies'],
-  ['X / J', 'World 1: spin  ·  World 2: shoot'],
-  ['C / L / RMB', 'Spin attack'],
-  ['↓ + spin (air)', 'Ground pound — breaks corrupted data'],
-  ['↓ + SPACE', 'Drop through platforms'],
-  ['MOUSE + LMB', 'World 2: aim and shoot'],
-  ['↑ / ↓ + X', 'Aim up / down without a mouse'],
-  ['1-5 · Q E · WHEEL', 'Switch weapon'],
-  ['B (map)', 'Shop'],
-  ['ESC / P · M · H', 'Pause · mute · this help'],
-  ['GAMEPAD', 'A jump · X shoot · B spin · R-stick aim'],
-];
+export function controlLines(b: Bindings): [string, string][] {
+  const k = (...a: Bindable[]) => [...new Set(a.flatMap((x) => b[x]))].map(keyLabel).join(' ') || '-';
+  return [
+    [k('left', 'right'), 'Move'],
+    [k('jump'), 'Jump (hold = higher)'],
+    ['HOLD JUMP (air)', 'Hover — the jet hurts enemies'],
+    [k('attack'), 'World 1: spin  ·  World 2: shoot'],
+    [`${k('spin')} / RMB`, 'Spin attack'],
+    [`${k('down')} + spin (air)`, 'Ground pound — breaks corrupted data'],
+    [`${k('down')} + ${k('jump')}`, 'Drop through platforms'],
+    ['MOUSE + LMB', 'World 2: aim and shoot'],
+    [`${k('up', 'down')} + ${k('attack')}`, 'Aim up / down without a mouse'],
+    [`1-5 · ${k('prev', 'next')} · WHEEL`, 'Switch weapon'],
+    [`${k('shop')} (map)`, 'Shop'],
+    [`${k('pause')} · ${k('mute')} · ${k('controls')}`, 'Pause · mute · this help'],
+    ['GAMEPAD', 'A jump · X shoot · B spin · R-stick aim'],
+  ];
+}
 
 export const TOUCH_CONTROL_LINES: [string, string][] = [
   ['LEFT THUMB', 'Touch anywhere on the left half to move'],
@@ -157,11 +161,11 @@ export const TOUCH_CONTROL_LINES: [string, string][] = [
   ['II · SPEAKER', 'Pause · mute (top right)'],
 ];
 
-export function drawControlsOverlay(r: Renderer, touch = false): void {
+export function drawControlsOverlay(r: Renderer, touch = false, bindings: Bindings = DEFAULT_BINDINGS): void {
   const ctx = r.ctx;
-  const lines = touch ? TOUCH_CONTROL_LINES : CONTROL_LINES;
+  const lines = touch ? TOUCH_CONTROL_LINES : controlLines(bindings);
   const w = Math.min(r.viewW - 16, Math.max(230, 102 + Math.max(...lines.map(([, v]) => r.measure(v, 5.5)))));
-  const h = 26 + lines.length * 11 + (touch ? 10 : 0);
+  const h = 26 + lines.length * 11 + 10;
   const x = r.viewW / 2 - w / 2;
   const y = r.viewH / 2 - h / 2;
   ctx.fillStyle = 'rgba(10,10,10,0.6)';
@@ -173,5 +177,5 @@ export function drawControlsOverlay(r: Renderer, touch = false): void {
     r.text(k, x + 12, ly, { size: 5.5, color: COLORS.textBright });
     r.text(v, x + 90, ly, { size: 5.5, color: COLORS.text });
   });
-  if (touch) r.text('tap to close', x + w / 2, y + h - 9, { size: 4.5, align: 'center', color: COLORS.textDim });
+  r.text(touch ? 'tap to close' : 'ENTER — CHANGE KEYS', x + w / 2, y + h - 9, { size: 4.5, align: 'center', color: COLORS.textDim });
 }

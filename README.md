@@ -24,7 +24,7 @@ npm run build      # production build into dist/
 | Input | Action |
 |---|---|
 | ← → / A D | Move |
-| Space / K | Jump (hold longer to jump higher) |
+| Space / W / K | Jump (hold longer to jump higher) |
 | Hold jump in the air | Hover (the jet hurts enemies) |
 | X / J | World 1: spin · World 2: shoot |
 | C / L / right mouse button | Spin |
@@ -35,6 +35,7 @@ npm run build      # production build into dist/
 | 1–5 · Q E · mouse wheel | Switch weapon |
 | B (on the map) | Shop |
 | Esc / P · M · H | Pause · mute · controls |
+| H, then Enter · Pause → Keybindings | Rebind keys |
 | F1 / F2 | Debug overlay / noclip (in debug mode) |
 
 Gamepad: A jump, X shoot, B spin, right stick aims, LB/RB/Y switch weapons, Start pauses.

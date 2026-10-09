@@ -1,6 +1,6 @@
 import { STEP } from './config';
 import { AudioEngine } from './core/audio';
-import { Input, attachKeyboard, attachMouse, pollGamepad } from './core/input';
+import { DEFAULT_BINDINGS, Input, attachKeyboard, attachMouse, pollGamepad } from './core/input';
 import { TouchControls, attachTouch } from './core/touch';
 import { Renderer } from './render/renderer';
 import { drawRotateHint } from './render/touchView';
@@ -37,6 +37,7 @@ export class App {
     this.renderer = new Renderer(canvas);
     this.save = loadSave();
     this.audio.muted = this.save.muted;
+    this.input.setBindings({ ...DEFAULT_BINDINGS, ...this.save.keys });
     this.renderer.crt = this.save.crt;
     const r = this.renderer;
     const toView = (x: number, y: number) => r.toView(x, y);

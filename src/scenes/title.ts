@@ -5,6 +5,7 @@ import { mulberry32 } from '../core/noise';
 import { drawControlsOverlay } from '../render/hud';
 import { Parallax } from '../render/parallax';
 import { drawSpark, drawSpeaker, panel } from '../render/shapes';
+import { KeybindMenu } from './keybinds';
 import { CLAWD, CLAWD_PALETTE, LOGO_FONT, drawSprite } from '../render/sprites';
 
 interface LogoDot {
@@ -21,6 +22,7 @@ export class TitleScene implements Scene {
   private dots: LogoDot[] = [];
   private parallax = new Parallax('plains');
   private showControls = false;
+  private keys: KeybindMenu;
   private logoW: number;
   private controlsBtn: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private muteBtn: Rect = { x: 0, y: 0, w: 0, h: 0 };
@@ -52,15 +54,23 @@ export class TitleScene implements Scene {
         });
       });
     });
+    this.keys = new KeybindMenu(app);
     app.audio.playMusic('title');
   }
 
   update(dt: number): void {
     this.t += dt;
     const input = this.app.input;
+    if (this.keys.open) {
+      this.keys.update();
+      return;
+    }
     if (input.pressed('controls')) this.showControls = !this.showControls;
     if (this.showControls) {
-      if (input.pressed('back') || input.pressed('confirm')) this.showControls = false;
+      if (input.pressed('confirm') && !input.touchMode) {
+        this.showControls = false;
+        this.keys.show();
+      } else if (input.pressed('back')) this.showControls = false;
       return;
     }
     if (this.t > 0.4 && (input.pressed('confirm') || input.pressed('jump'))) {
@@ -71,6 +81,10 @@ export class TitleScene implements Scene {
   }
 
   onClick(x: number, y: number): void {
+    if (this.keys.open) {
+      this.keys.onClick(x, y);
+      return;
+    }
     if (this.showControls) {
       this.showControls = false;
       return;
@@ -149,11 +163,12 @@ export class TitleScene implements Scene {
       drawSpeaker(ctx, this.muteBtn.x + 7, by + 8.5, this.app.audio.muted, COLORS.text);
       ctx.globalAlpha = 1;
     } else {
-      r.text('H — CONTROLS     M — MUTE', r.viewW / 2, r.viewH - 10, { size: 5, align: 'center', color: COLORS.textDim, alpha: a });
+      r.text('H — CONTROLS & KEYS     M — MUTE', r.viewW / 2, r.viewH - 10, { size: 5, align: 'center', color: COLORS.textDim, alpha: a });
     }
     r.text('v0.2 · a Clawd fan game', r.viewW - 8 - r.safe.right, r.viewH - 10, { size: 4.5, align: 'right', color: '#444', alpha: a });
 
-    if (this.showControls) drawControlsOverlay(r, touch);
+    if (this.showControls) drawControlsOverlay(r, touch, this.app.input.bindings);
+    if (this.keys.open) this.keys.draw(r);
     r.postFx();
   }
 }

@@ -23,38 +23,49 @@ export type Action =
   | 'noclip'
   | 'controls';
 
-export const KEYMAP: Record<string, Action[]> = {
-  ArrowLeft: ['left'],
-  KeyA: ['left'],
-  ArrowRight: ['right'],
-  KeyD: ['right'],
-  ArrowUp: ['up'],
-  KeyW: ['up'],
-  ArrowDown: ['down'],
-  KeyS: ['down'],
-  Space: ['jump', 'confirm'],
-  KeyK: ['jump'],
-  KeyX: ['attack'],
-  KeyJ: ['attack'],
-  KeyC: ['spin'],
-  KeyL: ['spin'],
-  KeyQ: ['prev'],
-  KeyE: ['next'],
+/** Actions the player can rebind, in the order the keybinding menu lists them. */
+export type Bindable = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'spin' | 'prev' | 'next' | 'pause' | 'shop' | 'mute' | 'controls';
+
+export const BINDABLE: Bindable[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'spin', 'prev', 'next', 'pause', 'shop', 'mute', 'controls'];
+
+export type Bindings = Record<Bindable, string[]>;
+
+export const DEFAULT_BINDINGS: Bindings = {
+  left: ['ArrowLeft', 'KeyA'],
+  right: ['ArrowRight', 'KeyD'],
+  up: ['ArrowUp', 'KeyW'],
+  down: ['ArrowDown', 'KeyS'],
+  jump: ['Space', 'KeyW', 'KeyK'],
+  attack: ['KeyX', 'KeyJ'],
+  spin: ['KeyC', 'KeyL'],
+  prev: ['KeyQ'],
+  next: ['KeyE'],
+  pause: ['KeyP'],
+  shop: ['KeyB'],
+  mute: ['KeyM'],
+  controls: ['KeyH'],
+};
+
+/** Keys that always do the same thing and cannot be rebound. */
+const FIXED_KEYS: Record<string, Action[]> = {
+  Space: ['confirm'],
+  Enter: ['confirm'],
+  Escape: ['pause', 'back'],
+  Backspace: ['back'],
   Digit1: ['slot1'],
   Digit2: ['slot2'],
   Digit3: ['slot3'],
   Digit4: ['slot4'],
   Digit5: ['slot5'],
-  Enter: ['confirm'],
-  Escape: ['pause', 'back'],
-  KeyP: ['pause'],
-  Backspace: ['back'],
-  KeyB: ['shop'],
-  KeyM: ['mute'],
-  KeyH: ['controls'],
   F1: ['debug'],
   F2: ['noclip'],
 };
+
+export function keyLabel(code: string): string {
+  const arrows: Record<string, string> = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Space: 'SPACE' };
+  if (arrows[code]) return arrows[code];
+  return code.replace(/^(Key|Digit)/, '').toUpperCase();
+}
 
 /** Read-only view the game logic uses; keeps entities testable without a DOM. */
 export interface InputView {
@@ -75,6 +86,26 @@ export class Input implements InputView {
   private releasedSet = new Set<Action>();
   /** True once any key/button has been pressed; used to unlock audio. */
   anyInput = false;
+  bindings: Bindings = structuredClone(DEFAULT_BINDINGS);
+  private keymap: Record<string, Action[]> = {};
+  /** While set, the next key press goes here instead of acting as a game key (keybinding menu). */
+  onCapture: ((code: string) => void) | null = null;
+
+  constructor() {
+    this.setBindings(this.bindings);
+  }
+
+  setBindings(b: Bindings): void {
+    this.bindings = b;
+    const map: Record<string, Action[]> = {};
+    for (const [k, acts] of Object.entries(FIXED_KEYS)) map[k] = [...acts];
+    for (const a of BINDABLE) for (const k of b[a] ?? []) (map[k] ??= []).push(a);
+    this.keymap = map;
+  }
+
+  isGameKey(code: string): boolean {
+    return code in this.keymap;
+  }
 
   /** Mouse position in view units, and when it last moved (performance.now ms). */
   mouseX = 0;
@@ -88,12 +119,18 @@ export class Input implements InputView {
   touchMode = false;
 
   keyDown(code: string): void {
+    if (this.onCapture) {
+      const cb = this.onCapture;
+      this.onCapture = null;
+      cb(code);
+      return;
+    }
     if (this.keys.has(code)) return;
     this.keys.add(code);
     this.anyInput = true;
     this.touchMode = false;
     // A second key for an action that is already held is not a new press.
-    for (const a of KEYMAP[code] ?? []) if (!this.heldSet.has(a)) this.latched.add(a);
+    for (const a of this.keymap[code] ?? []) if (!this.heldSet.has(a)) this.latched.add(a);
   }
 
   keyUp(code: string): void {
@@ -165,7 +202,7 @@ export class Input implements InputView {
     const next = new Set<Action>(this.padHeld);
     for (const a of this.mouseHeld) next.add(a);
     for (const a of this.touchHeld) next.add(a);
-    for (const k of this.keys) for (const a of KEYMAP[k] ?? []) next.add(a);
+    for (const k of this.keys) for (const a of this.keymap[k] ?? []) next.add(a);
     this.prevHeld = this.heldSet;
     this.heldSet = next;
     this.pressedSet = new Set<Action>(this.latched);
@@ -193,17 +230,15 @@ export class Input implements InputView {
   }
 }
 
-const GAME_KEYS = new Set(Object.keys(KEYMAP));
-
 export function attachKeyboard(input: Input, target: Window): void {
   target.addEventListener('keydown', (e) => {
-    if (GAME_KEYS.has(e.code)) e.preventDefault();
+    if (input.onCapture || input.isGameKey(e.code)) e.preventDefault();
     // Auto-repeat would turn a held key into fresh presses after a scene change.
     if (e.repeat) return;
     input.keyDown(e.code);
   });
   target.addEventListener('keyup', (e) => {
-    if (GAME_KEYS.has(e.code)) e.preventDefault();
+    if (input.onCapture || input.isGameKey(e.code)) e.preventDefault();
     input.keyUp(e.code);
   });
   target.addEventListener('blur', () => input.clear());

@@ -23,6 +23,7 @@ import { Particles } from '../render/particles';
 import { panel } from '../render/shapes';
 import { drawTouchControls } from '../render/touchView';
 import { grantWeapon, progressFor, recordRun } from '../save';
+import { KeybindMenu } from './keybinds';
 import { WEAPON_ORDER, loadoutFromSave, type Loadout, type WeaponId } from '../weapons';
 import { rectTouchesTile } from '../world/collision';
 import { parseLevel, type Level } from '../world/level';
@@ -38,7 +39,7 @@ interface Popup {
   color: string;
 }
 
-const PAUSE_ITEMS = ['RESUME', 'RESTART FROM CHECKPOINT', 'RESTART LEVEL', 'CRT FILTER', 'QUIT TO MAP'] as const;
+const PAUSE_ITEMS = ['RESUME', 'RESTART FROM CHECKPOINT', 'RESTART LEVEL', 'CRT FILTER', 'KEYBINDINGS', 'QUIT TO MAP'] as const;
 
 export class GameScene implements Scene, GameContext {
   readonly level: Level;
@@ -75,6 +76,7 @@ export class GameScene implements Scene, GameContext {
   private pauseIndex = 0;
   private pauseRows: Rect[] = [];
   private showControls = false;
+  private keys: KeybindMenu;
   private debug = false;
   private hud: HudRegions | null = null;
   private voidY = Number.POSITIVE_INFINITY;
@@ -87,6 +89,7 @@ export class GameScene implements Scene, GameContext {
     private app: App,
     readonly levelIndex: number,
   ) {
+    this.keys = new KeybindMenu(app);
     const def = app.levels[levelIndex];
     this.level = parseLevel(def);
     this.terrain = new TerrainRenderer(this.level, 7 + levelIndex * 13);
@@ -579,7 +582,17 @@ export class GameScene implements Scene, GameContext {
 
     if (input.pressed('debug')) this.debug = !this.debug;
     if (input.pressed('noclip') && this.debug) this.player.noclip = !this.player.noclip;
+    if (this.keys.open) {
+      this.keys.update();
+      this.app.touch.setEnabled(false);
+      return;
+    }
     if (input.pressed('controls')) this.showControls = !this.showControls;
+    if (this.showControls && input.pressed('confirm') && !input.touchMode) {
+      this.showControls = false;
+      this.keys.show();
+      return;
+    }
 
     const touch = this.app.touch;
     touch.setEnabled(!this.paused && !this.showControls && this.phase !== 'complete');
@@ -869,6 +882,7 @@ export class GameScene implements Scene, GameContext {
       this.hearts = Math.max(1, this.hearts);
       this.respawn();
     } else if (item === 'RESTART LEVEL') this.app.startLevel(this.levelIndex);
+    else if (item === 'KEYBINDINGS') this.keys.show();
     else if (item === 'CRT FILTER') {
       this.app.renderer.crt = !this.app.renderer.crt;
       this.app.persist();
@@ -879,6 +893,10 @@ export class GameScene implements Scene, GameContext {
     // Fingers are less precise than a mouse: give every button a few units of slack.
     const pad = this.app.input.touchMode ? 4 : 0;
     const inside = (r: Rect) => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
+    if (this.keys.open) {
+      this.keys.onClick(x, y);
+      return;
+    }
     if (this.paused) {
       const i = this.pauseRows.findIndex(inside);
       if (i >= 0) {
@@ -895,6 +913,7 @@ export class GameScene implements Scene, GameContext {
   }
 
   leave(): void {
+    this.app.input.onCapture = null;
     this.app.audio.hoverStop();
     this.app.renderer.canvas.style.cursor = 'default';
   }
@@ -906,7 +925,7 @@ export class GameScene implements Scene, GameContext {
     const ctx = r.ctx;
     const def = this.level.def;
     r.begin(def.theme === 'caves' ? '#111111' : COLORS.bg);
-    const a = this.paused || this.showControls || this.hitstopTimer > 0 ? 1 : alpha;
+    const a = this.paused || this.showControls || this.keys.open || this.hitstopTimer > 0 ? 1 : alpha;
 
     const camX = r.snap(lerp(this.camera.prevX, this.camera.x, a) + this.camera.shakeX);
     const camY = r.snap(lerp(this.camera.prevY, this.camera.y, a) + this.camera.shakeY);
@@ -982,7 +1001,8 @@ export class GameScene implements Scene, GameContext {
     r.canvas.style.cursor = crosshair ? 'none' : 'default';
     if (this.debug) this.drawDebugText();
     if (this.paused) this.drawPause();
-    if (this.showControls) drawControlsOverlay(r, touch);
+    if (this.showControls) drawControlsOverlay(r, touch, this.app.input.bindings);
+    if (this.keys.open) this.keys.draw(r);
 
     r.postFx();
   }
