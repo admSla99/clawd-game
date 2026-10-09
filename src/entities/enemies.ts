@@ -196,6 +196,10 @@ export class RateLimiter extends Enemy implements Platform {
         if (p.cx > this.x - 10 && p.cx < this.x + this.w + 10 && p.y > this.y + this.h && p.y - this.y < TILE * 9) {
           this.mode = 'shake';
           this.timer = 0.3;
+        } else if (p.riding === this) {
+          // Clawd rode it up into a nook too narrow to walk off: carry him back down.
+          this.mode = 'shake';
+          this.timer = 0.6;
         }
         break;
       case 'shake':
