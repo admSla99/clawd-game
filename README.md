@@ -95,3 +95,4 @@ still count as found on the map. Progress is saved to `localStorage`.
 - `?level=4` starts a level by index (0–8), `?level=4&tx=120&ty=16` moves Clawd to a tile
 - `?ff=300&hold=KeyD,KeyX` simulates N ticks with keys held (useful for headless screenshots)
 - `?touch` shows the touch UI on a desktop browser
+- `?debug` placeholder line for identity test
