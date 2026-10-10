@@ -118,15 +118,19 @@ which the `SubViewportContainer` scales up by a whole factor with nearest filter
 only adds glow (HDR threshold 0.9; colours above 1.0 glow), and `shaders/crt.gdshader` draws the scanlines and
 vignette of `Renderer.postFx()` over the window.
 
+Each theme has a palette in `scripts/themes.gd` (`Themes.PALETTES`): haze gradient, ray colour and a light
+colour for the background. The level blocks keep their black / white / orange look in every theme.
+
 Back to front:
 
-- `shaders/haze.gdshader` (`Background/Haze`): black at the top to a cool blue haze at the horizon in dithered
+- `shaders/haze.gdshader` (`Background/Haze`): the palette's dark top to its haze at the horizon in dithered
   steps, with slanted light rays that pulse slowly and drift with the camera.
-- `Parallax` (see above).
+- `Parallax` (see above), its baked grey layers tinted between the palette's haze and light colours and its
+  stars, data rain and rings towards the light colour.
 - `scripts/scenery.gd` (`Scenery`): three layers of towers and floating blocks behind the level, drawn by
-  `shaders/scenery.gdshader` (lit rim, panel edges, windows blinking in cool light, a few orange), mixed further
-  into the haze with depth. The camera is orthographic, so `Scenery.update()` moves each layer with the camera
-  by its parallax factor; layers are generated from the level's `terrainSeed`.
+  `shaders/scenery.gdshader` (lit rim, panel edges, windows blinking in the light colour, a few orange), mixed
+  further into the haze with depth. The camera is orthographic, so `Scenery.update()` moves each layer with the
+  camera by its parallax factor; layers are generated from the level's `terrainSeed`.
 - The level: all blocks use `shaders/terrain_pixels.gdshader`. On level load `Level.bake_cells()` writes one
   texel per 4 px cell (distance to open air, random, open cell above, solid). Front faces: a black body that
   steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
@@ -134,9 +138,14 @@ Back to front:
   with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
   view rows from the white front lip to dark speckled grey. Clawd's blob shadow is drawn on the top face under
   him (`Level.set_shadow()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
-- Warm lights: `GlowLight` nodes (`scripts/glow_light.gd`, group `lights`) on tokens and on Clawd's hover jets.
-  `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights the
-  pixels around them in four discrete steps.
+- `scripts/decor.gd` (`Decor.populate()`): props on exposed tops from the `terrainSeed`: voxel lanterns at the
+  back of the top band (behind Clawd) and small tufts in the light colour at the front lip and the back.
+- Warm lights: `GlowLight` nodes (`scripts/glow_light.gd`, group `lights`) on lanterns, tokens and Clawd's hover
+  jets. `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights
+  the pixels around them in four steps with an ordered dither between them. On block fronts only the crust
+  within three cells of open air takes light.
+- Foreground: a `Scenery` layer in front of the level (parallax 1.35) of dark stepped silhouettes with a jagged,
+  grassy edge, rising from the level's bottom and in dark levels also hanging from its top.
 
 The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt` and `stomp`; `main.gd` answers
 with particles (same counts and colors as `particles.emit` in `src/scenes/game.ts`), camera shake and
@@ -168,7 +177,8 @@ without COOP/COEP headers.
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |
-| `scripts/scenery.gd`, `scripts/glow_light.gd` | Towers and floating blocks behind the level; warm lights for the terrain shader |
+| `scripts/scenery.gd`, `scripts/glow_light.gd` | Towers and floating blocks behind the level, foreground silhouettes; warm lights for the terrain shader |
+| `scripts/themes.gd`, `scripts/decor.gd` | Background palette per theme; lanterns and tufts on the level |
 | `shaders/terrain_pixels.gdshader` | Level blocks (crust, circuits, one-way, spikes, corrupted glitch, lights, Clawd's shadow) |
 | `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |

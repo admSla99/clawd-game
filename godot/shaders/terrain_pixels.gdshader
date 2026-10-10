@@ -5,7 +5,8 @@
 // R = distance to open air / 12, G = random, B = 1 when the cell above is open, A = 1 for solid or
 // corrupted cells. Top faces are bands of view rows (row_z metres of depth per row, see GameCamera) from
 // the white front lip to dark speckled grey at the back. Orange lights (Main collects nodes in group
-// "lights") light the pixels around them in four discrete steps. `shadow` (x, floor y, height above it)
+// "lights") light the pixels around them in four steps, dithered where the steps meet; on block fronts
+// only the crust near open air takes light, it does not shine into the body. `shadow` (x, floor y, height above it)
 // puts Clawd's blob shadow on the floor under him. `game_time` is Game.time, so hitstop and pause freeze
 // the animation. Colours are written in sRGB and converted at the end.
 shader_type spatial;
@@ -65,17 +66,21 @@ bool blocky(ivec2 c) {
 	return cell_at(c).a > 0.5;
 }
 
-// Sum of the lights at p, in steps of a quarter.
-float light_level(vec3 p) {
+const float BAYER[16] = float[](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
+
+// Sum of the lights at p, in steps of a quarter; `px` (view-aligned pixel) picks the ordered-dither
+// threshold, so each step blends into the next over a few pixels instead of a hard ring.
+float light_level(vec3 p, ivec2 px) {
 	float l = 0.0;
 	for (int k = 0; k < light_count; k++) {
 		l += light_energy[k] * max(0.0, 1.0 - distance(p, lights[k].xyz) / lights[k].w);
 	}
-	return floor(clamp(l, 0.0, 1.0) * 4.0) / 4.0;
+	float dither = (BAYER[(px.y & 3) * 4 + (px.x & 3)] + 0.5) / 16.0 - 0.5;
+	return clamp(floor(clamp(l, 0.0, 1.0) * 4.0 + dither + 0.5) / 4.0, 0.0, 1.0);
 }
 
 vec3 lit(vec3 c, float lv) {
-	return c + (c * vec3(0.55, 0.22, 0.05) + ORANGE * 0.2) * lv;
+	return c + (c * vec3(0.55, 0.22, 0.05) + ORANGE * 0.12) * lv;
 }
 
 void vertex() {
@@ -87,6 +92,8 @@ void fragment() {
 	vec3 col = BLACK;
 	float boost = 1.0;
 	vec3 lp = wpos;
+	ivec2 lpx = ivec2(0); // pixel for the light dither
+	float occl = 1.0; // share of the light that reaches this pixel
 	// Spikes and one-way platforms are see-through outside their pixels.
 	if (mode == 3 && wnormal.z < 0.5) {
 		discard;
@@ -98,9 +105,12 @@ void fragment() {
 		ivec2 t = ip >> ivec2(4);	// tile
 		ivec2 q = ip & ivec2(15);	// pixel in the tile
 		lp = vec3((vec2(ip) + 0.5) / 16.0 * vec2(1.0, -1.0), wpos.z);
+		lpx = ip;
 		if (mode == 0) {
 			vec4 C = cell_at(c);
 			int d = int(round(C.r * 12.0));
+			// Light lands on the crust; it fades out within three cells of open air.
+			occl = d <= 1 ? 1.0 : d == 2 ? 0.5 : d == 3 ? 0.2 : 0.0;
 			col = d <= 1 ? BODY_1 : d == 2 ? BODY_2 : BLACK;
 			if (d >= 2 && (q.x == 0 || q.y == 0) && hash2(t.x, t.y, 9) > 0.4) {
 				col = SEAM;
@@ -207,6 +217,7 @@ void fragment() {
 		int ty = int(round(-wpos.y));
 		int row = int(floor((half_depth - wpos.z) / row_z)); // 0 = front lip
 		lp = vec3((float(ix) + 0.5) / 16.0, wpos.y, half_depth - (float(row) + 0.5) * row_z);
+		lpx = ivec2(ix, row);
 		bool exposed = mode == 1 || cell_at(ivec2(ix >> 2, ty * 4)).b > 0.5;
 		float s = hash2(ix, row, 21 + ty);
 		if (!exposed) {
@@ -236,6 +247,6 @@ void fragment() {
 			}
 		}
 	}
-	col = lit(col, light_level(lp));
+	col = lit(col, occl > 0.0 ? light_level(lp, lpx) * occl : 0.0);
 	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2)) * boost;
 }
