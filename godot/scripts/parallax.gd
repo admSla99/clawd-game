@@ -25,46 +25,64 @@ const CODE_LINES := [
 ]
 
 var theme := ""
-## Each layer: {tex, factor, factor_y, anchor, inverted}.
+## Each layer: {tex, factor, factor_y, anchor, inverted, modulate}.
 var layers: Array[Dictionary] = []
 var camera: GameCamera
+## Themes palette of the level: the baked grey layers are tinted between its haze and light colours,
+## the stars, data rain and rings take its light colour.
+var palette: Dictionary
 
 
-func setup(level_theme: String, cam: GameCamera) -> void:
+func setup(level_theme: String, cam: GameCamera, level_palette: Dictionary) -> void:
 	theme = level_theme
 	camera = cam
+	palette = level_palette
 	layers.clear()
 	match theme:
 		"plains":
-			_layer(_bake_ridge(11, 170, 120, 30, 62, 5, false), 0.12, 0.05, 0.86)
-			_layer(_bake_ridge(23, 130, 80, 20, 100, 4, false), 0.3, 0.12, 0.92)
+			_layer(62, _bake_ridge(11, 170, 120, 30, 62, 5, false), 0.12, 0.05, 0.86)
+			_layer(100, _bake_ridge(23, 130, 80, 20, 100, 4, false), 0.3, 0.12, 0.92)
 		"caves":
-			_layer(_bake_ridge(31, 120, 90, 10, 52, 5, true), 0.15, 0.08, 0.0, true)
-			_layer(_bake_ridge(37, 110, 70, 10, 58, 5, false), 0.2, 0.08, 1.0)
-			_layer(_bake_ridge(41, 80, 60, 6, 82, 4, true), 0.35, 0.16, 0.0, true)
+			_layer(52, _bake_ridge(31, 120, 90, 10, 52, 5, true), 0.15, 0.08, 0.0, true)
+			_layer(58, _bake_ridge(37, 110, 70, 10, 58, 5, false), 0.2, 0.08, 1.0)
+			_layer(82, _bake_ridge(41, 80, 60, 6, 82, 4, true), 0.35, 0.16, 0.0, true)
 		"boss":
-			_layer(_bake_ridge(53, 100, 60, 10, 55, 5, false), 0.1, 0.0, 1.0)
+			_layer(55, _bake_ridge(53, 100, 60, 10, 55, 5, false), 0.1, 0.0, 1.0)
 		"mesa":
-			_layer(_bake_ridge(61, 170, 130, 30, 60, 5, false, 22), 0.12, 0.05, 0.88)
-			_layer(_bake_ridge(67, 120, 70, 20, 98, 4, false, 14), 0.3, 0.12, 0.94)
+			_layer(60, _bake_ridge(61, 170, 130, 30, 60, 5, false, 22), 0.12, 0.05, 0.88)
+			_layer(98, _bake_ridge(67, 120, 70, 20, 98, 4, false, 14), 0.3, 0.12, 0.94)
 		"forge":
-			_layer(_bake_columns(71, 200, 58, 26), 0.15, 0.05, 1.0)
-			_layer(_bake_columns(73, 140, 88, 44), 0.32, 0.12, 1.0)
+			_layer(58, _bake_columns(71, 200, 58, 26), 0.15, 0.05, 1.0)
+			_layer(88, _bake_columns(73, 140, 88, 44), 0.32, 0.12, 1.0)
 		"swamp":
-			_layer(_bake_ridge(81, 110, 50, 20, 55, 5, false), 0.12, 0.05, 0.92)
-			_layer(_bake_ridge(83, 70, 30, 12, 85, 4, false), 0.3, 0.12, 0.98)
+			_layer(55, _bake_ridge(81, 110, 50, 20, 55, 5, false), 0.12, 0.05, 0.92)
+			_layer(85, _bake_ridge(83, 70, 30, 12, 85, 4, false), 0.3, 0.12, 0.98)
 		"towers":
-			_layer(_bake_columns(91, 260, 60, 34), 0.2, 0.2, 1.0)
+			_layer(60, _bake_columns(91, 260, 60, 34), 0.2, 0.2, 1.0)
+	# Far layers sit close to the haze, near ones a little towards the light, like the Scenery layers.
+	for i in layers.size():
+		var l: Dictionary = layers[i]
+		var target: Color = palette.haze.lerp(palette.light, 0.12 + 0.12 * i)
+		# The crust pixels of a layer are `bright` grey: scale them to the target, darker pixels follow.
+		l.modulate = Color(target.r, target.g, target.b) * (255.0 / l.bright)
+		l.modulate.a = 1.0
 	queue_redraw()
 
 
-func _layer(img: Image, factor: float, factor_y: float, anchor: float, inverted := false) -> void:
-	layers.append({"tex": ImageTexture.create_from_image(img), "factor": factor, "factor_y": factor_y, "anchor": anchor, "inverted": inverted})
+## `bright` is the grey of the layer's brightest pixels (the bright argument of its bake).
+func _layer(bright: float, img: Image, factor: float, factor_y: float, anchor: float, inverted := false) -> void:
+	layers.append({"tex": ImageTexture.create_from_image(img), "bright": bright, "factor": factor, "factor_y": factor_y, "anchor": anchor, "inverted": inverted})
 
 
 static func _gray(v: float) -> Color:
 	var c := clampi(roundi(v), 0, 255)
 	return Color8(c, c, c)
+
+
+## Grey `v` (0..255) shifted towards the palette's light colour.
+func _lit(v: float) -> Color:
+	var c := _gray(v)
+	return c.lerp(Color(palette.light) * (v / 170.0), 0.7)
 
 
 static func _rgba(r: int, g: int, b: int, a: float) -> Color:
@@ -177,7 +195,7 @@ func _draw() -> void:
 		var y: float = view.y * l.anchor + shift if l.inverted else view.y * l.anchor - h + shift
 		var x := ox
 		while x < view.x:
-			draw_texture(tex, Vector2(roundf(x), roundf(y)))
+			draw_texture(tex, Vector2(roundf(x), roundf(y)), l.modulate)
 			x += PERIOD
 	if theme == "forge":
 		_draw_embers(view, t)
@@ -243,7 +261,7 @@ func _draw_stars(cam: Vector2, view: Vector2, t: float) -> void:
 			var sy := gy * cell + DotNoise.hash2(gx, gy, 6) * cell - o.y
 			var tw := 0.5 + 0.5 * sin(t * (1 + r * 8) + r * 40)
 			var s := 2.0 if r < 0.025 else 1.0
-			draw_rect(Rect2(roundf(sx), roundf(sy), s, s), _gray(60 + tw * 90 * (1.4 if r < 0.03 else 1.0)))
+			draw_rect(Rect2(roundf(sx), roundf(sy), s, s), _lit(60 + tw * 90 * (1.4 if r < 0.03 else 1.0)))
 
 
 func _draw_data_rain(cam: Vector2, view: Vector2, t: float) -> void:
@@ -262,7 +280,7 @@ func _draw_data_rain(cam: Vector2, view: Vector2, t: float) -> void:
 			if y < -4 or y > view.y:
 				continue
 			var v := 120.0 if k == 0 else 75 - (float(k) / len) * 50
-			draw_rect(Rect2(roundf(x), roundf(y), 1, 2 if k == 0 else 1), _gray(v))
+			draw_rect(Rect2(roundf(x), roundf(y), 1, 2 if k == 0 else 1), _lit(v))
 
 
 func _draw_rings(view: Vector2, t: float) -> void:
@@ -275,4 +293,4 @@ func _draw_rings(view: Vector2, t: float) -> void:
 		var n := floori(r * 0.5)
 		for k in n:
 			var a := float(k) / n * TAU + ring * 0.3
-			draw_rect(Rect2(roundf(c.x + cos(a) * r), roundf(c.y + sin(a) * r * 0.6), 1, 1), _gray(30 + fade * 45))
+			draw_rect(Rect2(roundf(c.x + cos(a) * r), roundf(c.y + sin(a) * r * 0.6), 1, 1), _lit(30 + fade * 45))

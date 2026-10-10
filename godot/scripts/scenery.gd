@@ -22,8 +22,9 @@ var _layers: Array[Node3D] = []
 var _materials: Array[ShaderMaterial] = []
 
 
-## Builds the layers for a level of `bounds` pixels seen through a `view`-sized window.
-func setup(seed: int, bounds: Vector2, view: Vector2) -> void:
+## Builds the layers for a level of `bounds` pixels seen through a `view`-sized window, coloured with
+## a Themes palette.
+func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary) -> void:
 	for c in get_children():
 		c.free()
 	_layers.clear()
@@ -39,6 +40,8 @@ func setup(seed: int, bounds: Vector2, view: Vector2) -> void:
 		mat.shader = SHADER
 		mat.set_shader_parameter("haze_amount", l.haze)
 		mat.set_shader_parameter("row_z", GameCamera.ROW_Z)
+		mat.set_shader_parameter("haze", Themes.vec(palette.haze))
+		mat.set_shader_parameter("light_color", Themes.vec(palette.light))
 		_materials.append(mat)
 		var width := view.x + maxf(0, bounds.x - view.x) * f + 64
 		# Towers stand on a ground line below the view wherever the camera is.

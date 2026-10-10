@@ -61,7 +61,6 @@ func load_level(id: String) -> void:
 	info = levels[level_ids.find(id)]
 	level.bake_cells(info.terrainSeed)
 	level.set_param("row_z", GameCamera.ROW_Z)
-	parallax.setup(info.theme, camera)
 	Game.reset()
 	particles.clear()
 
@@ -70,7 +69,11 @@ func load_level(id: String) -> void:
 	var start := Px.of(level.get_node("Start").position)
 	player.enter_level(level, start, camera.bounds.y)
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
-	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size())
+	var palette := Themes.palette(info.theme)
+	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette)
+	parallax.setup(info.theme, camera, palette)
+	for key in ["top", "mid", "haze", "ray"]:
+		haze.material.set_shader_parameter(key + "_color", Themes.vec(palette[key]))
 	scenery.update(camera.top_left)
 
 
