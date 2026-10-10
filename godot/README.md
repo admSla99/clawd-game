@@ -173,6 +173,11 @@ Back to front:
   the side are rounded (4 px). One-way platforms are a thin strip (4 px tall,
   0.75 m deep), so they read as ledges rather than blocks. Blob shadows of Clawd and the enemies nearest the view
   (up to 16) are drawn on the top faces under them (`Level.shadow_at()`, `Level.set_shadows()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
+- Midground (a `Scenery` layer at z = -3 m between the level and the forest): big dark trunks with muted
+  ledges sticking out, thick synapse bridges and a few neurons. It is anchored to the level and uses the
+  level's perspective (`world_perspective` in the scenery shader), so it shifts against the level as the
+  camera moves like a real object behind it. Less hazed than the forest so it reads nearer, enough that the
+  ledges don't pass for platforms.
 - `scripts/decor.gd` (`Decor.populate()`): props from the `terrainSeed`. On exposed tops: voxel lanterns at the
   back of the top band (behind Clawd), small tufts in the light colour at the front lip and the back that sway
   and bend away from Clawd as he walks through (`Decor.interact()`), and neuron flowers, a stalk with a glowing

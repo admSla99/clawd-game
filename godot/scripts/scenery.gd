@@ -4,7 +4,12 @@ extends Node3D
 ## The neural forest behind the level, drawn by shaders/scenery.gdshader: three layers at growing depth,
 ## each mixed further into the haze, of trunks (columns of a neuron layer with pulsing node sockets and
 ## signals climbing their fibres), sagging weight cables between neighbouring trunks that carry light
-## pulses, and floating neurons. In front of the level a faster layer of dark silhouettes: broken trunk
+## pulses, and floating neurons. Between them and the level a midground layer at z = -3 m, anchored to the
+## level and drawn with the true perspective of the level geometry (so it shifts against the level as the
+## camera moves, like a real object behind it): big dark trunks with ledges sticking out of them, thick
+## synapse bridges between them and a few neurons, less hazed than the forest so they read nearer, but
+## enough that the ledges do not pass for platforms.
+## In front of the level a faster layer of dark silhouettes: broken trunk
 ## bases rising from the level's bottom (in dark levels also hanging from its top) and cables hanging into
 ## the view. Per-theme motifs to add on top are in docs/scenery-themes.md. The camera is orthographic, so
 ## depth alone gives no
@@ -24,12 +29,14 @@ const LAYERS := [
 	{"z": -27.0, "factor": 0.15, "factor_y": 0.15, "haze": 0.72, "trunk": [2, 4], "gap": [30, 70], "cables": [0, 1], "neurons": 0.0, "seed": 101},
 	{"z": -15.0, "factor": 0.3, "factor_y": 0.3, "haze": 0.5, "trunk": [3, 5], "gap": [50, 110], "cables": [0, 2], "neurons": 2.0, "seed": 202},
 	{"z": -6.0, "factor": 0.5, "factor_y": 0.5, "haze": 0.3, "trunk": [4, 7], "gap": [90, 190], "cables": [1, 2], "neurons": 2.5, "seed": 303},
+	{"z": -3.0, "factor": 1.0, "factor_y": 1.0, "haze": 0.18, "mid": true, "trunk": [6, 10], "gap": [220, 420], "seed": 505},
 	{"z": 6.0, "factor": 1.35, "factor_y": 1.0, "haze": 0.0, "fg": true, "seed": 404},
 ]
 ## Instance `kind` in shaders/scenery.gdshader.
 const TRUNK := 0
 const CABLE := 1
 const NEURON := 2
+const LEDGE := 3
 ## Cable thickness in px; the foreground's hanging cables are thicker.
 const CABLE_PX := 2.0
 const FG_CABLE_PX := 5.0
@@ -59,10 +66,14 @@ func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary, hangi
 		mat.set_shader_parameter("haze", Themes.vec(palette.haze))
 		mat.set_shader_parameter("light_color", Themes.vec(palette.light))
 		mat.set_shader_parameter("silhouette", l.get("fg", false))
+		mat.set_shader_parameter("world_perspective", l.get("mid", false))
 		_materials.append(mat)
 		var width := view.x + maxf(0, bounds.x - view.x) * f + 64
 		if l.get("fg", false):
 			_silhouettes(node, mat, s, width, bounds, view.y, hanging)
+			continue
+		if l.get("mid", false):
+			_midground(node, mat, l, s, width, bounds, view.y)
 			continue
 		# Trunks run from below the view to above it wherever the camera is.
 		var ground := view.y + max_cam_y * f + 24
@@ -92,6 +103,42 @@ func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary, hangi
 			var bx := floorf(DotNoise.hash2(k, 6, s) * width)
 			var by := roundf(max_cam_y * f + view.y * (0.08 + DotNoise.hash2(k, 7, s) * 0.45))
 			_box(node, mat, Rect2(bx, by, size, size), DotNoise.hash2(k, 8, s) * 1000, NEURON, 0.0, size * Px.M)
+
+
+## Big trunks every 220-420 px from below the level to above it, each with one or two ledges sticking
+## out at the side, a thick synapse bridge to the next trunk now and then, and a neuron or two nearby.
+## Heights are where the camera sits lowest (most of the level's play happens near its bottom).
+func _midground(node: Node3D, mat: ShaderMaterial, l: Dictionary, s: int, width: float, bounds: Vector2, view_h: float) -> void:
+	var low := maxf(0, bounds.y - view_h) # top of the view at the lowest camera position
+	var trunks: Array[Rect2] = []
+	var x := 40.0 + floorf(DotNoise.hash2(0, 9, s) * 120)
+	var i := 0
+	while x < width:
+		var w: float = 4.0 * (l.trunk[0] + floori(DotNoise.hash2(i, 0, s) * (l.trunk[1] - l.trunk[0] + 1)))
+		var r := Rect2(x, -40, w, bounds.y + 112)
+		trunks.append(r)
+		_box(node, mat, r, DotNoise.hash2(i, 2, s) * 1000, TRUNK)
+		for k in 1 + int(DotNoise.hash2(i, 3, s) > 0.5):
+			var lw := 4.0 * (5 + floori(DotNoise.hash2(i, 4 + k, s) * 5))
+			var ly := roundf(low + view_h * (0.18 + DotNoise.hash2(i, 6 + k, s) * 0.45))
+			var right := DotNoise.hash2(i, 8 + k, s) > 0.5
+			var lx := r.end.x - 4 if right else r.position.x - lw + 4
+			_box(node, mat, Rect2(lx, ly, lw, 6), DotNoise.hash2(i, 10 + k, s) * 1000, LEDGE, 0.02, 1.0)
+		if DotNoise.hash2(i, 12, s) > 0.4:
+			var size := 8.0
+			var nx := r.position.x + (w + 30 + DotNoise.hash2(i, 13, s) * 80) * (1 if DotNoise.hash2(i, 14, s) > 0.5 else -1)
+			var ny := roundf(low + view_h * (0.1 + DotNoise.hash2(i, 15, s) * 0.4))
+			_box(node, mat, Rect2(nx, ny, size, size), DotNoise.hash2(i, 16, s) * 1000, NEURON, 0.0, size * Px.M)
+		x += w + l.gap[0] + floorf(DotNoise.hash2(i, 17, s) * (l.gap[1] - l.gap[0]))
+		i += 1
+	for t in trunks.size() - 1:
+		if DotNoise.hash2(t, 20, s) > 0.55:
+			continue
+		var a := trunks[t]
+		var b := trunks[t + 1]
+		var y0 := roundf(low + view_h * (0.12 + DotNoise.hash2(t, 21, s) * 0.35))
+		var y1 := roundf(y0 + (DotNoise.hash2(t, 22, s) - 0.5) * 40)
+		_cable(node, mat, Vector2(a.end.x, y0), Vector2(b.position.x, y1), (b.position.x - a.end.x) * 0.12, DotNoise.hash2(t, 23, s) * 1000, 4.0)
 
 
 ## Broken dark trunk bases every 450-900 px, rising from the level's bottom 64-180 px in up to three
@@ -151,8 +198,9 @@ func _box(layer: Node3D, mat: ShaderMaterial, r: Rect2, seed: float, kind: int, 
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# The oblique projection draws the box -l.z / 3 m higher than it is; keep it from being culled.
-	mi.extra_cull_margin = absf(l.z) / 3 + 1
+	# The oblique projection draws the box -l.z / 3 m higher than it is (and the midground's perspective
+	# moves it towards the view centre); keep it from being culled.
+	mi.extra_cull_margin = absf(l.z) / 3 + (4.0 if l.get("mid", false) else 1.0)
 	mi.position = Vector3((r.position.x + r.size.x / 2) * Px.M, -(r.position.y + r.size.y / 2) * Px.M, l.z - depth / 2 + dz)
 	mi.set_instance_shader_parameter("box_size", size)
 	mi.set_instance_shader_parameter("seed", floorf(seed))
@@ -185,7 +233,7 @@ func _cable(layer: Node3D, mat: ShaderMaterial, a: Vector2, b: Vector2, sag: flo
 	mi.mesh = st.commit()
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.extra_cull_margin = absf(l.z) / 3 + 1
+	mi.extra_cull_margin = absf(l.z) / 3 + (4.0 if l.get("mid", false) else 1.0)
 	mi.position = Vector3(0, 0, l.z + 0.02)
 	mi.set_instance_shader_parameter("box_size", Vector3.ZERO)
 	mi.set_instance_shader_parameter("seed", floorf(seed))

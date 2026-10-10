@@ -3,6 +3,10 @@
 //             that pulse in the theme's `light_color`, and signals climbing up some fibres.
 // 1 cable   - a weight between two trunks (a sagging strip, UV.x = 0..1 along it) that carries a pulse.
 // 2 neuron  - a floating node: a rim around a core that pulses.
+// 3 ledge   - a slab sticking out of a midground trunk: a lit top edge, a dark body with a seam and two
+//             node lights.
+// `world_perspective` (the midground) uses the level's perspective, converging from the gameplay plane,
+// instead of each box converging from its own front face.
 // With `silhouette` (the foreground layer) trunks are flat dark cutouts with a jagged broken top and cables
 // are dark. Every lit tone is the body mixed towards `light_color` (see Themes); the layer is mixed into
 // the haze by `haze_amount`. Pixels are box-local (instance `box_size`), so patterns sit on the box wherever
@@ -19,6 +23,7 @@ uniform vec3 haze = vec3(0.118, 0.176, 0.302);
 uniform vec3 light_color = vec3(0.435, 0.561, 0.769);
 uniform float haze_amount = 0.3;
 uniform bool silhouette = false;
+uniform bool world_perspective = false;
 uniform float row_z = 0.1875;
 uniform float game_time = 0.0;
 
@@ -44,7 +49,8 @@ void vertex() {
 	// Each box converges from its own front face, so the far layers keep their size and parallax but
 	// still show their sides (cables are flat, with box_size.z = 0).
 	vec4 w = MODEL_MATRIX * vec4(VERTEX, 1.0);
-	POSITION = PROJECTION_MATRIX * (VIEW_MATRIX * oblique_world(w, INV_VIEW_MATRIX, box_size.z * 0.5 - VERTEX.z));
+	float behind = world_perspective ? max(-w.z, 0.0) : box_size.z * 0.5 - VERTEX.z;
+	POSITION = PROJECTION_MATRIX * (VIEW_MATRIX * oblique_world(w, INV_VIEW_MATRIX, behind));
 	lpos = VERTEX;
 	lnormal = NORMAL;
 	along = UV.x;
@@ -84,6 +90,17 @@ void fragment() {
 			discard;
 		}
 		col = from_edge == 0 ? tone(0.14) : (p.x % 3 == 1 ? tone(0.05) : tone(0.025));
+	} else if (k == 3 && lnormal.z > 0.5) {
+		// Ledge front.
+		col = p.y == 0 ? tone(0.3) : p.y == 1 ? tone(0.16) : p.y == sz.y - 1 ? BODY * 0.6 : tone(0.08);
+		if (p.y == 3 && (p.x % 7) == 3) {
+			float h = hash2(p.x / 7, 4, sd);
+			bool on = sin(game_time * (0.6 + h) + h * 20.0) > 0.0;
+			col = on ? light_color : tone(0.25);
+			boost = on ? 1.6 : 1.0;
+		}
+	} else if (k == 3 && lnormal.y > 0.5) {
+		col = tone(0.22);
 	} else if (k == 2) {
 		// Floating neuron: rim, pulsing core, a bright centre while it fires.
 		float h = hash2(sd, 3, 7);
