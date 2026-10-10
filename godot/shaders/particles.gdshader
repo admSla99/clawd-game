@@ -5,7 +5,7 @@ render_mode unshaded, blend_mix, cull_back;
 #include "res://shaders/oblique.gdshaderinc"
 
 void vertex() {
-	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
+	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 }
 
 void fragment() {

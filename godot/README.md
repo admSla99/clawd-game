@@ -92,7 +92,14 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
   the gameplay plane; one level pixel is exactly one view pixel on both axes. Depth comes from the oblique
   projection in `shaders/oblique.gdshaderinc`, which every 3D material calls from `vertex()`: a point moves up
   by a third of its distance behind the gameplay plane, as if the camera were pitched down atan(1/3) (~18.4°).
-  One view row covers 3 px of depth (`ROW_Z`), so the 3 m deep blocks show a 16 px top band. A pitched
+  One view row covers 3 px of depth (`ROW_Z`), so the 3 m deep blocks show a 16 px top band. On top of that
+  the projection adds a little perspective: points behind the gameplay plane move towards the view centre by
+  3% of their distance from it per metre of depth, so blocks and background towers off the centre show their
+  sides (up to ~11 px at the view's edges) and top bands are thicker near the bottom of the view. Nothing in
+  front of the gameplay plane moves, so Clawd, the enemies and the block fronts stay pixel-exact; faces that
+  cross z = 0 get vertices there (`BoxMesh.subdivide_depth`, `Voxel.mesh()`). Scenery boxes converge from their
+  own front faces. The terrain shader draws the exposed side faces (crust over the top edge, a lit front rim,
+  strata darkening towards the back, a share of the theme's light colour, `ambient`). A pitched
   orthographic camera would shorten one axis by cos(pitch) and make sprites shimmer by a pixel while moving.
   The SubViewport renders `Main.PAD` extra pixels on every side, so nothing the oblique shift moves into view
   is frustum-culled at the edges.

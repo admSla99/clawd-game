@@ -9,7 +9,7 @@ uniform vec4 albedo = vec4(1.0);
 uniform bool flash = false;
 
 void vertex() {
-	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
+	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 }
 
 void fragment() {

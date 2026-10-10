@@ -23,6 +23,8 @@ func _init() -> void:
 		mat.set_shader_parameter("mode", {"solid": 0, "oneway": 1, "corrupt": 2, "spike": 3}[name])
 		var box := BoxMesh.new()
 		box.size = Vector3(1, 1, DEPTH)
+		# A vertex row at z = 0, where the perspective in shaders/oblique.gdshaderinc bends.
+		box.subdivide_depth = 1
 		if name == "oneway":
 			box.size = Vector3(1, 0.25, ONEWAY_DEPTH)
 			lib.set_item_mesh_transform(i, Transform3D(Basis.IDENTITY, Vector3(0, 0.375, 0)))

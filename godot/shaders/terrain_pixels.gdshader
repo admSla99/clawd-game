@@ -25,6 +25,9 @@ const int MAX_SHADOWS = 16;
 uniform vec4 shadows[MAX_SHADOWS];
 uniform int shadow_count = 0;
 uniform float game_time = 0.0;
+// The theme's light colour (Themes): side faces catch a little of it, so they read apart from the black
+// block fronts.
+uniform vec3 ambient = vec3(0.59, 0.59, 0.84);
 uniform vec4 lights[MAX_LIGHTS];
 uniform float light_energy[MAX_LIGHTS];
 uniform int light_count = 0;
@@ -88,7 +91,7 @@ vec3 lit(vec3 c, float lv) {
 }
 
 void vertex() {
-	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
+	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
@@ -257,6 +260,49 @@ void fragment() {
 			}
 		}
 		col = mix(col, BLACK, dark);
+	} else if (abs(wnormal.x) > 0.5) {
+		// Side faces, opened by the perspective off the view centre: the crust wraps over the top edge,
+		// a lit rim at the front, rock strata that darken towards the back, now and then a circuit spark.
+		int iy = int(floor(-wpos.y * 16.0)); // level pixel row
+		int qy = iy & 15;
+		int drow = int(floor((half_depth - wpos.z) / row_z)); // 0 = front edge
+		float back = clamp((half_depth - wpos.z) / (2.0 * half_depth), 0.0, 1.0);
+		float px = wpos.x * 16.0;
+		ivec2 own = ivec2(int(floor((px - wnormal.x * 0.5) / 4.0)), iy >> 2);
+		ivec2 beside = ivec2(int(floor((px + wnormal.x * 0.5) / 4.0)), iy >> 2);
+		lpx = ivec2(drow, iy);
+		if (mode == 3 || (mode != 1 && blocky(beside))) {
+			col = BLACK;
+		} else if (mode == 1) {
+			col = qy == 0 ? GREY_4 : qy == 1 ? GREY_3 : GREY_1;
+		} else if (mode == 2) {
+			int fr = int(floor(game_time * 12.0));
+			col = drow == 0 ? ORANGE_DARK : CORRUPT_BODY;
+			if (hash2(drow, iy, fr) > 0.9) {
+				col = ORANGE;
+			}
+		} else {
+			bool top = cell_at(own).b > 0.5 && (iy & 3) == qy;
+			float s = hash2(drow, iy, 41);
+			col = back < 0.34 ? GREY_1 : back < 0.67 ? BODY_1 : BODY_2;
+			if ((iy & 3) == 0 && s > 0.6) {
+				col = SEAM;
+			}
+			// Ambient light from the theme, strongest at the front edge, in three steps.
+			col = mix(col, ambient, back < 0.34 ? 0.16 : back < 0.67 ? 0.09 : 0.04);
+			if (drow == 0) {
+				col = mix(GREY_2, ambient, 0.3);
+			}
+			if (top && qy < 3) {
+				col = qy == 0 ? GREY_5 : qy == 1 ? GREY_4 : GREY_3;
+				if (back > 0.6) {
+					col = GREY_2;
+				}
+			}
+			if (s > 0.992 && !(top && qy < 3)) {
+				col = ORANGE_DARK;
+			}
+		}
 	}
 	col = lit(col, occl > 0.0 ? light_level(lp, lpx) * occl : 0.0);
 	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2)) * boost;

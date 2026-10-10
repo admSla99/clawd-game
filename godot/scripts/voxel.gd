@@ -65,7 +65,12 @@ static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 
 
 
 ## One face of column `p` with outward normal `n`, its corners from FACES with z mapped to z0..z1 cubes.
+## Faces crossing z = 0 are split there, where the perspective in shaders/oblique.gdshaderinc bends.
 static func _quad(st: SurfaceTool, origin: Vector3, p: Vector2i, n: Vector3i, z0: int, z1: int, col: Color, size: float) -> void:
+	if n.z == 0 and z0 < 0 and z1 > 0:
+		_quad(st, origin, p, n, z0, 0, col, size)
+		_quad(st, origin, p, n, 0, z1, col, size)
+		return
 	var c: Color = col * SHADE[n]
 	c.a = 1.0
 	c = c.srgb_to_linear()

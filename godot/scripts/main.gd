@@ -80,6 +80,7 @@ func load_level(id: String) -> void:
 	info = levels[level_ids.find(id)]
 	level.bake_cells(info.terrainSeed)
 	level.set_param("row_z", GameCamera.ROW_Z)
+	level.set_param("ambient", Themes.vec(Themes.palette(info.theme).light))
 	Game.reset()
 	particles.clear()
 

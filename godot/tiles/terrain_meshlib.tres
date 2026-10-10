@@ -19,6 +19,7 @@ shader_parameter/light_count = null
 [sub_resource type="BoxMesh" id="BoxMesh_m0npq"]
 material = SubResource("ShaderMaterial_xq5bu")
 size = Vector3(1, 1, 3)
+subdivide_depth = 1
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_cb6s2"]
 size = Vector3(1, 1, 3)
@@ -40,6 +41,7 @@ shader_parameter/light_count = null
 [sub_resource type="BoxMesh" id="BoxMesh_keart"]
 material = SubResource("ShaderMaterial_4phgr")
 size = Vector3(1, 0.25, 0.75)
+subdivide_depth = 1
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ux4jo"]
 size = Vector3(1, 0.25, 3)
@@ -61,6 +63,7 @@ shader_parameter/light_count = null
 [sub_resource type="BoxMesh" id="BoxMesh_xi3ku"]
 material = SubResource("ShaderMaterial_raiyn")
 size = Vector3(1, 1, 3)
+subdivide_depth = 1
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sm6n4"]
 render_priority = 0
@@ -79,6 +82,7 @@ shader_parameter/light_count = null
 [sub_resource type="BoxMesh" id="BoxMesh_n6q1j"]
 material = SubResource("ShaderMaterial_sm6n4")
 size = Vector3(1, 1, 3)
+subdivide_depth = 1
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_e2s43"]
 size = Vector3(1, 1, 3)

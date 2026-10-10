@@ -36,7 +36,10 @@ vec3 tone(float k) {
 }
 
 void vertex() {
-	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
+	// Each box converges from its own front face, so the far layers keep their size and parallax but
+	// still show their sides.
+	vec4 w = MODEL_MATRIX * vec4(VERTEX, 1.0);
+	POSITION = PROJECTION_MATRIX * (VIEW_MATRIX * oblique_world(w, INV_VIEW_MATRIX, box_size.z * 0.5 - VERTEX.z));
 	lpos = VERTEX;
 	lnormal = NORMAL;
 }
