@@ -37,36 +37,9 @@ const HURT_KNOCK_Y := 250.0
 const MAX_HEARTS := 3
 
 const SIZE := Vector2(18, 18)
-## Size of the voxel sprite in pixels (13 x 10 cells of 2 px).
-const SPRITE_PX := Vector2(26, 20)
 const HITBOX := Rect2(-7, -15, 14, 15)
 const SPIKE_PROBE := Rect2(-6, -6, 12, 6)
 
-const PALETTE := {"O": Color("#D97757"), "o": Color("#B35E40"), "E": Color("#1A1311")}
-## Voxel depth per palette character: a thick body, thinner arms and legs, eyes on both faces.
-const DEPTH := {"O": 6, "o": 2, "E": 6}
-const ORANGE := Color("#D97757")
-const ORANGE_LIGHT := Color("#F0A585")
-const ARM_ROWS := {"mid": [4, 5], "up": [2, 3], "high": [1, 2]}
-const LEGS := {
-	"stand": ["..o.o...o.o..", "..o.o...o.o.."],
-	"runA": ["..o.o...o.o..", "....o.....o.."],
-	"runB": ["..o.o...o.o..", "..o.....o...."],
-	"tuck": ["..o.o...o.o..", "............."],
-	"dangle": ["...o.o...o.o.", "...o.o...o.o."],
-}
-## Frame name -> text grid; MESHES holds their voxel meshes.
-static var FRAMES := {
-	"idle": clawd_frame("mid", "stand"),
-	"blink": clawd_frame("mid", "stand", true),
-	"runA": clawd_frame("mid", "runA"),
-	"runB": clawd_frame("mid", "runB"),
-	"jump": clawd_frame("up", "tuck"),
-	"fall": clawd_frame("high", "dangle"),
-	"hover": clawd_frame("mid", "dangle"),
-	"hurt": clawd_frame("high", "dangle", true),
-}
-static var MESHES := build_meshes()
 static var FLASH := flash_material()
 
 var level: Level
@@ -96,32 +69,6 @@ var blink_timer := 2.5
 @onready var visual: Node3D = $Visual
 @onready var body: MeshInstance3D = $Visual/Body
 @onready var jets: Array[Node] = $Visual/Jets.get_children()
-
-
-## 13x10 Clawd frame facing right, same layout as clawdFrame() in src/render/sprites.ts.
-## Blink and squint both keep only the lower eye row.
-static func clawd_frame(arms: String, legs: String, squint := false) -> Array:
-	var rows := []
-	for r in 8:
-		var row := "..ooooooooo.." if r == 7 else "..oOOOOOOOO.."
-		if r == 3 or (r == 2 and not squint):
-			row[5] = "E"
-			row[9] = "E"
-		if r in ARM_ROWS[arms]:
-			row[0] = "o"
-			row[1] = "o"
-			row[11] = "O"
-			row[12] = "O"
-		rows.append(row)
-	rows.append_array(LEGS[legs])
-	return rows
-
-
-static func build_meshes() -> Dictionary:
-	var meshes := {}
-	for f in FRAMES:
-		meshes[f] = Voxel.mesh(FRAMES[f], PALETTE, DEPTH)
-	return meshes
 
 
 ## Hit flash: replaces every colour with white, like `tint` in the 2D drawing.
@@ -208,6 +155,8 @@ func _physics_process(dt: float) -> void:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
 		vel.x = move_toward(vel.x, dir * RUN_SPEED, accel * dt)
 		if dir != 0:
+			if int(dir) != facing and grounded:
+				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
 			facing = int(dir)
 		if jump_buffer > 0 and (grounded or coyote > 0):
 			vel.y = -JUMP_VELOCITY
@@ -293,33 +242,49 @@ func _touches_tile(item: int, probe: Rect2) -> bool:
 	return false
 
 
-## Frame choice and overlays follow drawClawd() in src/render/clawdView.ts.
+## Pose choice follows drawClawd() in src/render/clawdView.ts; ClawdSprite draws it at 1 px with eyes
+## that look where Clawd goes, swinging arms and squash & stretch as real body sizes.
 func _update_visual() -> void:
 	var t := Game.time
 	visible = not (invuln > 0 and hurt_timer <= 0 and floori(t * 14) % 2 == 0)
-	var frame := &"idle"
+	var o := {"arms": "mid", "legs": "stand", "eyes": "open"}
+	var look := Vector2i.ZERO
 	var y_off := 0.0
 	if hurt_timer > 0:
-		frame = &"hurt"
+		o.arms = "high"
+		o.legs = "dangle"
+		o.eyes = "squint"
 	elif not is_on_floor():
-		frame = &"hover" if hovering else &"jump" if vel.y < 0 else &"fall"
+		if hovering:
+			o.arms = "low"
+			o.legs = "dangle"
+		elif vel.y < 0:
+			o.arms = "up"
+			o.legs = "tuck"
+		else:
+			o.arms = "high"
+			o.legs = "dangle"
+		look.y = -1 if vel.y < -150 else 1 if vel.y > 150 else 0
 	elif absf(vel.x) > 12:
 		var phase := floori(anim * (6 + absf(vel.x) / 14)) % 4
-		frame = &"runA" if phase == 0 else &"runB" if phase == 2 else &"idle"
+		o.legs = "runA" if phase == 0 else "runB" if phase == 2 else "stand"
+		o.arms = "swingA" if phase < 2 else "swingB"
 		y_off = 1.0 if phase % 2 == 1 else 0.0
+		look.x = 1
 	else:
-		frame = &"blink" if blink_timer < 0 else &"idle"
+		o.eyes = "blink" if blink_timer < 0 else "open"
 		y_off = 1.0 if sin(anim * 3) > 0.6 else 0.0
-	body.mesh = MESHES[frame]
+		# Now and then a glance back over the shoulder.
+		look.x = -1 if fmod(anim, 7.0) > 5.6 else 0
+	o.look = look
+	o.bw = clampi(roundi(ClawdSprite.BODY_W * squash.x / 2) * 2, 12, 26)
+	o.bh = clampi(roundi(ClawdSprite.BODY_H * squash.y), 10, 22)
+	body.mesh = ClawdSprite.mesh(o)
 	body.material_override = FLASH if hurt_timer > 0 and floori(t * 20) % 2 == 0 else null
-	# Draw on whole view pixels: the body follows `pos` rounded to the pixel grid (the camera is
-	# pixel-aligned too) and squash & stretch keeps the sprite an even number of pixels wide and a
-	# whole number tall, so the 2 px voxels don't shimmer between 1 and 3 px while moving.
+	# Draw on whole view pixels: the camera is pixel-aligned, so the body follows `pos` rounded to the
+	# pixel grid and never lands between pixels.
 	var snap := pos.round() - pos
 	visual.position = Vector3(snap.x, -snap.y + y_off, 0) * Px.M
-	var sx := roundf(SPRITE_PX.x * squash.x / 2) * 2 / SPRITE_PX.x
-	var sy := roundf(SPRITE_PX.y * squash.y) / SPRITE_PX.y
-	visual.scale = Vector3(sx, sy, sx)
 	visual.rotation.y = 0.0 if facing > 0 else PI
 	# Hover jet: two flickering beams from the legs.
 	for j: Node3D in jets:

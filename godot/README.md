@@ -106,14 +106,22 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
 
 ## Voxel models
 
-`scripts/voxel.gd` (`Voxel.mesh()`) turns the text-grid sprites into voxel meshes: every palette character is a
-cube 2 px wide, extruded to a per-character depth around z = 0, with no faces between two cubes. The material is
-unshaded: the front face keeps the palette colour exactly and the other faces are darker or lighter by a fixed
-factor (`SHADE`), so the sprites keep their 2D colours. The sprites stay where the 2D port had them: Clawd's frames
-from `Player.FRAMES` (`clawd_frame()` in `scripts/player.gd`, depth `DEPTH`), the bug's from `FRAMES` in
-`scripts/bug.gd`, and the token from `ROWS` in `scripts/token.gd`. Meshes are built once per frame; animating
-swaps `MeshInstance3D.mesh`. Squash & stretch scales the player's `Visual` node, not the collision shape, with the
-factors from `src/entities/player.ts`.
+`scripts/voxel.gd` (`Voxel.mesh()`) turns text-grid sprites into voxel meshes: every palette character is a
+column `size` wide (2 px by default), extruded to a per-character depth around z = 0; side faces cover only the
+depth a neighbouring column does not. The material (`shaders/voxel.gdshader`) is unshaded and the vertex colours
+are stored linear: the front face keeps the palette colour exactly and the other faces are darker or lighter by
+a fixed factor (`SHADE`), or take a given `top` colour. The bug's frames are `FRAMES` in `scripts/bug.gd`, the
+token's `ROWS` in `scripts/token.gd`, the lanterns and tufts are in `scripts/decor.gd`.
+
+Clawd is drawn by `scripts/clawd_sprite.gd` (`ClawdSprite`) at 1 px resolution, from the 13 x 10 cell layout of
+`clawdFrame()` in `src/render/sprites.ts`: an 18 x 16 px body with a shaded left column and bottom, a lit top rim
+and right edge, eyes with a glint, arms and four legs per pose. `Player._update_visual()` picks the pose like
+`drawClawd()` in `src/render/clawdView.ts` and adds: pupils that look ahead while running, up while rising and
+down while falling (and back over the shoulder now and then when idle), arms that swing while running, and
+squash & stretch (from `src/entities/player.ts`, plus a pinch when turning) drawn as a wider/flatter or
+narrower/taller body instead of a scaled mesh. `ClawdSprite.mesh()` caches every combination it builds.
+The visual snaps to whole pixels (the camera is pixel-aligned), so the sprite never lands between pixels. A
+small `GlowLight` on Clawd warms the ground around him.
 
 ## Look and feedback
 

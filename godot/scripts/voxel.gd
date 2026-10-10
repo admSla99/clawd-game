@@ -26,34 +26,55 @@ const SHADER := preload("res://shaders/voxel.gdshader")
 static var MATERIAL := material()
 
 
-static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 * Px.M, mat: Material = MATERIAL) -> ArrayMesh:
+## `top` optionally gives a character's top-face colour (used as is, without SHADE), e.g. so a light rim
+## on the front does not also make a pale band on top.
+static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 * Px.M, mat: Material = MATERIAL, top := {}) -> ArrayMesh:
 	var h := rows.size()
 	var w: int = rows[0].length()
-	var cells := {}
+	# Each art pixel is one column, `depth` cubes deep around z = 0: front and back quads, and side quads
+	# only over the depth a neighbour column does not cover. Same surface as stacking cubes, far fewer
+	# triangles.
+	var half := {} # Vector2i(c, y) -> half depth in cubes
 	for r in h:
 		var row: String = rows[r]
 		for c in w:
-			if not palette.has(row[c]):
-				continue
-			var half: int = depth.get(row[c], 2) >> 1
-			for k in range(-half, half):
-				cells[Vector3i(c, h - 1 - r, k)] = palette[row[c]]
+			if palette.has(row[c]):
+				half[Vector2i(c, h - 1 - r)] = depth.get(row[c], 2) >> 1
 	var origin := Vector3(-w / 2.0, 0, 0)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for v: Vector3i in cells:
-		for n: Vector3i in FACES:
-			if cells.has(v + n):
+	for p: Vector2i in half:
+		var d: int = half[p]
+		var ch: String = rows[h - 1 - p.y][p.x]
+		var col: Color = palette[ch]
+		_quad(st, origin, p, Vector3i(0, 0, 1), -d, d, col, size)
+		_quad(st, origin, p, Vector3i(0, 0, -1), -d, d, col, size)
+		for n: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+			var nd: int = half.get(p + Vector2i(n.x, n.y), 0)
+			if nd >= d:
 				continue
-			var q: Array = FACES[n]
-			for i in [0, 1, 2, 0, 2, 3]:
-				var col: Color = cells[v] * SHADE[n]
-				col.a = 1.0
-				st.set_color(col.srgb_to_linear())
-				st.set_normal(Vector3(n))
-				st.add_vertex((origin + Vector3(v) + q[i]) * size)
+			if nd == 0 and n.y == 1 and top.has(ch):
+				_quad(st, origin, p, n, -d, d, top[ch] / SHADE[n], size)
+			elif nd == 0:
+				_quad(st, origin, p, n, -d, d, col, size)
+			else:
+				_quad(st, origin, p, n, nd, d, col, size)
+				_quad(st, origin, p, n, -d, -nd, col, size)
 	st.set_material(mat)
 	return st.commit()
+
+
+## One face of column `p` with outward normal `n`, its corners from FACES with z mapped to z0..z1 cubes.
+static func _quad(st: SurfaceTool, origin: Vector3, p: Vector2i, n: Vector3i, z0: int, z1: int, col: Color, size: float) -> void:
+	var c: Color = col * SHADE[n]
+	c.a = 1.0
+	c = c.srgb_to_linear()
+	var q: Array = FACES[n]
+	for i in [0, 1, 2, 0, 2, 3]:
+		var v: Vector3 = q[i]
+		st.set_color(c)
+		st.set_normal(Vector3(n))
+		st.add_vertex((origin + Vector3(p.x + v.x, p.y + v.y, z0 + v.z * (z1 - z0))) * size)
 
 
 ## Unshaded vertex-colour material (shaders/voxel.gdshader, with the 2.5D oblique projection). `glow` > 1
