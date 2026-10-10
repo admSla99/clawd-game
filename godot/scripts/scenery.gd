@@ -2,7 +2,7 @@ class_name Scenery
 extends Node3D
 
 ## The neural forest behind the level, drawn by shaders/scenery.gdshader: three layers at growing depth,
-## each mixed further into the haze, of trunks (columns of a neuron layer with pulsing node sockets and
+## fading further into the sky's depth fog (shaders/fog.gdshaderinc), of trunks (columns of a neuron layer with pulsing node sockets and
 ## signals climbing their fibres), sagging weight cables between neighbouring trunks that carry light
 ## pulses, and floating neurons. Between them and the level a midground layer at z = -3 m, anchored to the
 ## level and drawn with the true perspective of the level geometry (so it shifts against the level as the
@@ -21,16 +21,16 @@ const SHADER := preload("res://shaders/scenery.gdshader")
 ## Depth of every box in metres; the top band is DEPTH / GameCamera.ROW_Z view rows.
 const DEPTH := 1.5
 ## z = depth of the front faces (a multiple of 3/16 m, so the depth offset is whole pixels), factor /
-## factor_y = parallax factors, haze = haze_amount, trunk = trunk width range in 4 px steps, gap = gap
+## factor_y = parallax factors, trunk = trunk width range in 4 px steps, gap = gap
 ## range between trunks in px, cables = range of cables between two neighbouring trunks, neurons =
 ## floating neurons per 480 px, fg = foreground silhouettes,
 ## anchored to the level vertically (factor_y 1).
 const LAYERS := [
-	{"z": -27.0, "factor": 0.15, "factor_y": 0.15, "haze": 0.72, "trunk": [2, 4], "gap": [30, 70], "cables": [0, 1], "neurons": 0.0, "seed": 101},
-	{"z": -15.0, "factor": 0.3, "factor_y": 0.3, "haze": 0.5, "trunk": [3, 5], "gap": [50, 110], "cables": [0, 2], "neurons": 2.0, "seed": 202},
-	{"z": -6.0, "factor": 0.5, "factor_y": 0.5, "haze": 0.3, "trunk": [4, 7], "gap": [90, 190], "cables": [1, 2], "neurons": 2.5, "seed": 303},
-	{"z": -3.0, "factor": 1.0, "factor_y": 1.0, "haze": 0.18, "mid": true, "trunk": [6, 10], "gap": [220, 420], "seed": 505},
-	{"z": 6.0, "factor": 1.35, "factor_y": 1.0, "haze": 0.0, "fg": true, "seed": 404},
+	{"z": -27.0, "factor": 0.15, "factor_y": 0.15, "trunk": [2, 4], "gap": [30, 70], "cables": [0, 1], "neurons": 0.0, "seed": 101},
+	{"z": -15.0, "factor": 0.3, "factor_y": 0.3, "trunk": [3, 5], "gap": [50, 110], "cables": [0, 2], "neurons": 2.0, "seed": 202},
+	{"z": -6.0, "factor": 0.5, "factor_y": 0.5, "trunk": [4, 7], "gap": [90, 190], "cables": [1, 2], "neurons": 2.5, "seed": 303},
+	{"z": -3.0, "factor": 1.0, "factor_y": 1.0, "mid": true, "trunk": [6, 10], "gap": [220, 420], "seed": 505},
+	{"z": 6.0, "factor": 1.35, "factor_y": 1.0, "fg": true, "seed": 404},
 ]
 ## Instance `kind` in shaders/scenery.gdshader.
 const TRUNK := 0
@@ -61,9 +61,9 @@ func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary, hangi
 		_layers.append(node)
 		var mat := ShaderMaterial.new()
 		mat.shader = SHADER
-		mat.set_shader_parameter("haze_amount", l.haze)
 		mat.set_shader_parameter("row_z", GameCamera.ROW_Z)
-		mat.set_shader_parameter("haze", Themes.vec(palette.haze))
+		for key in ["top", "mid", "haze"]:
+			mat.set_shader_parameter("fog_" + key, Themes.vec(palette[key]))
 		mat.set_shader_parameter("light_color", Themes.vec(palette.light))
 		mat.set_shader_parameter("silhouette", l.get("fg", false))
 		mat.set_shader_parameter("world_perspective", l.get("mid", false))

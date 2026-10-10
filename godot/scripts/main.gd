@@ -84,6 +84,8 @@ func load_level(id: String) -> void:
 	level.bake_cells(info.terrainSeed)
 	level.set_param("row_z", GameCamera.ROW_Z)
 	level.set_param("ambient", Themes.vec(Themes.palette(info.theme).light))
+	for key in ["top", "mid", "haze"]:
+		level.set_param("fog_" + key, Themes.vec(Themes.palette(info.theme)[key]))
 	Game.reset()
 	particles.clear()
 

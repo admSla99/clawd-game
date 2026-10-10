@@ -13,6 +13,7 @@ shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
+#include "res://shaders/fog.gdshaderinc"
 
 const int MAX_LIGHTS = 32;
 
@@ -317,5 +318,7 @@ void fragment() {
 		}
 	}
 	col = lit(col, occl > 0.0 ? light_level(lp, lpx) * occl : 0.0);
+	// The back of the blocks (top bands, sides) fades a little into the depth fog.
+	col = apply_fog(col, -wpos.z, SCREEN_UV.y);
 	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2)) * boost;
 }

@@ -8,20 +8,19 @@
 // `world_perspective` (the midground) uses the level's perspective, converging from the gameplay plane,
 // instead of each box converging from its own front face.
 // With `silhouette` (the foreground layer) trunks are flat dark cutouts with a jagged broken top and cables
-// are dark. Every lit tone is the body mixed towards `light_color` (see Themes); the layer is mixed into
-// the haze by `haze_amount`. Pixels are box-local (instance `box_size`), so patterns sit on the box wherever
+// are dark. Every lit tone is the body mixed towards `light_color` (see Themes); every pixel fades into
+// the sky behind it with its depth (shaders/fog.gdshaderinc). Pixels are box-local (instance `box_size`), so patterns sit on the box wherever
 // it is; top faces are bands of view rows like the level blocks. Colours are sRGB, converted at the end.
 shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
+#include "res://shaders/fog.gdshaderinc"
 
 instance uniform vec3 box_size = vec3(1.0);
 instance uniform float seed = 0.0;
 instance uniform float kind = 0.0;
-uniform vec3 haze = vec3(0.118, 0.176, 0.302);
 uniform vec3 light_color = vec3(0.435, 0.561, 0.769);
-uniform float haze_amount = 0.3;
 uniform bool silhouette = false;
 uniform bool world_perspective = false;
 uniform float row_z = 0.1875;
@@ -30,6 +29,7 @@ uniform float game_time = 0.0;
 varying vec3 lpos;
 varying vec3 lnormal;
 varying float along;
+varying float wz;
 
 // hash2 from src/core/noise.ts (32-bit wrapping math).
 float hash2(int x, int y, int s) {
@@ -54,6 +54,7 @@ void vertex() {
 	lpos = VERTEX;
 	lnormal = NORMAL;
 	along = UV.x;
+	wz = w.z;
 }
 
 void fragment() {
@@ -155,6 +156,6 @@ void fragment() {
 		// Trunk sides, opened by the perspective.
 		col = int(floor((box_size.z * 0.5 - lpos.z) / row_z)) == 0 ? tone(0.1) : tone(0.04);
 	}
-	col = mix(col, haze, haze_amount);
+	col = apply_fog(col, -wz, SCREEN_UV.y);
 	ALBEDO = pow(col, vec3(2.2)) * boost;
 }

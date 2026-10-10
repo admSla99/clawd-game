@@ -35,7 +35,8 @@ func setup(seed: int, bounds: Vector2, palette: Dictionary, dark: bool) -> void:
 			"phase": h.call(6) * TAU,
 			"blink": 0.4 + h.call(8) * 1.2,
 			"size": 2.0 if h.call(9) > 0.8 else 1.0,
-			"color": c * (2.4 if warm else 1.8),
+			# Far motes are dimmer, like the depth fog (shaders/fog.gdshaderinc) would make them.
+			"color": c * (2.4 if warm else 1.8) * exp(-maxf(0, -lerpf(-5.0, 1.2, h.call(2))) * 0.08),
 		})
 		if i % LIT == 0:
 			var g := GlowLight.new()

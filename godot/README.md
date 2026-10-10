@@ -161,7 +161,7 @@ Back to front:
 - `scripts/scenery.gd` (`Scenery`): the neural forest, three layers deep, drawn by `shaders/scenery.gdshader`:
   trunks (columns of a neuron layer with pulsing node sockets and signals climbing their fibres), sagging
   weight cables between neighbouring trunks that carry light pulses, and floating neurons, all in the
-  palette's light colour and mixed further into the haze with depth. The camera is orthographic, so
+  palette's light colour. The camera is orthographic, so
   `Scenery.update()` moves each layer with the camera by its parallax factor; layers are generated from the
   level's `terrainSeed`. Per-theme motifs to add on top are collected in `docs/scenery-themes.md`.
 - The level: all blocks use `shaders/terrain_pixels.gdshader`. On level load `Level.bake_cells()` writes one
@@ -198,6 +198,10 @@ Back to front:
   (2 px voxels with a faint rim in the theme's light colour, swaying), dark broken trunk bases with a jagged
   top, rising from the level's bottom (in dark levels also hanging from its top), and thick dark cables
   hanging into the view.
+- Depth fog: `shaders/fog.gdshaderinc`, used by the scenery and the terrain, fades every pixel by its depth
+  behind the gameplay plane (`1 - e^(-depth * 0.06)`, thicker in the lower part of the view) into the sky
+  colour of its view row (the haze gradient of the theme), so distant trunks dissolve into the sky behind
+  them; motes dim with depth the same way.
 - Colour grade: `shaders/grade.gdshader` (`Grade`, the top canvas layer in the SubViewport) lifts the darks a
   little towards the theme's haze colour, warms the lights towards the lanterns' orange and adds a touch of
   saturation, pixel for pixel.
