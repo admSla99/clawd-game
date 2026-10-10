@@ -155,10 +155,12 @@ Back to front:
   steps, with slanted light rays that pulse slowly and drift with the camera.
 - `Parallax` (see above), its baked grey layers tinted between the palette's haze and light colours and its
   stars, data rain and rings towards the light colour.
-- `scripts/scenery.gd` (`Scenery`): three layers of towers and floating blocks behind the level, drawn by
-  `shaders/scenery.gdshader` (lit rim, panel edges, windows blinking in the light colour, a few orange), mixed
-  further into the haze with depth. The camera is orthographic, so `Scenery.update()` moves each layer with the
-  camera by its parallax factor; layers are generated from the level's `terrainSeed`.
+- `scripts/scenery.gd` (`Scenery`): the neural forest, three layers deep, drawn by `shaders/scenery.gdshader`:
+  trunks (columns of a neuron layer with pulsing node sockets and signals climbing their fibres), sagging
+  weight cables between neighbouring trunks that carry light pulses, and floating neurons, all in the
+  palette's light colour and mixed further into the haze with depth. The camera is orthographic, so
+  `Scenery.update()` moves each layer with the camera by its parallax factor; layers are generated from the
+  level's `terrainSeed`. Per-theme motifs to add on top are collected in `docs/scenery-themes.md`.
 - The level: all blocks use `shaders/terrain_pixels.gdshader`. On level load `Level.bake_cells()` writes one
   texel per 4 px cell (distance to open air, random, open cell above, solid). Front faces: a black body that
   steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
@@ -173,8 +175,9 @@ Back to front:
   jets. `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights
   the pixels around them in four steps with an ordered dither between them. On block fronts only the crust
   within three cells of open air takes light.
-- Foreground: a `Scenery` layer in front of the level (parallax 1.35) of dark stepped silhouettes with a jagged,
-  grassy edge, rising from the level's bottom and in dark levels also hanging from its top.
+- Foreground: a `Scenery` layer in front of the level (parallax 1.35) of dark broken trunk bases with a jagged
+  top, rising from the level's bottom (in dark levels also hanging from its top), and thick dark cables
+  hanging into the view.
 
 The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt` and `stomp`; `main.gd` answers
 with particles (same counts and colors as `particles.emit` in `src/scenes/game.ts`), camera shake and

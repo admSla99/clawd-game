@@ -1,10 +1,13 @@
 class_name Scenery
 extends Node3D
 
-## Towers and floating blocks behind the level, drawn by shaders/scenery.gdshader. Three layers at
-## growing depth, each mixed further into the haze, and a layer of dark silhouettes in front of the level
-## (stepped rocks rising from the level's bottom, in dark levels also hanging from its top) that moves
-## faster than the level. The camera is orthographic, so depth alone gives no
+## The neural forest behind the level, drawn by shaders/scenery.gdshader: three layers at growing depth,
+## each mixed further into the haze, of trunks (columns of a neuron layer with pulsing node sockets and
+## signals climbing their fibres), sagging weight cables between neighbouring trunks that carry light
+## pulses, and floating neurons. In front of the level a faster layer of dark silhouettes: broken trunk
+## bases rising from the level's bottom (in dark levels also hanging from its top) and cables hanging into
+## the view. Per-theme motifs to add on top are in docs/scenery-themes.md. The camera is orthographic, so
+## depth alone gives no
 ## parallax: update() moves every layer with the camera by (1 - factor), and offsets it by its depth so
 ## its front faces land on the view where the same level pixel of the gameplay plane would. Positions
 ## are whole view pixels, so the box-local pixel pattern stays crisp.
@@ -13,14 +16,23 @@ const SHADER := preload("res://shaders/scenery.gdshader")
 ## Depth of every box in metres; the top band is DEPTH / GameCamera.ROW_Z view rows.
 const DEPTH := 1.5
 ## z = depth of the front faces (a multiple of 3/16 m, so the depth offset is whole pixels), factor /
-## factor_y = parallax factors, haze = haze_amount, floating = number of floating blocks per 480 px,
-## fg = foreground silhouettes, anchored to the level vertically (factor_y 1).
+## factor_y = parallax factors, haze = haze_amount, trunk = trunk width range in 4 px steps, gap = gap
+## range between trunks in px, cables = range of cables between two neighbouring trunks, neurons =
+## floating neurons per 480 px, fg = foreground silhouettes,
+## anchored to the level vertically (factor_y 1).
 const LAYERS := [
-	{"z": -27.0, "factor": 0.15, "factor_y": 0.15, "haze": 0.72, "floating": 0.0, "seed": 101},
-	{"z": -15.0, "factor": 0.3, "factor_y": 0.3, "haze": 0.5, "floating": 1.5, "seed": 202},
-	{"z": -6.0, "factor": 0.5, "factor_y": 0.5, "haze": 0.3, "floating": 2.0, "seed": 303},
+	{"z": -27.0, "factor": 0.15, "factor_y": 0.15, "haze": 0.72, "trunk": [2, 4], "gap": [30, 70], "cables": [0, 1], "neurons": 0.0, "seed": 101},
+	{"z": -15.0, "factor": 0.3, "factor_y": 0.3, "haze": 0.5, "trunk": [3, 5], "gap": [50, 110], "cables": [0, 2], "neurons": 2.0, "seed": 202},
+	{"z": -6.0, "factor": 0.5, "factor_y": 0.5, "haze": 0.3, "trunk": [4, 7], "gap": [90, 190], "cables": [1, 2], "neurons": 2.5, "seed": 303},
 	{"z": 6.0, "factor": 1.35, "factor_y": 1.0, "haze": 0.0, "fg": true, "seed": 404},
 ]
+## Instance `kind` in shaders/scenery.gdshader.
+const TRUNK := 0
+const CABLE := 1
+const NEURON := 2
+## Cable thickness in px; the foreground's hanging cables are thicker.
+const CABLE_PX := 2.0
+const FG_CABLE_PX := 5.0
 
 var _layers: Array[Node3D] = []
 var _materials: Array[ShaderMaterial] = []
@@ -50,31 +62,43 @@ func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary, hangi
 		_materials.append(mat)
 		var width := view.x + maxf(0, bounds.x - view.x) * f + 64
 		if l.get("fg", false):
-			_silhouettes(node, mat, s, width, bounds, hanging)
+			_silhouettes(node, mat, s, width, bounds, view.y, hanging)
 			continue
-		# Towers stand on a ground line below the view wherever the camera is.
+		# Trunks run from below the view to above it wherever the camera is.
 		var ground := view.y + max_cam_y * f + 24
+		var band := Vector2(max_cam_y * f + view.y * 0.06, max_cam_y * f + view.y * 0.72) # cable heights
+		var trunks: Array[Rect2] = []
 		var x := -32.0 + floorf(DotNoise.hash2(0, 9, s) * 40)
 		var i := 0
 		while x < width:
-			var w := 4.0 * (5 + floori(DotNoise.hash2(i, 0, s) * 11))
-			var h := view.y * (0.25 + DotNoise.hash2(i, 1, s) * 0.5)
-			_box(node, mat, Rect2(x, roundf(ground - h), w, h + 32), DotNoise.hash2(i, 2, s) * 1000)
-			x += w + 4.0 * floori(DotNoise.hash2(i, 3, s) * 12)
+			var w: float = 4.0 * (l.trunk[0] + floori(DotNoise.hash2(i, 0, s) * (l.trunk[1] - l.trunk[0] + 1)))
+			var r := Rect2(x, -40, w, ground + 72)
+			trunks.append(r)
+			_box(node, mat, r, DotNoise.hash2(i, 2, s) * 1000, TRUNK)
+			x += w + l.gap[0] + floorf(DotNoise.hash2(i, 3, s) * (l.gap[1] - l.gap[0]))
 			i += 1
-		# Floating blocks in the upper half of the view (at the lowest camera position).
-		for k in floori(width / 480 * l.floating):
-			var w := 4.0 * (4 + floori(DotNoise.hash2(k, 4, s) * 9))
-			var h := 4.0 * (2 + floori(DotNoise.hash2(k, 5, s) * 4))
+		# Weights between neighbouring trunks, nearly level (ends at most 30 px apart in height).
+		for t in trunks.size() - 1:
+			var a := trunks[t]
+			var b := trunks[t + 1]
+			for c in l.cables[0] + floori(DotNoise.hash2(t, 10, s) * (l.cables[1] - l.cables[0] + 1)):
+				var y0 := roundf(lerpf(band.x, band.y, DotNoise.hash2(t, 11 + c, s)))
+				var y1 := roundf(clampf(y0 + (DotNoise.hash2(t, 21 + c, s) - 0.5) * 60, band.x, band.y))
+				var sag := (b.position.x - a.end.x) * (0.06 + DotNoise.hash2(t, 31 + c, s) * 0.14)
+				_cable(node, mat, Vector2(a.end.x, y0), Vector2(b.position.x, y1), sag, DotNoise.hash2(t, 41 + c, s) * 1000)
+		# Floating neurons in the upper part of the view (at the lowest camera position).
+		for k in floori(width / 480 * l.neurons):
+			var size := 6.0 if DotNoise.hash2(k, 4, s) < 0.6 else 8.0
 			var bx := floorf(DotNoise.hash2(k, 6, s) * width)
-			var by := roundf(max_cam_y * f + view.y * (0.1 + DotNoise.hash2(k, 7, s) * 0.4))
-			_box(node, mat, Rect2(bx, by, w, h), DotNoise.hash2(k, 8, s) * 1000)
+			var by := roundf(max_cam_y * f + view.y * (0.08 + DotNoise.hash2(k, 7, s) * 0.45))
+			_box(node, mat, Rect2(bx, by, size, size), DotNoise.hash2(k, 8, s) * 1000, NEURON, 0.0, size * Px.M)
 
 
-## Stepped dark rocks every 450-900 px, rising from the level's bottom 64-180 px (the taller ones poke
-## above the floor into the haze, where a dark shape reads; over the black terrain it would not), and
-## with `hanging` the same hanging from its top.
-func _silhouettes(node: Node3D, mat: ShaderMaterial, s: int, width: float, bounds: Vector2, hanging: bool) -> void:
+## Broken dark trunk bases every 450-900 px, rising from the level's bottom 64-180 px in up to three
+## narrowing steps (the taller ones poke above the floor into the haze, where a dark shape reads; over the
+## black terrain it would not), with `hanging` the same hanging from its top, and between them dark cables
+## that hang 30-110 px into the view at the lowest camera position.
+func _silhouettes(node: Node3D, mat: ShaderMaterial, s: int, width: float, bounds: Vector2, view_h: float, hanging: bool) -> void:
 	var x := floorf(DotNoise.hash2(0, 19, s) * 300)
 	var i := 0
 	while x < width:
@@ -88,10 +112,15 @@ func _silhouettes(node: Node3D, mat: ShaderMaterial, s: int, width: float, bound
 					break
 				var r := Rect2(bx, bounds.y - h, w, h + 200) if side > 0 else Rect2(bx, -200, w, h + 200)
 				# Each step a hair in front of the last, so overlapping steps don't z-fight.
-				_box(node, mat, r, DotNoise.hash2(i, side, s) * 1000, k * 0.01)
+				_box(node, mat, r, DotNoise.hash2(i, side, s) * 1000, TRUNK, k * 0.01)
 				bx += 4.0 * floori(DotNoise.hash2(i, 30 + k, s) * w / 8)
 				w = maxf(8, 4.0 * floori(w * 0.6 / 4))
 				h += 4.0 * (1 + floori(DotNoise.hash2(i, 40 + k, s) * 3))
+		if DotNoise.hash2(i, 60, s) > 0.35:
+			var cx := x + 140 + floorf(DotNoise.hash2(i, 61, s) * 120)
+			var span := 120 + floorf(DotNoise.hash2(i, 62, s) * 160)
+			var top := maxf(0, bounds.y - view_h) - 12
+			_cable(node, mat, Vector2(cx, top), Vector2(cx + span, top), 30 + DotNoise.hash2(i, 63, s) * 80, 0, FG_CABLE_PX)
 		x += 450 + floorf(DotNoise.hash2(i, 50, s) * 450)
 		i += 1
 
@@ -111,10 +140,11 @@ func _process(_dt: float) -> void:
 		mat.set_shader_parameter("game_time", Game.time)
 
 
-## A box whose front face covers `r` (layer pixels, y down) at the layer's depth (+ `dz` metres).
-func _box(layer: Node3D, mat: ShaderMaterial, r: Rect2, seed: float, dz := 0.0) -> void:
+## A box whose front face covers `r` (layer pixels, y down) at the layer's depth (+ `dz` metres),
+## `depth` metres deep; `kind` picks its look in the shader.
+func _box(layer: Node3D, mat: ShaderMaterial, r: Rect2, seed: float, kind: int, dz := 0.0, depth := DEPTH) -> void:
 	var l: Dictionary = LAYERS[_layers.find(layer)]
-	var size := Vector3(r.size.x * Px.M, r.size.y * Px.M, DEPTH)
+	var size := Vector3(r.size.x * Px.M, r.size.y * Px.M, depth)
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	var mi := MeshInstance3D.new()
@@ -123,7 +153,41 @@ func _box(layer: Node3D, mat: ShaderMaterial, r: Rect2, seed: float, dz := 0.0) 
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The oblique projection draws the box -l.z / 3 m higher than it is; keep it from being culled.
 	mi.extra_cull_margin = absf(l.z) / 3 + 1
-	mi.position = Vector3((r.position.x + r.size.x / 2) * Px.M, -(r.position.y + r.size.y / 2) * Px.M, l.z - DEPTH / 2 + dz)
+	mi.position = Vector3((r.position.x + r.size.x / 2) * Px.M, -(r.position.y + r.size.y / 2) * Px.M, l.z - depth / 2 + dz)
 	mi.set_instance_shader_parameter("box_size", size)
 	mi.set_instance_shader_parameter("seed", floorf(seed))
+	mi.set_instance_shader_parameter("kind", float(kind))
+	layer.add_child(mi)
+
+
+## A flat cable from `a` to `b` (layer pixels, y down) sagging `sag` px in the middle, `thickness` px, just
+## in front of the layer's trunks; UV.x runs 0..1 along it for the pulse.
+func _cable(layer: Node3D, mat: ShaderMaterial, a: Vector2, b: Vector2, sag: float, seed: float, thickness := CABLE_PX) -> void:
+	var l: Dictionary = LAYERS[_layers.find(layer)]
+	var n := maxi(8, int(a.distance_to(b) / 6))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var h := thickness / 2
+	for i in n:
+		var t0 := float(i) / n
+		var t1 := float(i + 1) / n
+		var p0 := a.lerp(b, t0) + Vector2(0, sag * 4 * t0 * (1 - t0))
+		var p1 := a.lerp(b, t1) + Vector2(0, sag * 4 * t1 * (1 - t1))
+		# Clockwise from the front: top-left, top-right, bottom-right, bottom-left (y down in px).
+		var corners := [p0 + Vector2(0, -h), p1 + Vector2(0, -h), p1 + Vector2(0, h), p0 + Vector2(0, h)]
+		var ts := [t0, t1, t1, t0]
+		for k in [0, 1, 2, 0, 2, 3]:
+			var v: Vector2 = corners[k]
+			st.set_uv(Vector2(ts[k], 0))
+			st.set_normal(Vector3.BACK)
+			st.add_vertex(Vector3(v.x * Px.M, -v.y * Px.M, 0))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = absf(l.z) / 3 + 1
+	mi.position = Vector3(0, 0, l.z + 0.02)
+	mi.set_instance_shader_parameter("box_size", Vector3.ZERO)
+	mi.set_instance_shader_parameter("seed", floorf(seed))
+	mi.set_instance_shader_parameter("kind", float(CABLE))
 	layer.add_child(mi)
