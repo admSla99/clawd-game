@@ -194,9 +194,13 @@ Back to front:
   over the 3D view) adds light shafts in front of everything, scrolling faster than the level, and mist
   rising from the level's bottom edge so pits and the bottom fade into the haze; both are dithered and
   additive.
-- Foreground: a `Scenery` layer in front of the level (parallax 1.35) of dark broken trunk bases with a jagged
+- Foreground: a `Scenery` layer in front of the level (parallax 1.35): clusters of big near-black data ferns
+  (2 px voxels with a faint rim in the theme's light colour, swaying), dark broken trunk bases with a jagged
   top, rising from the level's bottom (in dark levels also hanging from its top), and thick dark cables
   hanging into the view.
+- Colour grade: `shaders/grade.gdshader` (`Grade`, the top canvas layer in the SubViewport) lifts the darks a
+  little towards the theme's haze colour, warms the lights towards the lanterns' orange and adds a touch of
+  saturation, pixel for pixel.
 
 The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt` and `stomp`; `main.gd` answers
 with particles (same counts and colors as `particles.emit` in `src/scenes/game.ts`), camera shake and

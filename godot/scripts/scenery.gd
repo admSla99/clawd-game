@@ -9,7 +9,7 @@ extends Node3D
 ## camera moves, like a real object behind it): big dark trunks with ledges sticking out of them, thick
 ## synapse bridges between them and a few neurons, less hazed than the forest so they read nearer, but
 ## enough that the ledges do not pass for platforms.
-## In front of the level a faster layer of dark silhouettes: broken trunk
+## In front of the level a faster layer of dark silhouettes: clusters of big swaying data ferns, broken trunk
 ## bases rising from the level's bottom (in dark levels also hanging from its top) and cables hanging into
 ## the view. Per-theme motifs to add on top are in docs/scenery-themes.md. The camera is orthographic, so
 ## depth alone gives no
@@ -71,6 +71,7 @@ func setup(seed: int, bounds: Vector2, view: Vector2, palette: Dictionary, hangi
 		var width := view.x + maxf(0, bounds.x - view.x) * f + 64
 		if l.get("fg", false):
 			_silhouettes(node, mat, s, width, bounds, view.y, hanging)
+			_ferns(node, s, width, bounds, palette.light, hanging)
 			continue
 		if l.get("mid", false):
 			_midground(node, mat, l, s, width, bounds, view.y)
@@ -139,6 +140,59 @@ func _midground(node: Node3D, mat: ShaderMaterial, l: Dictionary, s: int, width:
 		var y0 := roundf(low + view_h * (0.12 + DotNoise.hash2(t, 21, s) * 0.35))
 		var y1 := roundf(y0 + (DotNoise.hash2(t, 22, s) - 0.5) * 40)
 		_cable(node, mat, Vector2(a.end.x, y0), Vector2(b.position.x, y1), (b.position.x - a.end.x) * 0.12, DotNoise.hash2(t, 23, s) * 1000, 4.0)
+
+
+## Clusters of 2-4 big dark ferns every 240-520 px along the level's bottom (in dark levels also hanging
+## from its top), drawn as 2 px voxels so they read close, with a faint rim in the theme's light colour on
+## the leaflet tips. They sway in shaders/voxel.gdshader.
+func _ferns(node: Node3D, s: int, width: float, bounds: Vector2, light: Color, hanging: bool) -> void:
+	var l: Dictionary = LAYERS[_layers.find(node)]
+	var palette := {"f": Color8(3, 3, 5), "r": Color8(3, 3, 5).lerp(light, 0.22)}
+	var x := floorf(DotNoise.hash2(0, 70, s) * 200)
+	var i := 0
+	while x < width:
+		for side in ([1, -1] if hanging and DotNoise.hash2(i, 71, s) > 0.5 else [1]):
+			for k in 2 + floori(DotNoise.hash2(i, 72 + side, s) * 3):
+				var cells := 28 + floori(DotNoise.hash2(i * 5 + k, 73 + side, s) * 28)
+				var rows := _fern_rows(cells, DotNoise.hash2(i * 5 + k, 74 + side, s) * 2 - 1, s + i * 13 + k)
+				if side < 0:
+					rows.reverse()
+				var mi := MeshInstance3D.new()
+				mi.mesh = Voxel.mesh(rows, palette, {"f": 2, "r": 2})
+				var h := rows.size() * 2 * Px.M
+				var fx := x + k * 14 + floorf(DotNoise.hash2(i, 75 + k, s) * 10)
+				var base_y := bounds.y + 6 if side > 0 else -6.0
+				mi.position = Vector3(fx * Px.M, -base_y * Px.M - (h if side < 0 else 0.0), l.z + k * 0.01)
+				mi.set_instance_shader_parameter("sway", Vector4(2.5, DotNoise.hash2(i, 76 + k, s), h, 0 if side > 0 else 1))
+				mi.extra_cull_margin = 2.0
+				node.add_child(mi)
+		x += 240 + floorf(DotNoise.hash2(i, 77, s) * 280)
+		i += 1
+
+
+## One fern frond `cells` tall (2 px cells), leaning by `lean` (-1..1): a curving stem with leaflets on both
+## sides that shorten towards the tip, rows top first.
+static func _fern_rows(cells: int, lean: float, seed: int) -> Array:
+	var w := 23
+	var grid := []
+	for y in cells:
+		var row := []
+		row.resize(w)
+		row.fill(".")
+		grid.append(row)
+	for y in cells:
+		var t := float(cells - 1 - y) / cells # 0 at the base, 1 at the tip
+		var cx := 11 + roundi(lean * 6.0 * t * t)
+		grid[y][cx] = "f"
+		if y % 2 == 0 and t > 0.08:
+			var reach := roundi((1.0 - t) * 6.0 + 1.0)
+			for side in [-1, 1]:
+				for k in range(1, reach + 1):
+					var lx: int = cx + side * k
+					var ly: int = y + (k / 3)
+					if lx >= 0 and lx < w and ly < cells:
+						grid[ly][lx] = "r" if k == reach else "f"
+	return grid.map(func(row: Array) -> String: return "".join(PackedStringArray(row)))
 
 
 ## Broken dark trunk bases every 450-900 px, rising from the level's bottom 64-180 px in up to three

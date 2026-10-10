@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/scenery.gd" id="8"]
 [ext_resource type="Shader" path="res://shaders/light_fx.gdshader" id="9"]
 [ext_resource type="Script" path="res://scripts/motes.gd" id="10"]
+[ext_resource type="Shader" path="res://shaders/grade.gdshader" id="11"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 3
@@ -27,6 +28,9 @@ shader = ExtResource("7")
 
 [sub_resource type="ShaderMaterial" id="light_fx"]
 shader = ExtResource("9")
+
+[sub_resource type="ShaderMaterial" id="grade"]
+shader = ExtResource("11")
 
 [sub_resource type="ShaderMaterial" id="crt"]
 shader = ExtResource("6")
@@ -84,6 +88,16 @@ layer = 1
 
 [node name="LightFx" type="ColorRect" parent="View/SubViewport/World/Foreground"]
 material = SubResource("light_fx")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Grade" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 2
+
+[node name="Grade" type="ColorRect" parent="View/SubViewport/World/Grade"]
+material = SubResource("grade")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

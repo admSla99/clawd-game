@@ -39,6 +39,7 @@ var player: Player
 @onready var scenery: Scenery = $View/SubViewport/World/Scenery
 @onready var motes: Motes = $View/SubViewport/World/Motes
 @onready var light_fx: ColorRect = $View/SubViewport/World/Foreground/LightFx
+@onready var grade: ColorRect = $View/SubViewport/World/Grade/Grade
 @onready var crt: ColorRect = $ScreenFx/Crt
 
 
@@ -102,6 +103,7 @@ func load_level(id: String) -> void:
 	light_fx.material.set_shader_parameter("ray_color", Themes.vec(palette.ray))
 	light_fx.material.set_shader_parameter("mist_color", Themes.vec(palette.haze))
 	light_fx.material.set_shader_parameter("ray_strength", 0.1 if dark else 0.16)
+	grade.material.set_shader_parameter("shadow_tint", Themes.vec(palette.haze))
 	scenery.update(camera.top_left)
 
 
