@@ -226,6 +226,14 @@ func _silhouettes(node: Node3D, mat: ShaderMaterial, s: int, width: float, bound
 		i += 1
 
 
+## The material of the foreground layer (for the see-through windows, shaders/reveal.gdshaderinc).
+func foreground_material() -> ShaderMaterial:
+	for i in LAYERS.size():
+		if LAYERS[i].get("fg", false) and i < _materials.size():
+			return _materials[i]
+	return null
+
+
 ## Moves the layers for the camera's top-left corner (level pixels).
 func update(cam: Vector2) -> void:
 	for i in _layers.size():

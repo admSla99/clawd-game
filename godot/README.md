@@ -198,6 +198,10 @@ Back to front:
   (2 px voxels with a faint rim in the theme's light colour, swaying), dark broken trunk bases with a jagged
   top, rising from the level's bottom (in dark levels also hanging from its top), and thick dark cables
   hanging into the view.
+- See-through windows: everything in front of the gameplay plane (ferns, stumps, hanging cables, front tufts,
+  vines and flowers) is thinned out with an ordered dither in a circle around Clawd and the five enemies or
+  tokens nearest him (`Main._update_reveal()`, `shaders/reveal.gdshaderinc`), down to a quarter of its pixels
+  at the centre, so nothing the player needs to see hides behind the foreground.
 - Depth fog: `shaders/fog.gdshaderinc`, used by the scenery and the terrain, fades every pixel by its depth
   behind the gameplay plane (`1 - e^(-depth * 0.06)`, thicker in the lower part of the view) into the sky
   colour of its view row (the haze gradient of the theme), so distant trunks dissolve into the sky behind

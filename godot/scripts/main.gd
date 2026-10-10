@@ -120,6 +120,7 @@ func _physics_process(dt: float) -> void:
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
 	scenery.update(camera.top_left)
 	_update_shadows()
+	_update_reveal()
 	var decor: Decor = level.get_node_or_null("Decor")
 	if decor:
 		decor.interact(player.pos, dt)
@@ -146,6 +147,25 @@ func _update_shadows() -> void:
 	for e in enemies.slice(0, Level.SHADOWS_MAX - 1):
 		shadows.append(level.shadow_at(e.pos, ENEMY_SHADOW))
 	level.set_shadows(shadows)
+
+
+## See-through windows in the foreground (shaders/reveal.gdshaderinc) around Clawd and the enemies and
+## tokens nearest him, in SubViewport pixels.
+func _update_reveal() -> void:
+	var near: Array = get_tree().get_nodes_in_group("enemies") + level.get_children().filter(func(c: Node) -> bool: return c is Area3D)
+	near.sort_custom(func(a: Node3D, b: Node3D) -> bool:
+		return a.global_position.distance_squared_to(player.global_position) < b.global_position.distance_squared_to(player.global_position))
+	var windows := [[player.global_position + Vector3(0, Player.SIZE.y / 2, 0) * Px.M, 16.0, 30.0]]
+	for n: Node3D in near.slice(0, 5):
+		windows.append([n.global_position + Vector3(0, 6, 0) * Px.M, 9.0, 17.0])
+	var reveal := PackedVector4Array()
+	reveal.resize(6)
+	for i in windows.size():
+		var p := camera.unproject_position(windows[i][0])
+		reveal[i] = Vector4(p.x, p.y, windows[i][1], windows[i][2])
+	for mat: ShaderMaterial in [Voxel.MATERIAL, scenery.foreground_material()]:
+		if mat:
+			mat.set_shader_parameter("reveal", reveal)
 
 
 ## Passes the visible GlowLights nearest the view centre (at most Level.LIGHTS_MAX) to the terrain.

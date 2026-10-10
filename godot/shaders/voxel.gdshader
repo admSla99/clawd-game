@@ -11,6 +11,7 @@ shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
+#include "res://shaders/reveal.gdshaderinc"
 
 uniform vec4 albedo = vec4(1.0);
 uniform bool flash = false;
@@ -42,6 +43,9 @@ void vertex() {
 }
 
 void fragment() {
+	if (revealed(wpos.z, SCREEN_UV, VIEWPORT_SIZE, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec3 col = COLOR.rgb * albedo.rgb;
 	if (rim_energy > 0.0) {
 		vec3 d = rim_light.xyz - wpos;

@@ -16,6 +16,7 @@ render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
 #include "res://shaders/fog.gdshaderinc"
+#include "res://shaders/reveal.gdshaderinc"
 
 instance uniform vec3 box_size = vec3(1.0);
 instance uniform float seed = 0.0;
@@ -58,6 +59,9 @@ void vertex() {
 }
 
 void fragment() {
+	if (revealed(wz, SCREEN_UV, VIEWPORT_SIZE, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec3 col = BODY * 0.5;
 	float boost = 1.0;
 	int sd = int(seed);
