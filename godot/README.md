@@ -110,8 +110,16 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
 column `size` wide (2 px by default), extruded to a per-character depth around z = 0; side faces cover only the
 depth a neighbouring column does not. The material (`shaders/voxel.gdshader`) is unshaded and the vertex colours
 are stored linear: the front face keeps the palette colour exactly and the other faces are darker or lighter by
-a fixed factor (`SHADE`), or take a given `top` colour. The bug's frames are `FRAMES` in `scripts/bug.gd`, the
-token's `ROWS` in `scripts/token.gd`, the lanterns and tufts are in `scripts/decor.gd`.
+a fixed factor (`SHADE`), or take a given `top` colour. The lanterns and tufts are in `scripts/decor.gd`.
+
+The bug and the token are drawn at 1 px like Clawd. `scripts/bug_sprite.gd` (`BugSprite`) is the glitch beetle
+of `BUG` in `src/render/sprites.ts`: a round shell with a thinner rim, a lit spot, the dark spot that hops between
+the two walk frames and red eyes with a glint; one 2 px row shifts sideways when the 2D draw() would glitch it
+(re-rolled 10 times a second). `scripts/token_sprite.gd` (`TokenSprite`) is the light orange coin of `drawToken()`
+in `src/render/shapes.ts` with a rim, a lit side and a glint; it spins as whole-pixel widths (6, 4, 2 px) and
+bobs in whole pixels. Both snap to the pixel grid. When a bug is stomped or a token collected, the node is freed
+at once and `scripts/sprite_fx.gd` (`SpriteFx`) plays what is left: the flattened shell (a white flash, then
+grey; hitstop holds it) or a sparkle with a fading light.
 
 Clawd is drawn by `scripts/clawd_sprite.gd` (`ClawdSprite`) at 1 px resolution, from the 13 x 10 cell layout of
 `clawdFrame()` in `src/render/sprites.ts`: an 18 x 16 px body with a shaded left column and bottom, a lit top rim

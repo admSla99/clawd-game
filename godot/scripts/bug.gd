@@ -8,13 +8,8 @@ const SPEED := 30.0
 const GRAVITY := 1400.0
 const MAX_FALL := 400.0
 const SIZE := Vector2(16, 11)
-const PALETTE := {"W": Color("#D6D6D6"), "w": Color("#8C8C8C"), "d": Color("#555555"), "R": Color("#E0605A"), "r": Color("#8F3A37")}
-const DEPTH := {"W": 6, "w": 4, "d": 6, "R": 6, "r": 6}
-const FRAMES := [
-	["...wwww...", "..wWWWWw..", ".wWWdWWWw.", "wWRWWWWRWw", "wWWWWWWWWw", ".w.w..w.w."],
-	["...wwww...", "..wWWWWw..", ".wWWWdWWw.", "wWRWWWWRWw", "wWWWWWWWWw", "..w.ww.w.."],
-]
-static var MESHES := FRAMES.map(func(f): return Voxel.mesh(f, PALETTE, DEPTH))
+## The sprite sits 1 px below the feet, like drawSprite(..., bottom + 1) in the 2D game.
+const SPRITE_Y := -1.0
 
 var dir := -1.0
 var vel := Vector2.ZERO
@@ -46,7 +41,21 @@ func _physics_process(dt: float) -> void:
 		dir = -dir
 	elif is_on_floor() and not _floor_at(Vector2(pos.x + dir * (SIZE.x / 2 + 1), pos.y + 2)):
 		dir = -dir
-	body.mesh = MESHES[int(t * 6) % 2]
+	_update_visual()
+
+
+## BugSprite frame (walk cycle at 6 fps, the row glitch re-rolled 10 times a second like the 2D draw()),
+## snapped to whole pixels like Clawd.
+func _update_visual() -> void:
+	var seed := floori(Game.time * 10)
+	var glitch := -1
+	for r in 6:
+		if DotNoise.hash2(r, seed, int(pos.x - SIZE.x / 2)) > 0.93:
+			glitch = r
+			break
+	body.mesh = BugSprite.mesh(int(t * 6) % 2, glitch)
+	var snap := pos.round() - pos
+	body.position = Vector3(snap.x, -snap.y + SPRITE_Y, 0) * Px.M
 	body.rotation.y = PI if dir > 0 else 0.0
 
 
@@ -68,6 +77,9 @@ func stomp_line() -> float:
 	return prev_pos.y - SIZE.y + maxf(8.0, SIZE.y / 2)
 
 
+## Leaves the flattened shell behind (a white flash, then grey; hitstop holds it) and frees the bug.
 func stomped() -> void:
 	remove_from_group("enemies")
+	var at := Px.to3(pos.round()) + Vector3(0, SPRITE_Y * Px.M, 0)
+	SpriteFx.spawn(level, at, [BugSprite.mesh(0, -1, true, true), BugSprite.mesh(0, -1, true)], [0.06, 0.22], dir > 0)
 	queue_free()
