@@ -54,6 +54,9 @@ func _update_visual() -> void:
 			glitch = r
 			break
 	body.mesh = BugSprite.mesh(int(t * 6) % 2, glitch)
+	var rim := GlowLight.rim_for(self, global_position + Vector3(0, 0.35, 0))
+	body.set_instance_shader_parameter("rim_light", rim.light)
+	body.set_instance_shader_parameter("rim_energy", rim.energy)
 	var snap := pos.round() - pos
 	body.position = Vector3(snap.x, -snap.y + SPRITE_Y, 0) * Px.M
 	body.rotation.y = PI if dir > 0 else 0.0

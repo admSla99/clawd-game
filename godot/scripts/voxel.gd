@@ -47,8 +47,14 @@ static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 
 		var d: int = half[p]
 		var ch: String = rows[h - 1 - p.y][p.x]
 		var col: Color = palette[ch]
-		_quad(st, origin, p, Vector3i(0, 0, 1), -d, d, col, size)
-		_quad(st, origin, p, Vector3i(0, 0, -1), -d, d, col, size)
+		# Silhouette edges of this pixel (1 right, 2 left, 4 top, 8 bottom) for the rim light.
+		var edges := 0
+		for e in 4:
+			var o: Vector2i = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)][e]
+			if not half.has(p + o):
+				edges |= 1 << e
+		_quad(st, origin, p, Vector3i(0, 0, 1), -d, d, col, size, edges)
+		_quad(st, origin, p, Vector3i(0, 0, -1), -d, d, col, size, edges)
 		for n: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
 			var nd: int = half.get(p + Vector2i(n.x, n.y), 0)
 			if nd >= d:
@@ -66,7 +72,8 @@ static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 
 
 ## One face of column `p` with outward normal `n`, its corners from FACES with z mapped to z0..z1 cubes.
 ## Faces crossing z = 0 are split there, where the perspective in shaders/oblique.gdshaderinc bends.
-static func _quad(st: SurfaceTool, origin: Vector3, p: Vector2i, n: Vector3i, z0: int, z1: int, col: Color, size: float) -> void:
+## `edges` (front and back faces) goes to UV.x for the rim light in shaders/voxel.gdshader.
+static func _quad(st: SurfaceTool, origin: Vector3, p: Vector2i, n: Vector3i, z0: int, z1: int, col: Color, size: float, edges := 0) -> void:
 	if n.z == 0 and z0 < 0 and z1 > 0:
 		_quad(st, origin, p, n, z0, 0, col, size)
 		_quad(st, origin, p, n, 0, z1, col, size)
@@ -78,6 +85,7 @@ static func _quad(st: SurfaceTool, origin: Vector3, p: Vector2i, n: Vector3i, z0
 	for i in [0, 1, 2, 0, 2, 3]:
 		var v: Vector3 = q[i]
 		st.set_color(c)
+		st.set_uv(Vector2(edges, 0))
 		st.set_normal(Vector3(n))
 		st.add_vertex((origin + Vector3(p.x + v.x, p.y + v.y, z0 + v.z * (z1 - z0))) * size)
 

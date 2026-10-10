@@ -280,6 +280,9 @@ func _update_visual() -> void:
 	o.bw = clampi(roundi(ClawdSprite.BODY_W * squash.x / 2) * 2, 12, 26)
 	o.bh = clampi(roundi(ClawdSprite.BODY_H * squash.y), 10, 22)
 	body.mesh = ClawdSprite.mesh(o)
+	var rim := GlowLight.rim_for(self, global_position + Vector3(0, 0.5, 0))
+	body.set_instance_shader_parameter("rim_light", rim.light)
+	body.set_instance_shader_parameter("rim_energy", rim.energy)
 	body.material_override = FLASH if hurt_timer > 0 and floori(t * 20) % 2 == 0 else null
 	# Draw on whole view pixels: the camera is pixel-aligned, so the body follows `pos` rounded to the
 	# pixel grid and never lands between pixels.

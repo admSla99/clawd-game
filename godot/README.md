@@ -136,7 +136,10 @@ down while falling (and back over the shoulder now and then when idle), arms tha
 squash & stretch (from `src/entities/player.ts`, plus a pinch when turning) drawn as a wider/flatter or
 narrower/taller body instead of a scaled mesh. `ClawdSprite.mesh()` caches every combination it builds.
 The visual snaps to whole pixels (the camera is pixel-aligned), so the sprite never lands between pixels. A
-small `GlowLight` on Clawd warms the ground around him.
+small `GlowLight` on Clawd warms the ground around him. Clawd and the bugs take a warm rim light from the GlowLight that reaches
+them most (`GlowLight.rim_for()`, a lantern, token or firefly): `Voxel.mesh()` stores each pixel's silhouette
+edges in UV.x, and `shaders/voxel.gdshader` lights the 1 px edge of the front face on the light's side and the
+side faces turned towards it, in three steps.
 
 ## Look and feedback
 
