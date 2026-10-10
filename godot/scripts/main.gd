@@ -70,7 +70,8 @@ func load_level(id: String) -> void:
 	player.enter_level(level, start, camera.bounds.y)
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
-	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette)
+	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
+	Decor.populate(level, info.terrainSeed, palette)
 	parallax.setup(info.theme, camera, palette)
 	for key in ["top", "mid", "haze", "ray"]:
 		haze.material.set_shader_parameter(key + "_color", Themes.vec(palette[key]))

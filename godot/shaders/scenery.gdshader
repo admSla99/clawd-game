@@ -10,6 +10,8 @@ instance uniform float seed = 0.0;
 uniform vec3 haze = vec3(0.118, 0.176, 0.302);
 uniform vec3 light_color = vec3(0.435, 0.561, 0.769);
 uniform float haze_amount = 0.3;
+// Foreground silhouettes: near-black boxes with a faint rim, no windows.
+uniform bool silhouette = false;
 uniform float row_z = 0.1875;
 uniform float game_time = 0.0;
 
@@ -40,7 +42,28 @@ void fragment() {
 	vec3 col = BODY * 0.5;
 	float boost = 1.0;
 	int sd = int(seed);
-	if (lnormal.z > 0.5) {
+	if (silhouette) {
+		// Flat cutout: a jagged rock line with grass blades on the top and bottom edges (one of them is
+		// always off screen), a 1 px rim under it, ragged sides.
+		if (lnormal.z < 0.5) {
+			discard;
+		}
+		ivec2 p = ivec2(floor(vec2(lpos.x + box_size.x * 0.5, box_size.y * 0.5 - lpos.y) * 16.0));
+		ivec2 sz = ivec2(round(box_size.xy * 16.0));
+		int cx = p.x / 6;
+		float f = fract(float(p.x) / 6.0);
+		float n = mix(hash2(cx, 0, sd), hash2(cx + 1, 0, sd), f * f * (3.0 - 2.0 * f));
+		int edge = int(n * 8.0) + 1;
+		if (hash2(p.x, 1, sd) > 0.72) {
+			edge -= 1 + int(hash2(p.x, 2, sd) * 6.0);
+		}
+		int from_edge = min(p.y - edge, sz.y - 1 - p.y - edge);
+		int side = int(hash2(p.y / 4, 3, sd) * 3.0);
+		if (from_edge < 0 || p.x < side || p.x > sz.x - 1 - side) {
+			discard;
+		}
+		col = from_edge == 0 ? tone(0.16) : from_edge <= 2 ? tone(0.07) : tone(0.03);
+	} else if (lnormal.z > 0.5) {
 		ivec2 p = ivec2(floor(vec2(lpos.x + box_size.x * 0.5, box_size.y * 0.5 - lpos.y) * 16.0));
 		int w = int(round(box_size.x * 16.0));
 		col = BODY;
