@@ -5,11 +5,15 @@ extends Camera3D
 ## level bounds (levels smaller than the view are centred / bottom-aligned) and trauma shake.
 ## The logic runs in level pixels: `top_left` is the view's top-left corner on the gameplay plane,
 ## like Camera.x / Camera.y. Orthographic and sized so one level pixel is one view pixel (the view is
-## ~480x270 like the 2D port, see ViewScale), pitched down a little so the block tops show as a thin
-## band; the camera is placed so the gameplay plane z = 0 still maps to the same view rectangle.
+## ~480x270 like the 2D port, see ViewScale), pitched down so the block tops show as a band; the
+## camera is placed so the gameplay plane z = 0 still maps to the same view rectangle.
 
-const PITCH := deg_to_rad(12.0)
+## tan(PITCH) = 1/3: one view row covers exactly 3 px (ROW_Z) of depth on a top face, so a 3 m deep
+## block shows a 16 px top band and anything 3/16 m deeper sits exactly one view row lower.
+const PITCH := atan(1.0 / 3.0)
 const DISTANCE := 40.0
+## Metres of depth per view row on horizontal faces (`row_z` in the terrain and scenery shaders).
+const ROW_Z := Px.M * 3
 
 var top_left := Vector2.ZERO
 var bounds := Vector2.ZERO

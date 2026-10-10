@@ -1,7 +1,7 @@
 # Generates tiles/terrain_meshlib.tres, the MeshLibrary of the level GridMaps. Item id = tile id from
 # src/world/tiles.ts minus one, in the order of Level.TILE_CHARS ('#' '=' '^' 'X').
-# Every block is a box with shaders/terrain_dots.gdshader (one material each, `mode` 0..3); Level.bake_dots()
-# fills their dot texture.
+# Every block is a box with shaders/terrain_pixels.gdshader (one material each, `mode` 0..3);
+# Level.bake_cells() fills their cell texture.
 # Run from godot/: godot --headless --script tools/build_meshlib.gd
 extends SceneTree
 
@@ -10,7 +10,7 @@ const DEPTH := 3.0 # Level.DEPTH
 
 func _init() -> void:
 	var lib := MeshLibrary.new()
-	var shader: Shader = load("res://shaders/terrain_dots.gdshader")
+	var shader: Shader = load("res://shaders/terrain_pixels.gdshader")
 	for i in 4:
 		var name: String = ["solid", "oneway", "spike", "corrupt"][i]
 		lib.create_item(i)

@@ -89,14 +89,15 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
   `src/render/renderer.ts` (integer scale, view about 270 tall and at least ~420 wide), same as the 2D port.
 - `scripts/game_camera.gd`: port of `src/core/camera.ts` (look-ahead, vertical deadzone, small levels
   centred, trauma shake) on an orthographic `Camera3D`. It works in level pixels on the gameplay plane; one
-  level pixel is one view pixel, and the camera is pitched down 12° so block tops show as a thin band.
+  level pixel is one view pixel. The camera is pitched down atan(1/3) (~18.4°), so one view row covers exactly
+  3 px of depth (`ROW_Z`) and the 3 m deep blocks show a 16 px top band.
 - `scripts/noise.gd` (`DotNoise`): bit-exact ports of `hash2`, `valueNoise2`, `periodicNoise1`, `mulberry32`.
 - `scripts/particles.gd`: port of `src/render/particles.ts` drawn as 1 px cubes in a MultiMesh; emit with the same
   options as `particles.emit`. Particles start half a tile in front of the gameplay plane, so they show over
   Clawd and the bugs like the 2D overlay, and drift in depth.
 - `scripts/parallax.gd` (`Parallax`): the theme backgrounds of `src/render/parallax.ts`, unchanged from the 2D port
   (dot ridges, factory columns, twinkling stars, data rain, code lines, rings, embers, fog bands). It lives in a
-  CanvasLayer behind the 3D level; the Environment's background mode is *canvas*.
+  CanvasLayer behind the 3D level, over the haze; the Environment's background mode is *canvas*.
 
 ## Voxel models
 
@@ -111,19 +112,31 @@ factors from `src/entities/player.ts`.
 
 ## Look and feedback
 
-The look is the 2D port's retro dot matrix on 3D blocks, without scene lights: everything is unshaded, the
-`WorldEnvironment` only adds glow (HDR threshold 0.9; spikes, tokens and the hover jets use colours above 1.0),
-and `shaders/crt.gdshader` draws the scanlines and vignette of `Renderer.postFx()` over the screen.
+The look is modern pixel art on 3D blocks, without scene lights: everything is unshaded and drawn per view
+pixel. `scenes/main.tscn` renders the game into a `SubViewport` at the view size (~480×270, see `ViewScale`),
+which the `SubViewportContainer` scales up by a whole factor with nearest filtering. The `WorldEnvironment`
+only adds glow (HDR threshold 0.9; colours above 1.0 glow), and `shaders/crt.gdshader` draws the scanlines and
+vignette of `Renderer.postFx()` over the window.
 
-All blocks use `shaders/terrain_dots.gdshader`. On level load `Level.bake_dots()` computes, per 4 px cell, the
-brightness of TerrainRenderer in `src/render/dotRenderer.ts` (distance to open air, strata and noise from the
-level's `terrainSeed`) into a small texture. Front faces draw the same per-pixel dots as the 2D port's
-`terrain_view.gd`: solid dots with surface sparkles, one-way dashes, dotted spike triangles, and the animated
-corrupted blocks (purple checker, flickering bars, orange glitch scanline, re-rolled 12 times a second), plus the
-twinkling shimmer on exposed tops. Top faces are dark bands that brighten towards the front edge; sides and bottoms
-are near black. Spikes and one-way platforms are see-through outside their dots. Clawd's blob shadow is drawn
-by the same shader on the top face under him (`Level.set_shadow()`). The animation runs on `Game.time`
-(`Level._process()` passes it in), so hitstop and pause freeze it.
+Back to front:
+
+- `shaders/haze.gdshader` (`Background/Haze`): black at the top to a cool blue haze at the horizon in dithered
+  steps, with slanted light rays that pulse slowly and drift with the camera.
+- `Parallax` (see above).
+- `scripts/scenery.gd` (`Scenery`): three layers of towers and floating blocks behind the level, drawn by
+  `shaders/scenery.gdshader` (lit rim, panel edges, windows blinking in cool light, a few orange), mixed further
+  into the haze with depth. The camera is orthographic, so `Scenery.update()` moves each layer with the camera
+  by its parallax factor; layers are generated from the level's `terrainSeed`.
+- The level: all blocks use `shaders/terrain_pixels.gdshader`. On level load `Level.bake_cells()` writes one
+  texel per 4 px cell (distance to open air, random, open cell above, solid). Front faces: a black body that
+  steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
+  meet air and a white/grey crust with orange sparkles on exposed tops. One-way platforms are crust strips
+  with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
+  view rows from the white front lip to dark speckled grey. Clawd's blob shadow is drawn on the top face under
+  him (`Level.set_shadow()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
+- Warm lights: `GlowLight` nodes (`scripts/glow_light.gd`, group `lights`) on tokens and on Clawd's hover jets.
+  `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights the
+  pixels around them in four discrete steps.
 
 The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt` and `stomp`; `main.gd` answers
 with particles (same counts and colors as `particles.emit` in `src/scenes/game.ts`), camera shake and
@@ -148,14 +161,16 @@ without COOP/COEP headers.
 |---|---|
 | `project.godot` | 480×270 base view (integer-scaled by `ViewScale`), 60 Hz physics, input actions named as in `src/core/input.ts`, 3D physics layers `world`, `player`, `enemies`, `oneway` |
 | `scenes/level_select.tscn`, `scripts/level_select.gd` | Start scene, level buttons |
-| `scenes/main.tscn`, `scripts/main.gd` | Game scene: `Background/Parallax`, `Level` (current level), `Camera3D`, environment (glow), particles, `ScreenFx/Crt`, player. `load_level(id)`, `next_level()` |
+| `scenes/main.tscn`, `scripts/main.gd` | Game scene: `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
 | `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spikes, enemy contact and stomps, voxel frames, hover jets |
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |
-| `shaders/terrain_dots.gdshader`, `shaders/crt.gdshader` | Dot-matrix blocks (spikes, corrupted glitch, shimmer, Clawd's shadow); CRT scanlines and vignette |
+| `scripts/scenery.gd`, `scripts/glow_light.gd` | Towers and floating blocks behind the level; warm lights for the terrain shader |
+| `shaders/terrain_pixels.gdshader` | Level blocks (crust, circuits, one-way, spikes, corrupted glitch, lights, Clawd's shadow) |
+| `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
 | `tools/check.gd` | Headless checks, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |

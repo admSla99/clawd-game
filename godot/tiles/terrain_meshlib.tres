@@ -1,6 +1,6 @@
 [gd_resource type="MeshLibrary" format=3]
 
-[ext_resource type="Shader" path="res://shaders/terrain_dots.gdshader" id="1_3usgr"]
+[ext_resource type="Shader" path="res://shaders/terrain_pixels.gdshader" id="1_3usgr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_xq5bu"]
 render_priority = 0
@@ -8,8 +8,12 @@ shader = ExtResource("1_3usgr")
 shader_parameter/cells = null
 shader_parameter/mode = 0
 shader_parameter/half_depth = 1.5
+shader_parameter/row_z = null
 shader_parameter/shadow = null
 shader_parameter/game_time = null
+shader_parameter/lights = null
+shader_parameter/light_energy = null
+shader_parameter/light_count = null
 
 [sub_resource type="BoxMesh" id="BoxMesh_m0npq"]
 material = SubResource("ShaderMaterial_xq5bu")
@@ -24,8 +28,12 @@ shader = ExtResource("1_3usgr")
 shader_parameter/cells = null
 shader_parameter/mode = 1
 shader_parameter/half_depth = 1.5
+shader_parameter/row_z = null
 shader_parameter/shadow = null
 shader_parameter/game_time = null
+shader_parameter/lights = null
+shader_parameter/light_energy = null
+shader_parameter/light_count = null
 
 [sub_resource type="BoxMesh" id="BoxMesh_keart"]
 material = SubResource("ShaderMaterial_4phgr")
@@ -40,8 +48,12 @@ shader = ExtResource("1_3usgr")
 shader_parameter/cells = null
 shader_parameter/mode = 3
 shader_parameter/half_depth = 1.5
+shader_parameter/row_z = null
 shader_parameter/shadow = null
 shader_parameter/game_time = null
+shader_parameter/lights = null
+shader_parameter/light_energy = null
+shader_parameter/light_count = null
 
 [sub_resource type="BoxMesh" id="BoxMesh_xi3ku"]
 material = SubResource("ShaderMaterial_raiyn")
@@ -53,8 +65,12 @@ shader = ExtResource("1_3usgr")
 shader_parameter/cells = null
 shader_parameter/mode = 2
 shader_parameter/half_depth = 1.5
+shader_parameter/row_z = null
 shader_parameter/shadow = null
 shader_parameter/game_time = null
+shader_parameter/lights = null
+shader_parameter/light_energy = null
+shader_parameter/light_count = null
 
 [sub_resource type="BoxMesh" id="BoxMesh_n6q1j"]
 material = SubResource("ShaderMaterial_sm6n4")

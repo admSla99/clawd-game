@@ -14,7 +14,10 @@ const CORRUPT := 3
 const MESH_LIBRARY := "res://tiles/terrain_meshlib.tres"
 ## Depth of a block in metres; blocks are centred on the gameplay plane z = 0.
 const DEPTH := 3.0
+## Distances to open air are stored up to this many cells (terrain_pixels.gdshader decodes R * 12).
 const MAX_DIST := 12
+## Size of the light arrays in terrain_pixels.gdshader (MAX_LIGHTS).
+const LIGHTS_MAX := 32
 # Loaded in _add_spawn, not preloaded: bug.gd refers back to Level, and a preload cycle fails to load.
 const BUG := "res://scenes/bug.tscn"
 const TOKEN := "res://scenes/token.tscn"
@@ -33,28 +36,21 @@ func tile(p: Vector2) -> int:
 	return item if item != GridMap.INVALID_CELL_ITEM else terrain.get_cell_item(c)
 
 
-## Fills the blocks' dot texture (shaders/terrain_dots.gdshader) like TerrainRenderer.bake() in
-## src/render/dotRenderer.ts: per 4 px cell, R = brightness from the distance to the nearest open cell
-## (bright crust, dim interior) plus strata and noise from `seed`, G = random, B = 1 when the cell above
-## is open. The MeshLibrary materials are shared, so this applies to the level shown last.
-func bake_dots(seed: int) -> void:
+## Fills the blocks' cell texture (shaders/terrain_pixels.gdshader), one texel per 4 px cell:
+## R = Chebyshev distance to the nearest open cell / MAX_DIST (bright crust, dark interior), G = random
+## from `seed`, B = 1 when the cell above is open, A = 1 for solid or corrupted cells. The MeshLibrary
+## materials are shared, so this applies to the level shown last.
+func bake_cells(seed: int) -> void:
 	var s := size()
 	var cw := int(s.x) / 4
 	var ch := int(s.y) / 4
-	var solid := func(cx: int, cy: int) -> bool:
-		if cx < 0 or cx >= cw:
-			return true
-		if cy < 0 or cy >= ch:
-			return false
-		return terrain.get_cell_item(Vector3i(cx >> 2, -(cy >> 2) - 1, 0)) == SOLID
-	# Chebyshev distance (in cells) from every solid cell to the nearest open cell.
 	var dist := PackedByteArray()
 	dist.resize(cw * ch)
 	dist.fill(MAX_DIST)
 	var queue := PackedInt32Array()
 	for y in ch:
 		for x in cw:
-			if not solid.call(x, y):
+			if not _blocky(x >> 2, y >> 2):
 				dist[y * cw + x] = 0
 				queue.append(y * cw + x)
 	var i := 0
@@ -73,27 +69,38 @@ func bake_dots(seed: int) -> void:
 				if nx >= 0 and ny >= 0 and nx < cw and ny < ch and dist[ny * cw + nx] > nd:
 					dist[ny * cw + nx] = nd
 					queue.append(ny * cw + nx)
-	var img := Image.create_empty(cw, ch, false, Image.FORMAT_RGB8)
+	var img := Image.create_empty(cw, ch, false, Image.FORMAT_RGBA8)
 	for y in ch:
 		for x in cw:
-			var d := dist[y * cw + x]
-			var r := DotNoise.hash2(x, y, seed)
-			var strata := DotNoise.value_noise2(x * 0.18, y * 0.5, seed + 3)
-			var b: float
-			if d <= 1: b = 0.92
-			elif d == 2: b = 0.68
-			elif d == 3: b = 0.52
-			else: b = maxf(0.12, 0.5 - (d - 3) * 0.05)
-			b += (strata - 0.5) * 0.28 + (r - 0.5) * 0.18
+			# The level's top row is a ceiling, not a floor: no crust on it.
 			var air_above := y > 0 and not _blocky(x >> 2, (y - 1) >> 2)
-			img.set_pixel(x, y, Color(clampf(b, 0, 1), r, 1.0 if air_above else 0.0))
+			img.set_pixel(x, y, Color(
+				float(dist[y * cw + x]) / MAX_DIST,
+				DotNoise.hash2(x, y, seed),
+				1.0 if air_above else 0.0,
+				1.0 if _blocky(x >> 2, y >> 2) else 0.0))
 	var tex := ImageTexture.create_from_image(img)
+	set_param("cells_tex", tex)
+	set_param("cells", Vector2(cw, ch))
+
+
+## Orange lights for terrain_pixels.gdshader: `lights` = (x, y, z, radius) in metres, `energy` one per light.
+func set_lights(lights: PackedVector4Array, energy: PackedFloat32Array) -> void:
+	var n := lights.size()
+	lights.resize(LIGHTS_MAX)
+	energy.resize(LIGHTS_MAX)
+	set_param("lights", lights)
+	set_param("light_energy", energy)
+	set_param("light_count", n)
+
+
+## Sets a uniform on every block material.
+func set_param(param: StringName, value: Variant) -> void:
 	for mat in materials():
-		mat.set_shader_parameter("dots", tex)
-		mat.set_shader_parameter("cells", Vector2(cw, ch))
+		mat.set_shader_parameter(param, value)
 
 
-## Puts Clawd's blob shadow (terrain_dots.gdshader) on the floor under `feet` (level pixels).
+## Puts Clawd's blob shadow (terrain_pixels.gdshader) on the floor under `feet` (level pixels).
 func set_shadow(feet: Vector2) -> void:
 	var tx := floori(feet.x / 16)
 	var floor_y := INF
@@ -102,11 +109,10 @@ func set_shadow(feet: Vector2) -> void:
 			floor_y = ty * 16
 			break
 	var v := Vector3(feet.x * Px.M, -floor_y * Px.M, (floor_y - feet.y) / 16.0) if floor_y < INF else Vector3(0, -1e6, 0)
-	for mat in materials():
-		mat.set_shader_parameter("shadow", v)
+	set_param("shadow", v)
 
 
-## The dot ShaderMaterials of the MeshLibrary, one per item.
+## The block ShaderMaterials of the MeshLibrary, one per item.
 func materials() -> Array[ShaderMaterial]:
 	var lib := terrain.mesh_library
 	var out: Array[ShaderMaterial] = []
@@ -120,8 +126,7 @@ func _blocky(tx: int, ty: int) -> bool:
 
 
 func _process(_dt: float) -> void:
-	for mat in materials():
-		mat.set_shader_parameter("game_time", Game.time)
+	set_param("game_time", Game.time)
 
 
 ## Level size in pixels: right edge of the widest row by the bottom of the lowest, like

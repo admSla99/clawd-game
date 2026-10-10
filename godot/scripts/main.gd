@@ -1,8 +1,11 @@
 class_name Main
-extends Node3D
+extends Node
 
-## Root of the vertical slice. $Level is a converted level (levels/<id>.tscn, see
-## tools/convert_level.gd); load_level() swaps it and puts the player on its Start marker.
+## Root of the vertical slice. The game renders into a SubViewport at the view size (~480x270, see
+## ViewScale) that the container scales up by a whole factor with nearest filtering, so the 3D pixel
+## shaders, Clawd and the particles land on whole view pixels; the CRT overlay sits on top at window
+## resolution. Level is a converted level (levels/<id>.tscn, see tools/convert_level.gd); load_level()
+## swaps it and puts the player on its Start marker.
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
@@ -19,10 +22,13 @@ var level_id: String
 var info: Dictionary
 var player: Player
 
-@onready var level: Level = $Level
-@onready var camera: GameCamera = $Camera3D
-@onready var particles: Particles = $Particles
-@onready var parallax: Parallax = $Background/Parallax
+@onready var world: Node3D = $View/SubViewport/World
+@onready var level: Level = $View/SubViewport/World/Level
+@onready var camera: GameCamera = $View/SubViewport/World/Camera3D
+@onready var particles: Particles = $View/SubViewport/World/Particles
+@onready var parallax: Parallax = $View/SubViewport/World/Background/Parallax
+@onready var haze: ColorRect = $View/SubViewport/World/Background/Haze
+@onready var scenery: Scenery = $View/SubViewport/World/Scenery
 @onready var crt: ColorRect = $ScreenFx/Crt
 
 
@@ -30,7 +36,7 @@ func _ready() -> void:
 	levels = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_INDEX))
 	level_ids = levels.map(func(l): return l.id)
 	player = PLAYER.instantiate()
-	add_child(player)
+	world.add_child(player)
 	player.event.connect(_on_player_event)
 	load_level(start_level)
 
@@ -47,15 +53,15 @@ func next_level() -> void:
 func load_level(id: String) -> void:
 	var next: Level = load("res://levels/%s.tscn" % id).instantiate()
 	# Free the old level at once, so its bugs leave the "enemies" group before the next physics frame.
-	remove_child(level)
+	world.remove_child(level)
 	level.free()
 	level = next
-	add_child(level)
+	world.add_child(level)
 	level_id = id
 	info = levels[level_ids.find(id)]
-	level.bake_dots(info.terrainSeed)
+	level.bake_cells(info.terrainSeed)
+	level.set_param("row_z", GameCamera.ROW_Z)
 	parallax.setup(info.theme, camera)
-	RenderingServer.set_default_clear_color(Color("#111111") if info.theme == "caves" else Color("#161616"))
 	Game.reset()
 	particles.clear()
 
@@ -64,6 +70,8 @@ func load_level(id: String) -> void:
 	var start := Px.of(level.get_node("Start").position)
 	player.enter_level(level, start, camera.bounds.y)
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
+	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size())
+	scenery.update(camera.top_left)
 
 
 func shake(amount: float) -> void:
@@ -75,11 +83,31 @@ func _physics_process(dt: float) -> void:
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
+	scenery.update(camera.top_left)
 	level.set_shadow(player.pos)
 
 
 func _process(_dt: float) -> void:
 	crt.material.set_shader_parameter("view_scale", float(get_tree().root.size.y) / get_viewport().get_visible_rect().size.y)
+	haze.material.set_shader_parameter("scroll", camera.top_left.x)
+	haze.material.set_shader_parameter("game_time", Game.time)
+	_update_lights()
+
+
+## Passes the visible GlowLights nearest the view centre (at most Level.LIGHTS_MAX) to the terrain.
+func _update_lights() -> void:
+	var centre := Px.to3(camera.top_left + camera.view_size() / 2)
+	var found: Array = get_tree().get_nodes_in_group("lights").filter(
+		func(l: GlowLight) -> bool: return l.is_visible_in_tree() and l.energy > 0)
+	found.sort_custom(func(a: GlowLight, b: GlowLight) -> bool:
+		return a.global_position.distance_squared_to(centre) < b.global_position.distance_squared_to(centre))
+	var lights := PackedVector4Array()
+	var energy := PackedFloat32Array()
+	for l: GlowLight in found.slice(0, Level.LIGHTS_MAX):
+		var p := l.global_position
+		lights.append(Vector4(p.x, p.y, p.z, l.radius))
+		energy.append(l.energy)
+	level.set_lights(lights, energy)
 
 
 # Same counts, speeds and colors as the matching particles.emit() calls in src/scenes/game.ts.

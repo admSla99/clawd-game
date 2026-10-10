@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/token.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/glow_light.gd" id="2"]
 
 [sub_resource type="SphereShape3D" id="shape"]
 radius = 0.25
@@ -14,3 +15,9 @@ script = ExtResource("1")
 shape = SubResource("shape")
 
 [node name="Coin" type="MeshInstance3D" parent="."]
+
+[node name="Glow" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1)
+script = ExtResource("2")
+radius = 2.5
+energy = 0.9
