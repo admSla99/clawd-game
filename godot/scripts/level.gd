@@ -18,6 +18,8 @@ const DEPTH := 3.0
 const MAX_DIST := 12
 ## Size of the light arrays in terrain_pixels.gdshader (MAX_LIGHTS).
 const LIGHTS_MAX := 32
+## Size of the shadow array in terrain_pixels.gdshader (MAX_SHADOWS).
+const SHADOWS_MAX := 16
 # Loaded in _add_spawn, not preloaded: bug.gd refers back to Level, and a preload cycle fails to load.
 const BUG := "res://scenes/bug.tscn"
 const TOKEN := "res://scenes/token.tscn"
@@ -100,16 +102,22 @@ func set_param(param: StringName, value: Variant) -> void:
 		mat.set_shader_parameter(param, value)
 
 
-## Puts Clawd's blob shadow (terrain_pixels.gdshader) on the floor under `feet` (level pixels).
-func set_shadow(feet: Vector2) -> void:
+## A blob shadow for terrain_pixels.gdshader on the floor under `feet` (level pixels), `radius` metres
+## wide when the caster stands on it: (x, floor y, height above the floor in tiles, radius).
+func shadow_at(feet: Vector2, radius: float) -> Vector4:
 	var tx := floori(feet.x / 16)
-	var floor_y := INF
 	for ty in range(floori((feet.y - 1) / 16), int(size().y / 16) + 1):
 		if _blocky(tx, ty) or oneway.get_cell_item(Vector3i(tx, -ty - 1, 0)) == ONEWAY:
-			floor_y = ty * 16
-			break
-	var v := Vector3(feet.x * Px.M, -floor_y * Px.M, (floor_y - feet.y) / 16.0) if floor_y < INF else Vector3(0, -1e6, 0)
-	set_param("shadow", v)
+			return Vector4(feet.x * Px.M, -ty, (ty * 16 - feet.y) / 16.0, radius)
+	return Vector4(0, -1e6, 0, 0)
+
+
+## Passes the blob shadows (shadow_at()) to the blocks, at most SHADOWS_MAX.
+func set_shadows(shadows: PackedVector4Array) -> void:
+	var n := mini(shadows.size(), SHADOWS_MAX)
+	shadows.resize(SHADOWS_MAX)
+	set_param("shadows", shadows)
+	set_param("shadow_count", n)
 
 
 ## The block ShaderMaterials of the MeshLibrary, one per item.

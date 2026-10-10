@@ -12,6 +12,9 @@ const PLAYER := preload("res://scenes/player.tscn")
 ## Extra pixels the SubViewport renders on every side, hidden by offsetting the container (see
 ## GameCamera.pad): the oblique projection draws block fronts up to 8 px below their real position.
 const PAD := 16
+## Blob shadow radii in metres (terrain_pixels.gdshader): Clawd is 18 px wide, a bug 16 px.
+const PLAYER_SHADOW := 0.5
+const ENEMY_SHADOW := 0.42
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
 
@@ -104,7 +107,7 @@ func _physics_process(dt: float) -> void:
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
 	scenery.update(camera.top_left)
-	level.set_shadow(player.pos)
+	_update_shadows()
 
 
 func _process(_dt: float) -> void:
@@ -112,6 +115,18 @@ func _process(_dt: float) -> void:
 	haze.material.set_shader_parameter("scroll", camera.top_left.x)
 	haze.material.set_shader_parameter("game_time", Game.time)
 	_update_lights()
+
+
+## Clawd's blob shadow and the enemies' nearest the view centre (Level.SHADOWS_MAX in all).
+func _update_shadows() -> void:
+	var centre := camera.top_left + camera.view_size() / 2
+	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	enemies.sort_custom(func(a: Node, b: Node) -> bool:
+		return a.pos.distance_squared_to(centre) < b.pos.distance_squared_to(centre))
+	var shadows := PackedVector4Array([level.shadow_at(player.pos, PLAYER_SHADOW)])
+	for e in enemies.slice(0, Level.SHADOWS_MAX - 1):
+		shadows.append(level.shadow_at(e.pos, ENEMY_SHADOW))
+	level.set_shadows(shadows)
 
 
 ## Passes the visible GlowLights nearest the view centre (at most Level.LIGHTS_MAX) to the terrain.

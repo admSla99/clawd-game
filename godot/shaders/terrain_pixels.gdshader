@@ -6,8 +6,8 @@
 // corrupted cells. Top faces are bands of view rows (row_z metres of depth per row, see GameCamera) from
 // the white front lip to dark speckled grey at the back. Orange lights (Main collects nodes in group
 // "lights") light the pixels around them in four steps, dithered where the steps meet; on block fronts
-// only the crust near open air takes light, it does not shine into the body. `shadow` (x, floor y, height above it)
-// puts Clawd's blob shadow on the floor under him. `game_time` is Game.time, so hitstop and pause freeze
+// only the crust near open air takes light, it does not shine into the body. `shadows` (x, floor y, height above it in
+// tiles, radius) put blob shadows on the floor under Clawd and the enemies (Level.set_shadows()). `game_time` is Game.time, so hitstop and pause freeze
 // the animation. Colours are written in sRGB and converted at the end.
 shader_type spatial;
 render_mode unshaded;
@@ -21,7 +21,9 @@ uniform vec2 cells = vec2(1.0);
 uniform int mode = 0; // 0 solid, 1 one-way, 2 corrupted, 3 spikes
 uniform float half_depth = 1.5;
 uniform float row_z = 0.1875;
-uniform vec3 shadow = vec3(0.0, -1e6, 0.0);
+const int MAX_SHADOWS = 16;
+uniform vec4 shadows[MAX_SHADOWS];
+uniform int shadow_count = 0;
 uniform float game_time = 0.0;
 uniform vec4 lights[MAX_LIGHTS];
 uniform float light_energy[MAX_LIGHTS];
@@ -240,15 +242,21 @@ void fragment() {
 				col = GREY_1;
 			}
 		}
-		// Clawd's blob shadow, two steps, shrinking with his height above this floor.
-		if (abs(wpos.y - shadow.y) < 0.01) {
-			float rad = max(0.0, 0.5 - shadow.z * 0.06);
-			vec2 e = vec2(lp.x - shadow.x, lp.z * 0.45) / max(rad, 1e-3);
-			float d2 = dot(e, e);
-			if (d2 < 1.0) {
-				col = mix(col, BLACK, d2 < 0.45 ? 0.8 : 0.55);
+		// Blob shadows, two steps, shrinking with the caster's height above this floor; overlapping
+		// shadows keep the darker step instead of stacking.
+		float dark = 0.0;
+		for (int k = 0; k < shadow_count; k++) {
+			vec4 sh = shadows[k];
+			if (abs(wpos.y - sh.y) < 0.01) {
+				float rad = max(0.0, sh.w - sh.z * 0.06);
+				vec2 e = vec2(lp.x - sh.x, lp.z * 0.45) / max(rad, 1e-3);
+				float d2 = dot(e, e);
+				if (d2 < 1.0) {
+					dark = max(dark, d2 < 0.45 ? 0.8 : 0.55);
+				}
 			}
 		}
+		col = mix(col, BLACK, dark);
 	}
 	col = lit(col, occl > 0.0 ? light_level(lp, lpx) * occl : 0.0);
 	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2)) * boost;

@@ -158,8 +158,8 @@ Back to front:
   meet air and a white/grey crust with orange sparkles on exposed tops. One-way platforms are crust strips
   with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
   view rows from the white front lip to dark speckled grey. One-way platforms are a thin strip (4 px tall,
-  0.75 m deep), so they read as ledges rather than blocks. Clawd's blob shadow is drawn on the top face under
-  him (`Level.set_shadow()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
+  0.75 m deep), so they read as ledges rather than blocks. Blob shadows of Clawd and the enemies nearest the view
+  (up to 16) are drawn on the top faces under them (`Level.shadow_at()`, `Level.set_shadows()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
 - `scripts/decor.gd` (`Decor.populate()`): props on exposed tops from the `terrainSeed`: voxel lanterns at the
   back of the top band (behind Clawd) and small tufts in the light colour at the front lip and the back.
 - Warm lights: `GlowLight` nodes (`scripts/glow_light.gd`, group `lights`) on lanterns, tokens and Clawd's hover
