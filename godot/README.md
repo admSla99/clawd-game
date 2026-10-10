@@ -169,11 +169,16 @@ Back to front:
   steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
   meet air and a white/grey crust with orange sparkles on exposed tops. One-way platforms are crust strips
   with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
-  view rows from the white front lip to dark speckled grey. One-way platforms are a thin strip (4 px tall,
+  view rows from the white front lip to dark speckled grey. Lower block corners that meet air below and to
+  the side are rounded (4 px). One-way platforms are a thin strip (4 px tall,
   0.75 m deep), so they read as ledges rather than blocks. Blob shadows of Clawd and the enemies nearest the view
   (up to 16) are drawn on the top faces under them (`Level.shadow_at()`, `Level.set_shadows()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
-- `scripts/decor.gd` (`Decor.populate()`): props on exposed tops from the `terrainSeed`: voxel lanterns at the
-  back of the top band (behind Clawd) and small tufts in the light colour at the front lip and the back.
+- `scripts/decor.gd` (`Decor.populate()`): props from the `terrainSeed`. On exposed tops: voxel lanterns at the
+  back of the top band (behind Clawd), small tufts in the light colour at the front lip and the back that sway
+  and bend away from Clawd as he walks through (`Decor.interact()`), and neuron flowers, a stalk with a glowing
+  bulb and its own GlowLight (more in dark levels). Under ceilings and one-way platforms: data vines that hang
+  and sway, some ending in a glowing node, and short dark drips. Sway is done in `shaders/voxel.gdshader`
+  (instance `sway` / `bend`), rounded to whole pixels per row.
 - Warm lights: `GlowLight` nodes (`scripts/glow_light.gd`, group `lights`) on lanterns, tokens and Clawd's hover
   jets. `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights
   the pixels around them in four steps with an ordered dither between them. On block fronts only the crust

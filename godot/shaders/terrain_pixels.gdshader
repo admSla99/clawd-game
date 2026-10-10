@@ -115,6 +115,18 @@ void fragment() {
 		lp = vec3((vec2(ip) + 0.5) / 16.0 * vec2(1.0, -1.0), wpos.z);
 		lpx = ip;
 		if (mode == 0) {
+			// Rounded lower corners (4 px radius) where the block meets air both below and to the side,
+			// so overhangs and ledge ends are not cut square. The face behind shows through.
+			if (q.y >= 12 && !blocky(c + ivec2(0, 1))) {
+				bool l = q.x <= 3 && !blocky(c + ivec2(-1, 0));
+				bool r = q.x >= 12 && !blocky(c + ivec2(1, 0));
+				if (l || r) {
+					vec2 e = vec2(l ? 3.5 - float(q.x) : float(q.x) - 11.5, float(q.y) - 11.5);
+					if (dot(e, e) > 12.75) {
+						discard;
+					}
+				}
+			}
 			vec4 C = cell_at(c);
 			int d = int(round(C.r * 12.0));
 			// Light lands on the crust; it fades out within three cells of open air.

@@ -93,7 +93,7 @@ func load_level(id: String) -> void:
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
-	Decor.populate(level, info.terrainSeed, palette)
+	Decor.populate(level, info.terrainSeed, palette, info.get("dark", false) == true)
 	parallax.setup(info.theme, camera, palette)
 	for key in ["top", "mid", "haze", "ray"]:
 		haze.material.set_shader_parameter(key + "_color", Themes.vec(palette[key]))
@@ -116,6 +116,9 @@ func _physics_process(dt: float) -> void:
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
 	scenery.update(camera.top_left)
 	_update_shadows()
+	var decor: Decor = level.get_node_or_null("Decor")
+	if decor:
+		decor.interact(player.pos, dt)
 
 
 func _process(_dt: float) -> void:

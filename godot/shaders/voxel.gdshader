@@ -4,6 +4,9 @@
 // warm the side of the sprite facing that light: a 1 px rim on the silhouette edges of the front face
 // (UV.x holds each pixel's edges from Voxel.mesh(): 1 right, 2 left, 4 top, 8 bottom) and the side faces
 // turned towards it, in three steps.
+// Sway (plants, vines): `sway` = (amplitude px, phase, height m, 1 if hung from the top) bends the sprite
+// along its height, most at the free end, plus `bend` px pushed by Clawd (Decor); the shift is rounded to
+// whole pixels per vertex row, so it stays pixel art.
 shader_type spatial;
 render_mode unshaded;
 
@@ -13,6 +16,8 @@ uniform vec4 albedo = vec4(1.0);
 uniform bool flash = false;
 instance uniform vec4 rim_light = vec4(0.0);
 instance uniform float rim_energy = 0.0;
+instance uniform vec4 sway = vec4(0.0);
+instance uniform float bend = 0.0;
 
 // The lanterns' warm light, linear.
 const vec3 RIM_COLOR = vec3(0.87, 0.38, 0.24);
@@ -23,6 +28,11 @@ varying float edges;
 varying float flip;
 
 void vertex() {
+	if (sway.z > 0.0) {
+		float k = clamp(sway.w > 0.5 ? (sway.z - VERTEX.y) / sway.z : VERTEX.y / sway.z, 0.0, 1.0);
+		float dx = (sin(TIME * (0.8 + fract(sway.y * 7.0) * 0.6) + sway.y * 6.2832) * sway.x + bend) * k * k;
+		VERTEX.x += round(dx) / 16.0;
+	}
 	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
