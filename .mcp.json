@@ -2,7 +2,7 @@
   "mcpServers": {
     "godot-ai": {
       "type": "stdio",
-      "command": "/home/sla2mlv/.local/bin/uvx",
+      "command": "uvx",
       "args": [
         "--isolated",
         "--no-config",
