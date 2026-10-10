@@ -37,6 +37,8 @@ var player: Player
 @onready var parallax: Parallax = $View/SubViewport/World/Background/Parallax
 @onready var haze: ColorRect = $View/SubViewport/World/Background/Haze
 @onready var scenery: Scenery = $View/SubViewport/World/Scenery
+@onready var motes: Motes = $View/SubViewport/World/Motes
+@onready var light_fx: ColorRect = $View/SubViewport/World/Foreground/LightFx
 @onready var crt: ColorRect = $ScreenFx/Crt
 
 
@@ -95,6 +97,11 @@ func load_level(id: String) -> void:
 	parallax.setup(info.theme, camera, palette)
 	for key in ["top", "mid", "haze", "ray"]:
 		haze.material.set_shader_parameter(key + "_color", Themes.vec(palette[key]))
+	var dark: bool = info.get("dark", false) == true
+	motes.setup(info.terrainSeed, camera.bounds, palette, dark)
+	light_fx.material.set_shader_parameter("ray_color", Themes.vec(palette.ray))
+	light_fx.material.set_shader_parameter("mist_color", Themes.vec(palette.haze))
+	light_fx.material.set_shader_parameter("ray_strength", 0.1 if dark else 0.16)
 	scenery.update(camera.top_left)
 
 
@@ -115,6 +122,10 @@ func _process(_dt: float) -> void:
 	crt.material.set_shader_parameter("view_scale", float(get_tree().root.size.y) / get_viewport().get_visible_rect().size.y)
 	haze.material.set_shader_parameter("scroll", camera.top_left.x)
 	haze.material.set_shader_parameter("game_time", Game.time)
+	light_fx.material.set_shader_parameter("scroll", camera.top_left.x)
+	light_fx.material.set_shader_parameter("game_time", Game.time)
+	# The level's bottom edge in SubViewport rows (the SubViewport starts PAD above the view).
+	light_fx.material.set_shader_parameter("mist_y", camera.bounds.y - camera.top_left.y + PAD)
 	_update_lights()
 
 

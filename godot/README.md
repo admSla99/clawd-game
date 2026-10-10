@@ -175,6 +175,12 @@ Back to front:
   jets. `Main` passes the visible ones nearest the view (at most 32) to `Level.set_lights()`; the terrain lights
   the pixels around them in four steps with an ordered dither between them. On block fronts only the crust
   within three cells of open air takes light.
+- Air light: `scripts/motes.gd` (`Motes`) fills the level with fireflies / data motes at depths around the
+  gameplay plane, 1 px glints with a dimmer cross that drift on slow loops and blink (more in dark levels);
+  every tenth carries a small `GlowLight`. `shaders/light_fx.gdshader` (`Foreground/LightFx`, a CanvasLayer
+  over the 3D view) adds light shafts in front of everything, scrolling faster than the level, and mist
+  rising from the level's bottom edge so pits and the bottom fade into the haze; both are dithered and
+  additive.
 - Foreground: a `Scenery` layer in front of the level (parallax 1.35) of dark broken trunk bases with a jagged
   top, rising from the level's bottom (in dark levels also hanging from its top), and thick dark cables
   hanging into the view.

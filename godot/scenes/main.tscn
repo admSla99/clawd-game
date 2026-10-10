@@ -8,6 +8,8 @@
 [ext_resource type="Shader" path="res://shaders/crt.gdshader" id="6"]
 [ext_resource type="Shader" path="res://shaders/haze.gdshader" id="7"]
 [ext_resource type="Script" path="res://scripts/scenery.gd" id="8"]
+[ext_resource type="Shader" path="res://shaders/light_fx.gdshader" id="9"]
+[ext_resource type="Script" path="res://scripts/motes.gd" id="10"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 3
@@ -22,6 +24,9 @@ glow_hdr_threshold = 0.9
 
 [sub_resource type="ShaderMaterial" id="haze"]
 shader = ExtResource("7")
+
+[sub_resource type="ShaderMaterial" id="light_fx"]
+shader = ExtResource("9")
 
 [sub_resource type="ShaderMaterial" id="crt"]
 shader = ExtResource("6")
@@ -70,6 +75,19 @@ script = ExtResource("3")
 
 [node name="Particles" type="MultiMeshInstance3D" parent="View/SubViewport/World" groups=["particles"]]
 script = ExtResource("4")
+
+[node name="Motes" type="MultiMeshInstance3D" parent="View/SubViewport/World"]
+script = ExtResource("10")
+
+[node name="Foreground" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 1
+
+[node name="LightFx" type="ColorRect" parent="View/SubViewport/World/Foreground"]
+material = SubResource("light_fx")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
 
 [node name="ScreenFx" type="CanvasLayer" parent="."]
 layer = 10
