@@ -37,6 +37,8 @@ const HURT_KNOCK_Y := 250.0
 const MAX_HEARTS := 3
 
 const SIZE := Vector2(18, 18)
+## Size of the voxel sprite in pixels (13 x 10 cells of 2 px).
+const SPRITE_PX := Vector2(26, 20)
 const HITBOX := Rect2(-7, -15, 14, 15)
 const SPIKE_PROBE := Rect2(-6, -6, 12, 6)
 
@@ -123,9 +125,9 @@ static func build_meshes() -> Dictionary:
 
 
 ## Hit flash: replaces every colour with white, like `tint` in the 2D drawing.
-static func flash_material() -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+static func flash_material() -> ShaderMaterial:
+	var m := Voxel.material()
+	m.set_shader_parameter("flash", true)
 	return m
 
 
@@ -307,11 +309,17 @@ func _update_visual() -> void:
 		y_off = 1.0 if phase % 2 == 1 else 0.0
 	else:
 		frame = &"blink" if blink_timer < 0 else &"idle"
-		y_off = 0.5 if sin(anim * 3) > 0.6 else 0.0
+		y_off = 1.0 if sin(anim * 3) > 0.6 else 0.0
 	body.mesh = MESHES[frame]
 	body.material_override = FLASH if hurt_timer > 0 and floori(t * 20) % 2 == 0 else null
-	visual.position.y = y_off * Px.M
-	visual.scale = Vector3(squash.x, squash.y, squash.x)
+	# Draw on whole view pixels: the body follows `pos` rounded to the pixel grid (the camera is
+	# pixel-aligned too) and squash & stretch keeps the sprite an even number of pixels wide and a
+	# whole number tall, so the 2 px voxels don't shimmer between 1 and 3 px while moving.
+	var snap := pos.round() - pos
+	visual.position = Vector3(snap.x, -snap.y + y_off, 0) * Px.M
+	var sx := roundf(SPRITE_PX.x * squash.x / 2) * 2 / SPRITE_PX.x
+	var sy := roundf(SPRITE_PX.y * squash.y) / SPRITE_PX.y
+	visual.scale = Vector3(sx, sy, sx)
 	visual.rotation.y = 0.0 if facing > 0 else PI
 	# Hover jet: two flickering beams from the legs.
 	for j: Node3D in jets:

@@ -14,10 +14,8 @@ var list: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.vertex_color_use_as_albedo = true
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/particles.gdshader")
 	var box := BoxMesh.new()
 	box.size = Vector3.ONE * Px.M
 	box.material = mat

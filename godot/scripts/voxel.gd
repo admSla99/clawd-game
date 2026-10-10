@@ -22,6 +22,7 @@ const SHADE := {
 	Vector3i(-1, 0, 0): 0.72, Vector3i(0, -1, 0): 0.5, Vector3i(0, 0, -1): 0.85,
 }
 
+const SHADER := preload("res://shaders/voxel.gdshader")
 static var MATERIAL := material()
 
 
@@ -48,19 +49,19 @@ static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 
 			for i in [0, 1, 2, 0, 2, 3]:
 				var col: Color = cells[v] * SHADE[n]
 				col.a = 1.0
-				st.set_color(col)
+				st.set_color(col.srgb_to_linear())
 				st.set_normal(Vector3(n))
 				st.add_vertex((origin + Vector3(v) + q[i]) * size)
 	st.set_material(mat)
 	return st.commit()
 
 
-## Unshaded vertex-colour material. `glow` > 1 scales the colour past 1.0 so the WorldEnvironment glow
-## picks it up, like Fx.glow() did for the 2D sprites.
-static func material(glow := 1.0) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.vertex_color_use_as_albedo = true
-	m.vertex_color_is_srgb = true
-	m.albedo_color = Color(glow, glow, glow)
+## Unshaded vertex-colour material (shaders/voxel.gdshader, with the 2.5D oblique projection). `glow` > 1
+## scales the colour past 1.0 so the WorldEnvironment glow picks it up, like Fx.glow() did for the 2D
+## sprites. mesh() stores linear vertex colours: a StandardMaterial3D with vertex_color_is_srgb showed
+## 1 px holes where a shallow part (Clawd's arms, edge column, bottom row) meets the deeper body.
+static func material(glow := 1.0) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = SHADER
+	m.set_shader_parameter("albedo", Vector4(glow, glow, glow, 1))
 	return m

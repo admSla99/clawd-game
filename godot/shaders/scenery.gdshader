@@ -5,6 +5,8 @@
 shader_type spatial;
 render_mode unshaded;
 
+#include "res://shaders/oblique.gdshaderinc"
+
 instance uniform vec3 box_size = vec3(1.0);
 instance uniform float seed = 0.0;
 uniform vec3 haze = vec3(0.118, 0.176, 0.302);
@@ -34,6 +36,7 @@ vec3 tone(float k) {
 }
 
 void vertex() {
+	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 	lpos = VERTEX;
 	lnormal = NORMAL;
 }

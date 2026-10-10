@@ -12,6 +12,8 @@
 shader_type spatial;
 render_mode unshaded;
 
+#include "res://shaders/oblique.gdshaderinc"
+
 const int MAX_LIGHTS = 32;
 
 uniform sampler2D cells_tex : filter_nearest, repeat_disable;
@@ -84,6 +86,7 @@ vec3 lit(vec3 c, float lv) {
 }
 
 void vertex() {
+	POSITION = oblique_position(MODEL_MATRIX, VIEW_MATRIX, PROJECTION_MATRIX, VERTEX);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

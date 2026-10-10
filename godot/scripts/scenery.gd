@@ -121,6 +121,8 @@ func _box(layer: Node3D, mat: ShaderMaterial, r: Rect2, seed: float, dz := 0.0) 
 	mi.mesh = mesh
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The oblique projection draws the box -l.z / 3 m higher than it is; keep it from being culled.
+	mi.extra_cull_margin = absf(l.z) / 3 + 1
 	mi.position = Vector3((r.position.x + r.size.x / 2) * Px.M, -(r.position.y + r.size.y / 2) * Px.M, l.z - DEPTH / 2 + dz)
 	mi.set_instance_shader_parameter("box_size", size)
 	mi.set_instance_shader_parameter("seed", floorf(seed))

@@ -88,9 +88,14 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
 - `ViewScale` (autoload, `scripts/view_scale.gd`): view size from the window like `Renderer.resize()` in
   `src/render/renderer.ts` (integer scale, view about 270 tall and at least ~420 wide), same as the 2D port.
 - `scripts/game_camera.gd`: port of `src/core/camera.ts` (look-ahead, vertical deadzone, small levels
-  centred, trauma shake) on an orthographic `Camera3D`. It works in level pixels on the gameplay plane; one
-  level pixel is one view pixel. The camera is pitched down atan(1/3) (~18.4°), so one view row covers exactly
-  3 px of depth (`ROW_Z`) and the 3 m deep blocks show a 16 px top band.
+  centred, trauma shake) on an orthographic `Camera3D` that looks straight down -z. It works in level pixels on
+  the gameplay plane; one level pixel is exactly one view pixel on both axes. Depth comes from the oblique
+  projection in `shaders/oblique.gdshaderinc`, which every 3D material calls from `vertex()`: a point moves up
+  by a third of its distance behind the gameplay plane, as if the camera were pitched down atan(1/3) (~18.4°).
+  One view row covers 3 px of depth (`ROW_Z`), so the 3 m deep blocks show a 16 px top band. A pitched
+  orthographic camera would shorten one axis by cos(pitch) and make sprites shimmer by a pixel while moving.
+  The SubViewport renders `Main.PAD` extra pixels on every side, so nothing the oblique shift moves into view
+  is frustum-culled at the edges.
 - `scripts/noise.gd` (`DotNoise`): bit-exact ports of `hash2`, `valueNoise2`, `periodicNoise1`, `mulberry32`.
 - `scripts/particles.gd`: port of `src/render/particles.ts` drawn as 1 px cubes in a MultiMesh; emit with the same
   options as `particles.emit`. Particles start half a tile in front of the gameplay plane, so they show over
@@ -136,7 +141,8 @@ Back to front:
   steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
   meet air and a white/grey crust with orange sparkles on exposed tops. One-way platforms are crust strips
   with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
-  view rows from the white front lip to dark speckled grey. Clawd's blob shadow is drawn on the top face under
+  view rows from the white front lip to dark speckled grey. One-way platforms are a thin strip (4 px tall,
+  0.75 m deep), so they read as ledges rather than blocks. Clawd's blob shadow is drawn on the top face under
   him (`Level.set_shadow()`). The animation runs on `Game.time`, so hitstop and pause freeze it.
 - `scripts/decor.gd` (`Decor.populate()`): props on exposed tops from the `terrainSeed`: voxel lanterns at the
   back of the top band (behind Clawd) and small tufts in the light colour at the front lip and the back.

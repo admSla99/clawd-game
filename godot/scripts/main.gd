@@ -9,6 +9,9 @@ extends Node
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
+## Extra pixels the SubViewport renders on every side, hidden by offsetting the container (see
+## GameCamera.pad): the oblique projection draws block fronts up to 8 px below their real position.
+const PAD := 16
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
 
@@ -22,6 +25,8 @@ var level_id: String
 var info: Dictionary
 var player: Player
 
+@onready var view: SubViewportContainer = $View
+@onready var subviewport: SubViewport = $View/SubViewport
 @onready var world: Node3D = $View/SubViewport/World
 @onready var level: Level = $View/SubViewport/World/Level
 @onready var camera: GameCamera = $View/SubViewport/World/Camera3D
@@ -38,12 +43,23 @@ func _ready() -> void:
 	player = PLAYER.instantiate()
 	world.add_child(player)
 	player.event.connect(_on_player_event)
+	camera.pad = PAD
+	get_tree().root.size_changed.connect(_resize)
+	_resize()
 	load_level(start_level)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("next_level"):
 		next_level()
+
+
+## Sizes the SubViewport to the view (ViewScale) plus PAD on every side and hides the padding.
+func _resize() -> void:
+	var v := get_viewport().get_visible_rect().size
+	subviewport.size = Vector2i(v) + Vector2i.ONE * PAD * 2
+	view.position = -Vector2.ONE * PAD
+	view.size = Vector2(subviewport.size)
 
 
 func next_level() -> void:
