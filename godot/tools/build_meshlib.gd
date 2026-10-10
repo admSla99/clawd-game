@@ -6,6 +6,9 @@
 extends SceneTree
 
 const DEPTH := 3.0 # Level.DEPTH
+## One-way platforms are a thin strip: 4 px tall at the top of the cell and this deep (4 view rows of top
+## band at GameCamera.ROW_Z), so they read as light ledges, not as blocks.
+const ONEWAY_DEPTH := 0.75
 
 
 func _init() -> void:
@@ -18,9 +21,12 @@ func _init() -> void:
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
 		mat.set_shader_parameter("mode", {"solid": 0, "oneway": 1, "corrupt": 2, "spike": 3}[name])
-		mat.set_shader_parameter("half_depth", DEPTH / 2)
 		var box := BoxMesh.new()
 		box.size = Vector3(1, 1, DEPTH)
+		if name == "oneway":
+			box.size = Vector3(1, 0.25, ONEWAY_DEPTH)
+			lib.set_item_mesh_transform(i, Transform3D(Basis.IDENTITY, Vector3(0, 0.375, 0)))
+		mat.set_shader_parameter("half_depth", box.size.z / 2)
 		box.material = mat
 		lib.set_item_mesh(i, box)
 		# Spikes are not solid (isSolidTile in src/world/tiles.ts); the player checks them by tile.
@@ -28,7 +34,7 @@ func _init() -> void:
 			continue
 		var shape := BoxShape3D.new()
 		var at := Transform3D.IDENTITY
-		shape.size = box.size
+		shape.size = Vector3(1, 1, DEPTH)
 		if name == "oneway":
 			# Collides on the top quarter of the cell, like the 4 px one-way polygon in 2D.
 			shape.size.y = 0.25
