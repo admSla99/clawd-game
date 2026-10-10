@@ -4,12 +4,12 @@ extends Camera3D
 ## Platformer camera ported from src/core/camera.ts: horizontal look-ahead, vertical deadzone,
 ## level bounds (levels smaller than the view are centred / bottom-aligned) and trauma shake.
 ## The logic runs in level pixels: `top_left` is the view's top-left corner on the gameplay plane,
-## like Camera.x / Camera.y. The camera looks at the view centre from DISTANCE, pitched down a little
-## so block tops and Clawd's shadow show.
+## like Camera.x / Camera.y. Orthographic and sized so one level pixel is one view pixel (the view is
+## ~480x270 like the 2D port, see ViewScale), pitched down a little so the block tops show as a thin
+## band; the camera is placed so the gameplay plane z = 0 still maps to the same view rectangle.
 
-## Visible height of the gameplay plane in pixels, BASE_VIEW_H in src/config.ts.
-const VIEW_H := 270.0
-const PITCH := deg_to_rad(14.0)
+const PITCH := deg_to_rad(12.0)
+const DISTANCE := 40.0
 
 var top_left := Vector2.ZERO
 var bounds := Vector2.ZERO
@@ -17,13 +17,8 @@ var look_ahead := 0.0
 var trauma := 0.0
 
 
-func distance() -> float:
-	return VIEW_H * Px.M / 2 / tan(deg_to_rad(fov) / 2)
-
-
 func view_size() -> Vector2:
-	var s := get_viewport().get_visible_rect().size
-	return Vector2(VIEW_H * s.x / s.y, VIEW_H)
+	return get_viewport().get_visible_rect().size
 
 
 func snap_to(target: Vector2) -> void:
@@ -32,6 +27,11 @@ func snap_to(target: Vector2) -> void:
 	look_ahead = 0.0
 	_apply()
 	reset_physics_interpolation()
+
+
+## Lowest the camera can go; parallax uses it as the reference height.
+func max_y() -> float:
+	return _clamp_y(INF)
 
 
 func follow(dt: float, target: Vector2, facing: int, grounded: bool, vy: float) -> void:
@@ -63,10 +63,12 @@ func shake(amount: float) -> void:
 
 func _apply() -> void:
 	var s := trauma * trauma * 7
-	var centre := Px.to3(top_left + view_size() / 2 + Vector2(randf_range(-s, s), randf_range(-s, s)))
-	var d := distance()
+	var v := view_size()
+	var centre := Px.to3((top_left + v / 2 + Vector2(randf_range(-s, s), randf_range(-s, s))).round())
+	# The pitch shortens the plane vertically by cos(PITCH); the ortho size makes up for it.
+	size = v.y * Px.M * cos(PITCH)
 	rotation = Vector3(-PITCH, 0, 0)
-	position = centre + Vector3(0, sin(PITCH) * d, cos(PITCH) * d)
+	position = centre + Vector3(0, sin(PITCH), cos(PITCH)) * DISTANCE
 
 
 func _clamp_x(x: float) -> float:

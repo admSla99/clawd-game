@@ -4,6 +4,8 @@ class_name Voxel
 ## each art pixel becomes a cube `size` wide, extruded `depth[char]` cubes deep around z = 0. Depths
 ## must be even so every character sits on one grid. Anchored at the bottom-centre like the 2D
 ## sprites; '.' and characters missing from the palette are empty; faces between two cubes are skipped.
+## Flat retro shading: the front face keeps the palette colour exactly, the other faces are scaled by
+## SHADE, and the material is unshaded, so no scene light changes the sprite colours.
 
 ## Corners of each cube face, clockwise seen from outside (Godot's front-face winding).
 const FACES := {
@@ -13,6 +15,11 @@ const FACES := {
 	Vector3i(0, -1, 0): [Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 0, 0)],
 	Vector3i(0, 0, 1): [Vector3(0, 0, 1), Vector3(0, 1, 1), Vector3(1, 1, 1), Vector3(1, 0, 1)],
 	Vector3i(0, 0, -1): [Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0), Vector3(0, 0, 0)],
+}
+
+const SHADE := {
+	Vector3i(0, 0, 1): 1.0, Vector3i(0, 1, 0): 1.25, Vector3i(1, 0, 0): 0.72,
+	Vector3i(-1, 0, 0): 0.72, Vector3i(0, -1, 0): 0.5, Vector3i(0, 0, -1): 0.85,
 }
 
 static var MATERIAL := material()
@@ -39,22 +46,21 @@ static func mesh(rows: Array, palette: Dictionary, depth: Dictionary, size := 2 
 				continue
 			var q: Array = FACES[n]
 			for i in [0, 1, 2, 0, 2, 3]:
-				st.set_color(cells[v])
+				var col: Color = cells[v] * SHADE[n]
+				col.a = 1.0
+				st.set_color(col)
 				st.set_normal(Vector3(n))
 				st.add_vertex((origin + Vector3(v) + q[i]) * size)
 	st.set_material(mat)
 	return st.commit()
 
 
-## Vertex-colored material; with `glow` > 0 it also emits `glow_color` for the glow in the
-## WorldEnvironment.
-static func material(glow := 0.0, glow_color := Color.WHITE) -> StandardMaterial3D:
+## Unshaded vertex-colour material. `glow` > 1 scales the colour past 1.0 so the WorldEnvironment glow
+## picks it up, like Fx.glow() did for the 2D sprites.
+static func material(glow := 1.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
-	m.roughness = 0.7
-	if glow > 0:
-		m.emission_enabled = true
-		m.emission = glow_color
-		m.emission_energy_multiplier = glow
+	m.albedo_color = Color(glow, glow, glow)
 	return m

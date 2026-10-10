@@ -22,6 +22,8 @@ var player: Player
 @onready var level: Level = $Level
 @onready var camera: GameCamera = $Camera3D
 @onready var particles: Particles = $Particles
+@onready var parallax: Parallax = $Background/Parallax
+@onready var crt: ColorRect = $ScreenFx/Crt
 
 
 func _ready() -> void:
@@ -51,6 +53,9 @@ func load_level(id: String) -> void:
 	add_child(level)
 	level_id = id
 	info = levels[level_ids.find(id)]
+	level.bake_dots(info.terrainSeed)
+	parallax.setup(info.theme, camera)
+	RenderingServer.set_default_clear_color(Color("#111111") if info.theme == "caves" else Color("#161616"))
 	Game.reset()
 	particles.clear()
 
@@ -70,6 +75,11 @@ func _physics_process(dt: float) -> void:
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
+	level.set_shadow(player.pos)
+
+
+func _process(_dt: float) -> void:
+	crt.material.set_shader_parameter("view_scale", float(get_tree().root.size.y) / get_viewport().get_visible_rect().size.y)
 
 
 # Same counts, speeds and colors as the matching particles.emit() calls in src/scenes/game.ts.

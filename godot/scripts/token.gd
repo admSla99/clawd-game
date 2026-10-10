@@ -4,7 +4,7 @@ extends Area3D
 
 const COLOR := Color("#FFD34D")
 const ROWS := [".TT.", "TTTT", "TTTT", ".TT."]
-static var MESH := Voxel.mesh(ROWS, {"T": COLOR}, {}, Px.M, Voxel.material(2.0, COLOR))
+static var MESH := Voxel.mesh(ROWS, {"T": COLOR}, {}, Px.M, Voxel.material(1.8))
 
 var t := randf() * 10
 

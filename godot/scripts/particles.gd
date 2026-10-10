@@ -6,6 +6,9 @@ extends MultiMeshInstance3D
 ## Simulated in level pixels like the TS version (plus a random drift in depth), drawn as cubes.
 
 const MAX := 1500
+## Particles start this far in front of the gameplay plane (pixels), just ahead of Clawd's and the
+## bugs' front faces, so they draw over the characters like the 2D overlay did.
+const FRONT := 8.0
 
 var list: Array[Dictionary] = []
 
@@ -16,7 +19,7 @@ func _ready() -> void:
 	mat.vertex_color_use_as_albedo = true
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var box := BoxMesh.new()
-	box.size = Vector3.ONE * Px.M * 2
+	box.size = Vector3.ONE * Px.M
 	box.material = mat
 	multimesh = MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
@@ -37,8 +40,8 @@ func emit(at: Vector2, o: Dictionary = {}) -> void:
 		var life: float = o.get("life", 0.5) * (0.6 + randf() * 0.4)
 		list.append({
 			"p": at,
-			"z": 0.0,
-			"vz": randf_range(-1, 1) * speed,
+			"z": FRONT,
+			"vz": randf_range(-0.5, 1) * speed,
 			"v": Vector2(cos(angle), sin(angle)) * speed + Vector2(o.get("vx", 0.0), o.get("vy", 0.0)),
 			"life": life,
 			"max": life,
