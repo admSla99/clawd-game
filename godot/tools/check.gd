@@ -44,10 +44,16 @@ func section(title: String, f: Callable) -> void:
 func _init() -> void:
 	await process_frame
 	level_script = load("res://scripts/level.gd")
+	# Progress goes to a file of its own, so the checks never touch the player's.
+	var progress = root.get_node("Progress")
+	var real_progress: String = progress.path
+	progress.path = "user://progress_check.json"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.load_file()
 	await section("noise (golden values from src/core/noise.ts)", check_noise)
 	await section("levels match levels/<id>.txt", check_levels)
 	await section("player physics (tests/player.test.ts)", check_physics)
-	await section("level select and main scene", check_scenes)
+	await section("title, world map and main scene (src/scenes/title.ts, levelSelect.ts)", check_scenes)
 	await section("hazards and enemies in 1-1", check_hazards)
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
@@ -55,6 +61,10 @@ func _init() -> void:
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
+	await section("sub-agents in 1-1 (src/entities/collectibles.ts)", check_agents)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.path = real_progress
+	progress.load_file()
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -250,27 +260,74 @@ func climb(height: int) -> bool:
 
 
 func check_scenes() -> bool:
-	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
-	await scene_ready("LevelSelect")
-	var buttons: Array = current_scene.get_node("%Levels").get_children().map(func(b): return String(b.name))
-	ok(current_scene.name == "LevelSelect" and buttons.size() == 9, "start scene is the level select with 9 buttons")
-	var opened := 0
-	for id in buttons:
-		current_scene.get_node("%Levels/" + id).pressed.emit()
-		await scene_ready("Main")
-		var m = current_scene
-		if m.level_id == id and m.player.pos.is_equal_approx(_start(m)):
-			opened += 1
-		change_scene_to_file("res://scenes/level_select.tscn")
-		await scene_ready("LevelSelect")
-	ok(opened == 9, "every button opens its level with the player on '@' (%d/9)" % opened)
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	var main_script = load("res://scripts/main.gd")
+	ok(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/main.tscn", "the main scene is main.tscn")
+	main_script.start_mode = main_script.Mode.TITLE
+	change_scene_to_file("res://scenes/main.tscn")
+	await scene_ready("Main")
+	var m = current_scene
+	var front = m.front
+	ok(m.mode == m.Mode.TITLE and front.state == front.TITLE and front.visible and not m.hud.visible and not m.player.visible,
+		"it opens on the title, over the backdrop level with Clawd away")
+	ok(snd.track == "title", "the title plays its tune")
+	var x0: float = m.camera.top_left.x
+	await frames(150)
+	ok(m.camera.top_left.x > x0, "the camera drifts through the backdrop")
+	var lt: Vector2 = front._logo_top_left()
+	var placed := 0
+	for i in front._dots.size():
+		var d: Dictionary = front._dots[i]
+		if front.dot(i)[0] == lt + Vector2(d.tx, d.ty) and front.dot(i)[1] == 1.0:
+			placed += 1
+	ok(front._dots.size() == 312 and placed == 312, "the logo's dots have flown into place (%d / %d)" % [placed, front._dots.size()])
+	ok(front.handle(key(KEY_SPACE)) and m.mode == m.Mode.MAP and snd.track == "map", "Space opens the world map")
+	ok(front.sel == 0, "a new game starts on 1-1")
+	front.handle(key(KEY_RIGHT))
+	ok(front.sel == 0 and "denied" in snd.played, "1-2 is locked until 1-1 is cleared")
+	progress.record_run("1-1", [true, false], 61.25, 30)
+	ok(progress.wallet == 30 and progress.progress_for("1-1").completed and progress.progress_for("1-1").best_time == 61.25,
+		"a cleared run is recorded (wallet, best time)")
+	front.handle(key(KEY_RIGHT))
+	ok(front.sel == 1, "then right moves to 1-2")
+	front.handle(key(KEY_ESCAPE))
+	ok(m.mode == m.Mode.TITLE, "Escape goes back to the title")
+	front.t = 1.0
+	front.handle(key(KEY_ENTER))
+	ok(m.mode == m.Mode.MAP and front.sel == 1, "the map opens on the first unfinished level")
+	front.handle(key(KEY_ENTER))
+	await frames(3)
+	ok(m.mode == m.Mode.PLAY and m.level_id == "1-2" and m.player.collision_layer == 2 and m.player.can_process()
+		and m.hud.visible and not front.visible and m.player.pos.distance_to(_start(m)) < 1, "Enter plays it, with Clawd on '@'")
+	m.menu.handle(key(KEY_P))
+	for i in 5:
+		m.menu.handle(key(KEY_DOWN))
+	m.menu.handle(key(KEY_ENTER))
+	await frames(3)
+	ok(m.mode == m.Mode.MAP and front.sel == 1 and not root.get_node("Game").paused, "QUIT TO MAP goes back to the map on that level")
+	front.handle(click(front.node_pos(0)))
+	ok(front.sel == 0, "clicking a node selects it")
+	front.handle(click(front.node_pos(0)))
+	await frames(3)
+	ok(m.mode == m.Mode.PLAY and m.level_id == "1-1", "clicking it again plays it")
 
-	load("res://scripts/main.gd").start_level = "1-1"
+	# Finishing a level goes back to the map, on the next one.
+	m.player.pos = m.level.get_node("Goal").feet()
+	await frames(200)
+	Input.action_press("jump")
+	await frames(2)
+	Input.action_release("jump")
+	await frames(3)
+	ok(m.mode == m.Mode.MAP and front.sel == 1, "after the results Space goes to the map on the next level")
+
+	main_script.start_mode = main_script.Mode.PLAY
+	main_script.start_level = "1-1"
 	change_scene_to_file("res://scenes/main.tscn")
 	await scene_ready("Main")
 	await frames(60)
-	var m = current_scene
-	ok(m.player.is_on_floor() and m.player.pos.is_equal_approx(_start(m)), "1-1: player stands on '@'")
+	m = current_scene
+	ok(m.mode == m.Mode.PLAY and m.player.is_on_floor() and m.player.pos.is_equal_approx(_start(m)), "1-1: player stands on '@'")
 	var seen := []
 	for i in 9:
 		m.next_level()
@@ -514,7 +571,10 @@ func check_objects() -> bool:
 	await frames(3)
 	Input.action_release("jump")
 	await frames(2)
-	ok(m.level_id == "1-2" and not p.frozen and p.visual.visible, "jump on the results panel goes to the next level")
+	ok(m.mode == m.Mode.MAP and m.front.sel == 1, "jump on the results panel goes to the map, on the next level")
+	m.play("1-2")
+	await frames(2)
+	ok(m.level_id == "1-2" and not p.frozen and p.visual.visible and p.collision_layer == 2 and p.can_process(), "playing again brings Clawd back")
 	return true
 
 
@@ -926,4 +986,43 @@ func check_sound() -> bool:
 	ok(snd.track == "map", "the results play the map tune (%s)" % snd.track)
 	m.load_level("1-1")
 	await frames(3)
+	return true
+
+
+func check_agents() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.load_file()
+	m.load_level("1-1")
+	await frames(3)
+	var agents: Array = m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/sub_agent.gd"))
+	agents.sort_custom(func(a, b): return a.index < b.index)
+	ok(agents.size() == 2 and agents.map(func(a): return int(a.feet().x / TILE)) == [168, 280] and agents[1].index == 1,
+		"1-1 has 2 sub-agents ('A' at columns 168, 280)")
+	ok(m.agents == [false, false] and m.hud.agents.size() == 2, "the HUD counts them")
+	ok(not agents[0].ghost, "none is a ghost in a new game")
+	snd.played.clear()
+	var a = agents[1]
+	p.pos = a.feet()
+	await frames(2)
+	ok(a.rescued and m.agents == [false, true] and "rescue" in snd.played, "touching one rescues it")
+	ok(m.overlay.popups.any(func(q): return q.text == "SUB-AGENT RESCUED!"), "and pops up SUB-AGENT RESCUED!")
+	await frames(50)
+	ok(a._beam.visible and a._rise() > 0, "it rides a beam of light up")
+	await frames(40)
+	ok(not is_instance_valid(a), "and is gone after 1.1 s")
+	ok(m.hud._rescued == 1, "the HUD shows 1 / 2")
+
+	p.pos = m.level.get_node("Goal").feet()
+	await frames(150)
+	ok(m.overlay.results.get("agents") == [false, true], "the results show which were rescued")
+	ok(progress.progress_for("1-1").agents == [false, true], "the save remembers it")
+	m.load_level("1-1")
+	await frames(3)
+	agents = m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/sub_agent.gd"))
+	agents.sort_custom(func(a1, b1): return a1.index < b1.index)
+	ok(agents[1].ghost and not agents[0].ghost, "next time the rescued one is a ghost")
 	return true

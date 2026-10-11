@@ -56,8 +56,11 @@ func _physics_process(dt: float) -> void:
 func _draw() -> void:
 	if not camera:
 		return
-	for n in get_tree().get_nodes_in_group("world_text"):
-		n.overlay_draw(self)
+	# The level's own text (signs, HELP, EXIT) only while playing, not behind the title and the map.
+	var main := get_tree().get_first_node_in_group("main")
+	if main == null or main.mode == Main.Mode.PLAY:
+		for n in get_tree().get_nodes_in_group("world_text"):
+			n.overlay_draw(self)
 	for p in popups:
 		var v := to_view(p.at, p.z)
 		var c: Color = p.color
@@ -111,13 +114,27 @@ func _draw_results() -> void:
 	draw_set_transform(Vector2.ZERO)
 	PixelFont.draw_centred(self, results.subtitle, cx, y + 18, Color(TEXT_DIM, k))
 	var rows: Array = results.rows
+	var agents: Array = results.get("agents", [])
 	var w := 150.0
-	var h := rows.size() * 12 + 12
+	var agents_h := 18 if not agents.is_empty() else 0
+	var h := rows.size() * 12 + 12 + agents_h
 	var top := y + 32
 	panel(Rect2(cx - w / 2, top, w, h), Color(0.29, 0.29, 0.29, k), Color(0.08, 0.08, 0.08, 0.95 * k))
+	# Sub-agents: a small Clawd each, cheering when rescued, dark when not (ResultsScene).
+	if not agents.is_empty():
+		PixelFont.draw(self, "SUB-AGENTS", Vector2(cx - w / 2 + 12, top + 10), Color(TEXT_DIM, k))
+		for i in agents.size():
+			var tex := ClawdSprite.texture(ClawdSprite.frame("high" if agents[i] else "mid"), Color(0, 0, 0, 0) if agents[i] else Color("#3A3A3A"))
+			# They pop in one after another, the rescued ones with a hop.
+			if t > 0.5 + i * 0.25:
+				var hop := roundf(absf(sin((t - i * 0.3) * 6)) * 2) if agents[i] else 0.0
+				draw_texture(tex, Vector2(cx - w / 2 + 70 + i * 20, top + 6 - hop), Color(1, 1, 1, k))
 	for i in rows.size():
-		var ry := top + 8 + i * 12
+		var ry := top + 8 + agents_h + i * 12
 		PixelFont.draw(self, rows[i][0], Vector2(cx - w / 2 + 12, ry), Color(TEXT_DIM, k))
 		PixelFont.draw(self, rows[i][1], Vector2(cx - w / 2 + 70, ry), Color(TEXT, k))
+	var note: String = results.get("note", "")
+	if note != "":
+		PixelFont.draw_centred(self, note, cx, top + h + 8, Color(ORANGE_LIGHT, k))
 	if t > 1.0 and floori(t * 1.6) % 2 == 0:
-		PixelFont.draw_centred(self, "PRESS SPACE", cx, top + h + 14, Color(TEXT, k))
+		PixelFont.draw_centred(self, "PRESS SPACE", cx, top + h + (22 if note != "" else 14), Color(TEXT, k))

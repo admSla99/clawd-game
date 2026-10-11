@@ -127,11 +127,24 @@ static func flash_material() -> ShaderMaterial:
 
 
 func enter_level(l: Level, start: Vector2, level_bottom: float) -> void:
+	process_mode = Node.PROCESS_MODE_INHERIT
+	collision_layer = 2
+	visible = true
 	level = l
 	spawn_point = start
 	kill_y = level_bottom + 24
 	hearts = MAX_HEARTS
 	respawn()
+
+
+## Puts Clawd away behind the title and the map: hidden, not moving, and out of reach of the level's tokens,
+## bugs and sub-agents. enter_level() brings him back.
+func park() -> void:
+	frozen = true
+	hovering = false
+	visible = false
+	collision_layer = 0
+	process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func respawn() -> void:

@@ -17,7 +17,6 @@ extends Node2D
 enum { NONE, CONTROLS, PAUSE, KEYS }
 
 const PAUSE_ITEMS := ["RESUME", "RESTART FROM CHECKPOINT", "RESTART LEVEL", "CRT FILTER", "KEYBINDINGS", "QUIT TO MAP"]
-const LEVEL_SELECT := "res://scenes/level_select.tscn"
 const BORDER := Color("#4A4A4A")
 const SLOT_BORDER := Color("#2C2C2C")
 const PANEL_FILL := Color(0.075, 0.07, 0.085, 0.97)
@@ -60,7 +59,7 @@ func close() -> void:
 
 
 func open_pause() -> void:
-	if state == NONE and main.complete_t < 0:
+	if state == NONE and main.complete_t < 0 and main.mode == Main.Mode.PLAY:
 		pause_index = 0
 		Sound.play("select")
 		_open(PAUSE)
@@ -172,8 +171,7 @@ func _activate_pause() -> void:
 			open_keys()
 		"QUIT TO MAP":
 			state = NONE
-			Game.paused = false
-			main.get_tree().change_scene_to_file(LEVEL_SELECT)
+			main.show_map(main.level_ids.find(main.level_id))
 
 
 func _keys_rows() -> int:
@@ -273,6 +271,8 @@ func _click(p: Vector2) -> bool:
 	var hud: Dictionary = main.hud.buttons()
 	match state:
 		NONE:
+			if main.mode != Main.Mode.PLAY:
+				return false
 			if hud.mute.has_point(p):
 				toggle_mute()
 				return true

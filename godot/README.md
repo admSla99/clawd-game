@@ -49,9 +49,9 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 `levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
-`?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`. Other spawn characters
-are skipped. Only 1-1 has been
-re-converted since checkpoints, the exit, signs and moving platforms were added.
+`?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`
+(numbered like the signs). Other spawn characters are skipped. Only 1-1 has been re-converted since
+checkpoints, the exit, signs, moving platforms and sub-agents were added.
 
 `export_levels.mjs` merges `levels/overrides.json` (fields per level id) into `index.json`, for metadata where
 the port differs from the TS game: 1-1's sign texts, since the port has no variable jump height.
@@ -64,9 +64,9 @@ its body clear of the platform.
 
 ## Running
 
-The game starts in `scenes/level_select.tscn`: one button per entry in `levels/index.json`. A button sets
-`Main.start_level` and switches to `scenes/main.tscn`, which loads that level and puts the player on its
-`Start` marker. **N** loads the next level (wrapping after 2-B).
+The game starts in `scenes/main.tscn` on the title screen; Space opens the world map, which plays a level
+(see Title and world map). `Main.start_mode = Mode.PLAY` with `Main.start_level` skips straight into a level
+(tools/check.gd does). In a level **N** loads the next one (wrapping after 2-B).
 
 Gameplay ported so far: run, jump, coyote time, jump buffer, hover, corner correction, spin,
 ground pound and drop-through from `src/entities/player.ts`. Unlike the TS player every jump is a full jump
@@ -93,8 +93,17 @@ swirl on whole pixels (`shaders/portal.gdshader`, a quad on the gameplay plane),
 orange LEDs, a pulsing GlowLight, sparks drifting up and "EXIT" above (Overlay world text). Clawd walks into
 it, since it stands on the gameplay plane. Touching its inner 16 x 40 px calls `Main.reach_goal()`: a burst,
 Clawd stops (`Player.frozen`) and cheers, drifts to the middle, after 0.6 s stretches into a thin beam and
-vanishes; after 2 s the results panel (tokens collected / in the level, time) fades in over the level, and jump
-goes to the next level.
+vanishes; after 2 s the results panel (rescued sub-agents, tokens collected / in the level, time, and on a first
+clear the level it unlocked) fades in over the level, and jump goes back to the map on the next level. The run is
+recorded the moment the exit is touched (`Progress.record_run()`).
+
+Sub-agents (`scripts/sub_agent.gd`, `A`): `SubAgent` from `src/entities/collectibles.ts`, a small Clawd, the 2D
+game's 13 x 10 frame at 1 px (`ClawdSprite.frame()`) as a voxel model 6 px deep on the gameplay plane, facing
+Clawd and waving (arms up and down), with a "HELP" bubble above it that blinks (Overlay world text). Touching it
+(14 x 12 px box) calls `Main.rescue_agent()`: the rescue sound and "SUB-AGENT RESCUED!", it hops for 0.7 s, then
+rides a dithered beam of orange light (`shaders/beam.gdshader`) up out of the level at 260 px/s, shedding
+sparks, gone after 1.1 s. The HUD counts them, the results show them, and one rescued on an earlier run comes back
+as a ghost (tinted `#6E5A52`), still rescuable.
 
 Moving platforms (`scripts/moving_platform.gd`, `M` horizontal, `V` vertical): `MovingPlatform` from
 `src/entities/platforms.ts`, 48 x 6 px, swinging 3.5 tiles either way with a 4 s period; each platform in map
@@ -136,7 +145,8 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
-`tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1 (the 10
+`tests/player.test.ts`, the title (logo, drift, Space) and the world map (locking, unlocking, keys, mouse,
+playing, QUIT TO MAP, back from the results) and level switching, spikes, bugs, stomps and tokens in 1-1 (the 10
 tokens a bug drops fly to Clawd; the map's left edge stops him), spin,
 air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1's checkpoints (activation,
 respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit (completion, results, next
@@ -157,6 +167,8 @@ music).
 - `Settings` (autoload, `scripts/settings.gd`): key bindings, the CRT filter and mute, saved in `user://`
   (see Menus and key bindings).
 - `Sound` (autoload, `scripts/sound.gd`): synthesized effects and music (see Sound and music).
+- `Progress` (autoload, `scripts/progress.gd`): cleared levels, rescued sub-agents, best times, wallet (see
+  Title and world map).
 - `ViewScale` (autoload, `scripts/view_scale.gd`): view size from the window like `Renderer.resize()` in
   `src/render/renderer.ts` (integer scale, view about 270 tall and at least ~420 wide), same as the 2D port.
 - `scripts/game_camera.gd`: port of `src/core/camera.ts` (look-ahead, vertical deadzone, small levels
@@ -201,7 +213,8 @@ over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the t
 dark panel with the 2D panel's open corners, a 1 px shadow under it, a faint highlight inside its top edge and a
 short orange tab on top; in it 9 x 8 px hearts lit from the top left (lost ones are dark sockets), a dotted
 divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and the count in 4 x 7 px digits
-with a 1 px shadow and dim leading zeros (`007`). Top right are a CONTROLS button, a pause button (two bars), a
+with a 1 px shadow and dim leading zeros (`007`); in a level with sub-agents, past another divider, a small
+Clawd (grey until one is rescued, cheering for a moment after each rescue) and "x/y". Top right are a CONTROLS button, a pause button (two bars), a
 mute button (`drawSpeaker()`) and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
 stay orange while their menu is open, and the speaker shows a red cross while muted. Everything sits 6 px
 inside the part of the SubViewport on screen (it is `Main.PAD` bigger on every side). It animates on real time,
@@ -232,7 +245,7 @@ WebAudio nodes:
 - Music: `scheduleStep()` (bass, arpeggio, lead on every other 4 bars, kick / snare / hats) rendered as one
   seamless loop of the whole pattern (128 sixteenths with a lead, 64 without; notes that ring past the end wrap
   to the start), in a thread the first time a track plays (~0.35 s for plains). Each level plays its `music`
-  from `levels/index.json`; the level select and the results panel play `map`; the exit stops the music.
+  from `levels/index.json`; the title plays `title`, the map and the results panel `map`; the exit stops the music.
 - The hover jet: the looping bandpassed noise with `hoverUpdate()`'s 40 rad/s wobble baked into 6 periods,
   faded in and out while `Player.hovering` (stopped while paused).
 
@@ -240,6 +253,39 @@ The TS bus gains are baked into the samples (effects 0.55, music 0.22); the Mast
 the `mute` key (M) or the HUD's speaker button (saved in `Settings`). Sounds follow the TS call sites: player
 events (jump, land, spin, pound, pound landing, break, hurt, die / fell, stomp + enemyDie, defeat), tokens,
 +1 heart, checkpoints, the exit (complete), and the menus (select, confirm, denied).
+
+## Title and world map
+
+`Main` has three modes, like the TS scenes: `TITLE` (`src/scenes/title.ts`), `MAP` (`src/scenes/levelSelect.ts`)
+and `PLAY`. Behind the title and the map Main keeps `BACKDROP` (1-1) loaded with Clawd parked (`Player.park()`:
+hidden, not processing, off the physics layers) and drifts the camera right through it (18 px/s on the title,
+6 px/s on the map, at the height of its start); at the end it starts over, and each pass fades in from black. So
+the screens sit on the game's own living world: fog, lights, parallax, scenery, motes, patrolling bugs and
+moving platforms. The level's own world text, the HUD and the see-through windows are off there.
+
+`scripts/front_end.gd` (`FrontEnd`, `Ui/FrontEnd`) draws both, in the HUD's panel look and the pixel font with
+1 px shadows:
+
+- **Title**: the CLAWD logo assembles itself like the 2D one: 312 dots (3 px apart, 2 x 2 per glyph pixel of
+  `LOGO_FONT`) fly in from random places with an ease-out after staggered delays, with a light orange wave
+  running through; here they are 2 px glowing cubes (a MultiMesh), so the bloom picks them up. Then "L A T E N T
+  S P A C E" and the subtitle fade in, Clawd stands on a hovering platform (MovingPlatform's meshes, jets
+  flickering) with a token spinning beside him, both voxel models at twice the size, and "PRESS SPACE TO START"
+  blinks. The logo and Clawd sit at `FRONT_Z` = 9 m, in front of the scenery's foreground layer (6 m), lifted by
+  the 3 m the oblique projection moves a point at that depth down. Space / Enter / jump or a click opens the
+  map; H and M work as in the game.
+- **Map**: per world a row of 24 x 18 px level nodes along a dotted path that lifts between them, with a light
+  running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
+  game's 1 px Clawd as a 2D sprite); locked levels show a padlock, finished ones an orange corner, bosses a
+  red-tinted node labelled BOSS; world 2 shows the TS hint while locked. The banked tokens sit top right. An
+  info card names the selected level with its subtitle, rescued sub-agents, CLEARED and the best time, and
+  doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
+  Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.
+
+`scripts/progress.gd` (autoload `Progress`) is the level part of `src/save.ts`, saved as JSON in
+`user://progress.json`: per level completed, rescued sub-agents (merged, never lost) and the best time, plus the
+wallet of banked tokens. A level is unlocked when it is the first or the one before it is completed
+(`App.isUnlocked()`).
 
 ## Menus and key bindings
 
@@ -250,7 +296,7 @@ size, the selected row as a faint orange bar with a bright left edge and a `>` p
 - **Controls help** (`controls` key, H; or the HUD's CONTROLS button): what every key does, built from the
   current bindings like `controlLines()`; Enter (or its button) opens the keybindings.
 - **Pause** (`pause` key, P, or Escape; or the HUD's pause button): RESUME, RESTART FROM CHECKPOINT, RESTART
-  LEVEL, CRT FILTER: ON/OFF, KEYBINDINGS, QUIT TO MAP (`scenes/level_select.tscn`).
+  LEVEL, CRT FILTER: ON/OFF, KEYBINDINGS, QUIT TO MAP (the world map, on the current level).
 - **Keybindings**: every bindable action with 3 key slots drawn as keycaps. Enter (or a click) on a slot
   listens for the next key: Escape cancels, Backspace clears the slot (the last key of an action stays), a
   key that belongs to another action is refused with "X ALREADY BOUND TO ..." (W may be both jump and up, as
@@ -390,17 +436,19 @@ without COOP/COEP headers.
 | Path | Contents |
 |---|---|
 | `project.godot` | 480×270 base view (integer-scaled by `ViewScale`), 60 Hz physics, input actions named as in `src/core/input.ts`, 3D physics layers `world`, `player`, `enemies`, `oneway` |
-| `scenes/level_select.tscn`, `scripts/level_select.gd` | Start scene, level buttons |
-| `scenes/main.tscn`, `scripts/main.gd` | Game scene: `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
+| `scenes/main.tscn`, `scripts/main.gd` | Main scene (title, map and game modes): `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
 | `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spin, ground pound, drop-through, spikes, enemy contact and stomps, voxel frames, spin ring, hover jets |
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
+| `scripts/sub_agent.gd`, `shaders/beam.gdshader` | Sub-agent (`A`), its HELP bubble and rescue beam |
+| `scripts/front_end.gd` | Title screen and world map |
+| `scripts/progress.gd` | Saved progress: cleared levels, rescued sub-agents, best times, wallet |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
-| `scripts/hud.gd` | HUD: hearts, token counter, CONTROLS and pause buttons, level label |
+| `scripts/hud.gd` | HUD: hearts, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label |
 | `scripts/game_menu.gd`, `scripts/settings.gd` | Pause, controls help and keybinding menus; saved bindings |
 | `scripts/sound.gd` | Synthesized sound effects, music loops and the hover jet (`src/core/audio.ts`) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |

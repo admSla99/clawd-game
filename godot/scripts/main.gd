@@ -1,11 +1,13 @@
 class_name Main
 extends Node
 
-## Root of the vertical slice. The game renders into a SubViewport at the view size (~480x270, see
+## Root of the game and its main scene. The game renders into a SubViewport at the view size (~480x270, see
 ## ViewScale) that the container scales up by a whole factor with nearest filtering, so the 3D pixel
 ## shaders, Clawd and the particles land on whole view pixels; the CRT overlay sits on top at window
 ## resolution. Level is a converted level (levels/<id>.tscn, see tools/convert_level.gd); load_level()
 ## swaps it and puts the player on its Start marker.
+## Three modes, like the TS scenes: TITLE (src/scenes/title.ts) and MAP (src/scenes/levelSelect.ts) draw their
+## screens (FrontEnd) over BACKDROP, a level the camera slowly drifts through with Clawd away; PLAY is the game.
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
@@ -21,8 +23,21 @@ const RED := Color("#E0605A")
 const TOKENS_PER_HEART := 100
 const HEART_CAP := 5
 
-## Level to load on start; set by the level select before it switches to this scene.
+enum Mode { TITLE, MAP, PLAY }
+
+## The level behind the title and the map.
+const BACKDROP := "1-1"
+## Drift of the camera behind the title and the map, px/s (the 2D parallax scroll speeds).
+const TITLE_DRIFT := 18.0
+const MAP_DRIFT := 6.0
+
+## What the scene opens with (tools/check.gd starts straight in PLAY on start_level).
+static var start_mode := Mode.TITLE
 static var start_level := "1-1"
+
+var mode := Mode.PLAY
+## Camera x of the drift behind the title and the map.
+var drift_x := 0.0
 
 var levels: Array
 var level_ids: Array
@@ -35,6 +50,10 @@ var tokens := 0
 var tokens_total := 0
 ## Seconds since the exit was reached, or -1 while playing.
 var complete_t := -1.0
+## Sub-agents rescued in this run, one per `A` (SubAgent.index).
+var agents: Array[bool] = []
+## Whether this run finished the level for the first time (the results say what it unlocked).
+var first_clear := false
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -52,6 +71,7 @@ var complete_t := -1.0
 @onready var overlay: Overlay = $View/SubViewport/World/Ui/Overlay
 @onready var hud: Hud = $View/SubViewport/World/Ui/Hud
 @onready var menu: GameMenu = $View/SubViewport/World/Ui/Menu
+@onready var front: FrontEnd = $View/SubViewport/World/Ui/FrontEnd
 
 
 func _ready() -> void:
@@ -68,7 +88,11 @@ func _ready() -> void:
 	overlay.camera = camera
 	get_tree().root.size_changed.connect(_resize)
 	_resize()
-	load_level(start_level)
+	front.main = self
+	if start_mode == Mode.PLAY:
+		play(start_level)
+	else:
+		show_title()
 
 
 ## The menus (pause, controls, keybindings) get every event first; mouse positions move into SubViewport
@@ -77,12 +101,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouse:
 		event = event.duplicate()
 		event.position += Vector2.ONE * PAD
-	if menu.handle(event):
+	if menu.handle(event) or (mode != Mode.PLAY and not menu.is_open() and front.handle(event)):
 		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("next_level"):
+	if mode == Mode.PLAY and event.is_action_pressed("next_level"):
 		next_level()
 
 
@@ -96,6 +120,39 @@ func _resize() -> void:
 
 func next_level() -> void:
 	load_level(level_ids[(level_ids.find(level_id) + 1) % level_ids.size()])
+
+
+## Starts level `id` (startLevel() in src/app.ts).
+func play(id: String) -> void:
+	mode = Mode.PLAY
+	front.close()
+	load_level(id)
+
+
+## The title screen over the drifting backdrop.
+func show_title() -> void:
+	_backdrop()
+	mode = Mode.TITLE
+	front.open_title()
+	Sound.play_music("title")
+
+
+## The world map, on level index `focus` (or the first unfinished unlocked one), over the drifting backdrop.
+func show_map(focus := -1) -> void:
+	_backdrop()
+	mode = Mode.MAP
+	front.open_map(focus)
+	Sound.play_music("map")
+
+
+## Loads BACKDROP for the title and the map (unless it is already there, untouched) with Clawd put away.
+func _backdrop() -> void:
+	if mode == Mode.PLAY or level_id != BACKDROP:
+		load_level(BACKDROP)
+		drift_x = 0.0
+	Game.paused = false
+	hud.visible = false
+	player.park()
 
 
 func load_level(id: String) -> void:
@@ -116,10 +173,20 @@ func load_level(id: String) -> void:
 	particles.clear()
 	overlay.clear()
 	tokens = 0
+	first_clear = false
+	# Sub-agents rescued on an earlier run come back as ghosts (`!!savedAgents[s.index]`).
+	var saved: Array = Progress.progress_for(id).agents
+	agents = []
+	for a: SubAgent in level.get_children().filter(func(c: Node) -> bool: return c is SubAgent):
+		a.ghost = a.index < saved.size() and saved[a.index]
+		agents.append(false)
 	hud.reset(id, info.name)
+	hud.agents = agents
+	hud.visible = true
 	Sound.play_music(info.get("music", ""))
 	# Every token placed in the map plus what every bug drops.
-	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() 		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
+	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() \
+		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
 	complete_t = -1.0
 	var texts: Array = info.get("signs", [])
 	for s in level.get_children().filter(func(c: Node) -> bool: return c is Sign):
@@ -151,7 +218,10 @@ func shake(amount: float) -> void:
 
 func _physics_process(dt: float) -> void:
 	# The jet's hiss while Clawd hovers (hoverStart() / hoverStop()); pausing stops it, like openPause().
-	Sound.hover(player.hovering and not Game.paused and complete_t < 0)
+	Sound.hover(mode == Mode.PLAY and player.hovering and not Game.paused and complete_t < 0)
+	if mode != Mode.PLAY:
+		_drift(dt)
+		return
 	if Game.frozen():
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
@@ -198,10 +268,16 @@ func _update_reveal() -> void:
 	for n: Node3D in near.slice(0, 5):
 		windows.append([n.global_position + Vector3(0, 6, 0) * Px.M, 9.0, 17.0])
 	var reveal := PackedVector4Array()
+	for w in windows:
+		var p := camera.unproject_position(w[0])
+		reveal.append(Vector4(p.x, p.y, w[1], w[2]))
+	_set_reveal(reveal)
+
+
+## Sets the see-through windows (at most 6; none behind the title and the map, where the front layer must not
+## thin out the title's Clawd, who stands in front of it).
+func _set_reveal(reveal: PackedVector4Array) -> void:
 	reveal.resize(6)
-	for i in windows.size():
-		var p := camera.unproject_position(windows[i][0])
-		reveal[i] = Vector4(p.x, p.y, windows[i][1], windows[i][2])
 	for mat: ShaderMaterial in [Voxel.MATERIAL, scenery.foreground_material()]:
 		if mat:
 			mat.set_shader_parameter("reveal", reveal)
@@ -297,6 +373,29 @@ func _on_pound_land() -> void:
 			e.hit(&"pound")
 
 
+## Behind the title and the map the camera drifts right through the level at about the height of its start,
+## and starts over at the end (FrontEnd fades it).
+func _drift(dt: float) -> void:
+	var v := camera.view_size()
+	# drift_x is the view's centre: it starts with the level's left edge in view.
+	drift_x = maxf(drift_x, v.x / 2) + (TITLE_DRIFT if mode == Mode.TITLE else MAP_DRIFT) * dt
+	if drift_x > camera.bounds.x - v.x / 2 + 40:
+		drift_x = 0.0
+	var start := Px.of(level.get_node("Start").position)
+	camera.snap_to(Vector2(drift_x, start.y - 30))
+	scenery.update(camera.top_left)
+	_update_shadows()
+	_set_reveal(PackedVector4Array())
+
+
+## A sub-agent was touched (rescueAgent() in src/scenes/game.ts).
+func rescue_agent(a: SubAgent) -> void:
+	if a.index < agents.size():
+		agents[a.index] = true
+	Sound.play("rescue")
+	overlay.popup("SUB-AGENT RESCUED!", player.pos + Vector2(0, -32), Color("#F0A585"))
+
+
 ## A token was picked up at `at` (collectToken() in src/scenes/game.ts): count it, send it flying to the HUD
 ## counter, and every TOKENS_PER_HEART tokens give a heart, up to HEART_CAP.
 func collect_token(at: Vector2) -> void:
@@ -329,6 +428,9 @@ func reach_goal(goal: Goal) -> void:
 	player.frozen = true
 	Sound.play("complete")
 	Sound.play_music("")
+	# recordRun(): the level counts as finished (and what it unlocks opens) as soon as Clawd is through.
+	first_clear = not Progress.progress_for(level_id).completed
+	Progress.record_run(level_id, agents, Game.time, tokens)
 	particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 80, speed = 200, life = 1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
 	shake(0.2)
 	set_meta("goal", goal)
@@ -340,8 +442,11 @@ func _update_complete(dt: float) -> void:
 		return
 	var was := complete_t
 	complete_t += dt
-	if complete_t > 3.0 and Input.is_action_just_pressed("jump"):
-		next_level()
+	if complete_t > 3.0 and (Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("confirm")):
+		# ResultsScene.onClick(): back to the map, on the next level when it is open.
+		Sound.play("confirm")
+		var i := level_ids.find(level_id)
+		show_map(i + 1 if i + 1 < level_ids.size() and Progress.is_unlocked(level_ids, i + 1) else i)
 		return
 	var goal: Goal = get_meta("goal")
 	# Clawd drifts to the middle of the gate; 0.6 s after touching it he is pulled in: he stretches into a
@@ -358,9 +463,13 @@ func _update_complete(dt: float) -> void:
 		var secs: float = get_meta("time")
 		# The results scene plays the map tune (src/scenes/results.ts).
 		Sound.play_music("map")
+		var i := level_ids.find(level_id)
 		overlay.results = {
 			"title": "LEVEL COMPLETE",
 			"subtitle": "%s · %s" % [level_id, info.name],
-			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", "%d:%04.1f" % [floori(secs / 60), fmod(secs, 60.0)]]],
+			"agents": agents.duplicate(),
+			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", Progress.format_time(secs)]],
+			# The first clear names the level it opened (ResultsScene).
+			"note": "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
 			"t": 0.0,
 		}

@@ -76,6 +76,7 @@ static var _ring_tex := _ring()
 static var _coin_tex := _coins()
 static var _coin_white_tex := _texture(COIN[8], {"c": Color.WHITE, "L": Color.WHITE, "T": Color.WHITE, "S": Color.WHITE, "W": Color.WHITE})
 static var _coin_small_tex := _texture(COIN_SMALL, TokenSprite.PALETTE)
+static var _slash_tex := _texture(["...#", "...#", "..#.", ".##.", ".#..", "#...", "#..."], {"#": Color.WHITE})
 static var _digit_tex: Array = DIGITS.map(func(rows: Array) -> ImageTexture: return _texture(rows, {"#": Color.WHITE}))
 
 ## Mouse position in SubViewport pixels (GameMenu passes it on), for the buttons' hover look.
@@ -97,6 +98,10 @@ var _shards := []
 var _flights := []
 var _hurt := 0.0
 var _bump := 0.0
+## The run's rescued sub-agents (Main.agents, shared), and seconds since the last rescue.
+var agents: Array = []
+var _rescued := 0
+var _agent_t := 10.0
 ## While > 0 the hearts stay as shown (the last heart breaking before the refill on a respawn).
 var _hold := 0.0
 ## Delay for the next token's flight, growing while tokens come in quickly.
@@ -114,6 +119,8 @@ func reset(id: String, level_name: String) -> void:
 	_flights.clear()
 	_hurt = 0.0
 	_bump = 0.0
+	_rescued = 0
+	_agent_t = 10.0
 	_hold = 0.0
 	_stagger = 0.0
 
@@ -155,6 +162,11 @@ func _process(dt: float) -> void:
 	_bump = maxf(0.0, _bump - dt)
 	_hold = maxf(0.0, _hold - dt)
 	_stagger = maxf(0.0, _stagger - dt)
+	_agent_t += dt
+	var rescued := agents.count(true)
+	if rescued != _rescued:
+		_rescued = rescued
+		_agent_t = 0.0
 	if _player:
 		var h := _player.hearts
 		if _hearts < 0:
@@ -220,7 +232,11 @@ func _draw() -> void:
 	var o := ORIGIN + _shake()
 	var hw := _hearts_w()
 	var digits := _count_text()
-	var w := hw + 1 + 4 + 8 + 4 + digits.length() * 5 - 1 + 6
+	var tw := 1 + 4 + 8 + 4 + digits.length() * 5 - 1 + 6
+	# Sub-agents (when the level has any): a small Clawd, grey until one is rescued, and "x/y".
+	var agents_text := "%d/%d" % [_rescued, agents.size()]
+	var aw := 4 + 13 + 4 + agents_text.length() * 5 - 1 + 6 if not agents.is_empty() else 0
+	var w := hw + tw + aw
 	var hurt_k := clampf(_hurt / 0.3, 0.0, 1.0)
 	panel(self, Rect2(o, Vector2(w, H)), BORDER.lerp(RED, hurt_k), FILL, true)
 
@@ -271,6 +287,20 @@ func _draw() -> void:
 		var y := o.y + 4 - (1 if _bump > 0.2 and not lead else 0)
 		draw_texture(_digit_tex[d], Vector2(dx + k * 5, y + 1), SHADOW)
 		draw_texture(_digit_tex[d], Vector2(dx + k * 5, y), col)
+
+	if not agents.is_empty():
+		var ax := o.x + hw + tw
+		for y in range(3, H - 3, 2):
+			draw_rect(Rect2(ax, o.y + y, 1, 1), BORDER.lightened(0.15))
+		var cheer := _agent_t < 0.8 and fmod(_agent_t, 0.2) < 0.1
+		var icon := ClawdSprite.texture(ClawdSprite.frame("high" if cheer else "mid"), Color(0, 0, 0, 0) if _rescued > 0 else Color("#6A6A6A"))
+		draw_texture(icon, Vector2(ax + 4, o.y + 3 - (1 if cheer else 0)))
+		var col := TEXT.lerp(ORANGE_LIGHT, clampf(1.0 - _agent_t / 0.8, 0.0, 1.0)) if _rescued > 0 else ZERO_DIM
+		for k in agents_text.length():
+			var ch := agents_text[k]
+			var glyph: ImageTexture = _slash_tex if ch == "/" else _digit_tex[int(ch)]
+			draw_texture(glyph, Vector2(ax + 4 + 13 + 4 + k * 5, o.y + 5), SHADOW)
+			draw_texture(glyph, Vector2(ax + 4 + 13 + 4 + k * 5, o.y + 4), col)
 
 	# Tokens in flight: an arc from where they were picked up, speeding up into the counter.
 	var to := coin_centre()

@@ -114,3 +114,55 @@ static func rows(o: Dictionary) -> Array:
 				put.call(x, bh + half * 2 + y, "o")
 				put.call(x + 1, bh + half * 2 + y, "o")
 	return grid.map(func(row: Array) -> String: return "".join(PackedStringArray(row)))
+
+
+## clawdFrame() from src/render/sprites.ts, the 13 x 10 frame the 2D game draws at 1 px for the sub-agents
+## (and smaller on the HUD and the map): a 9 x 8 body ("O", shaded "o" left column and bottom row, lit "H" top
+## row), arms at the `arms` rows, "E" eyes, two rows of legs.
+static func frame(arms := "mid", legs := "stand", blink := false, squint := false) -> Array:
+	var out := []
+	for r in 8:
+		var row := "..oHHHHHHHH.." if r == 0 else "..ooooooooo.." if r == 7 else "..oOOOOOOOO.."
+		var eye_rows := [3] if squint or blink else [2, 3]
+		if r in eye_rows:
+			row = row.substr(0, 5) + "E" + row.substr(6, 3) + "E" + row.substr(10)
+		var arm_rows: Array = {"mid": [4, 5], "up": [2, 3], "high": [1, 2]}[arms]
+		if r in arm_rows:
+			row = "oo" + row.substr(2, 9) + "OO"
+		out.append(row)
+	var l: Array = {
+		"stand": ["..o.o...o.o..", "..o.o...o.o.."],
+		"tuck": ["..o.o...o.o..", "............."],
+		"dangle": ["...o.o...o.o.", "...o.o...o.o."],
+	}[legs]
+	return out + l
+
+
+## The sub-agent frames: `cheer` (arms high) or idle, as a voxel mesh 6 px deep; `tint` replaces every colour
+## (the 2D `tint`, for a ghost), keeping the eyes darker.
+static func mini_mesh(cheer: bool, tint := Color(0, 0, 0, 0)) -> ArrayMesh:
+	var key := "mini %s %s" % [cheer, tint]
+	if not _cache.has(key):
+		var pal := PALETTE.duplicate()
+		var top := TOP.duplicate()
+		if tint.a > 0:
+			for k in pal:
+				pal[k] = tint
+			pal.E = tint.darkened(0.6)
+			top = {"H": tint}
+		_cache[key] = Voxel.mesh(frame("high" if cheer else "mid"), pal, {"O": 6, "H": 6, "o": 6, "E": 6}, Px.M, Voxel.MATERIAL, top)
+	return _cache[key]
+
+
+## A 2D texture of a frame (HUD, results, map), every colour replaced by `tint` when it is set.
+static func texture(rows: Array, tint := Color(0, 0, 0, 0)) -> ImageTexture:
+	var key := "tex %s %s" % [rows, tint]
+	if not _cache.has(key):
+		var img := Image.create_empty(rows[0].length(), rows.size(), false, Image.FORMAT_RGBA8)
+		for y in rows.size():
+			for x in rows[y].length():
+				var ch: String = rows[y][x]
+				if PALETTE.has(ch):
+					img.set_pixel(x, y, tint if tint.a > 0 else PALETTE[ch])
+		_cache[key] = ImageTexture.create_from_image(img)
+	return _cache[key]
