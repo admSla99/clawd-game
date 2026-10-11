@@ -1,6 +1,6 @@
 extends Node
 
-## Autoload "Settings": the player's key bindings and the CRT filter, saved in user://settings.cfg (like
+## Autoload "Settings": the player's key bindings, the CRT filter and mute, saved in user://settings.cfg (like
 ## `save.keys` and `renderer.crt` in src/app.ts). Bindings follow src/core/input.ts: every action the player
 ## can rebind has up to SLOTS keys (physical keycodes, so the layout of the keyboard does not matter), applied
 ## to the InputMap actions of the same name; a few keys always do the same thing (FIXED) and cannot be
@@ -10,8 +10,8 @@ extends Node
 var path := "user://settings.cfg"
 const SLOTS := 3
 ## Actions the player can rebind, in the order the keybinding menu lists them. The TS list also has prev,
-## next, shop and mute, which the port does not have yet.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"controls"]
+## next and shop, which the port does not have yet.
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -21,6 +21,7 @@ const LABELS := {
 	&"attack": "ATTACK (SPIN)",
 	&"spin": "SPIN",
 	&"pause": "PAUSE",
+	&"mute": "MUTE",
 	&"controls": "CONTROLS HELP",
 }
 const DEFAULTS := {
@@ -32,6 +33,7 @@ const DEFAULTS := {
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
 	&"pause": [KEY_P],
+	&"mute": [KEY_M],
 	&"controls": [KEY_H],
 }
 ## Keys that cannot be rebound (FIXED_KEYS in TS): Escape pauses and goes back, Enter and Space confirm,
@@ -52,6 +54,7 @@ const SHORT := {
 ## Action -> Array of physical keycodes.
 var bindings := {}
 var crt := true
+var muted := false
 
 
 func _ready() -> void:
@@ -63,6 +66,7 @@ func _ready() -> void:
 			if not keys.is_empty() and keys.all(func(k): return k is int):
 				bindings[a] = keys.slice(0, SLOTS)
 		crt = cfg.get_value("video", "crt", true)
+		muted = cfg.get_value("audio", "muted", false)
 	apply()
 
 
@@ -91,6 +95,7 @@ func save() -> void:
 	for a in BINDABLE:
 		cfg.set_value("keys", a, bindings[a])
 	cfg.set_value("video", "crt", crt)
+	cfg.set_value("audio", "muted", muted)
 	cfg.save(path)
 
 
@@ -135,6 +140,11 @@ func clear(action: StringName, slot: int) -> void:
 		keys.remove_at(slot)
 		apply()
 		save()
+
+
+func set_muted(on: bool) -> void:
+	muted = on
+	save()
 
 
 func set_crt(on: bool) -> void:

@@ -62,6 +62,7 @@ func close() -> void:
 func open_pause() -> void:
 	if state == NONE and main.complete_t < 0:
 		pause_index = 0
+		Sound.play("select")
 		_open(PAUSE)
 
 
@@ -112,6 +113,9 @@ func handle(event: InputEvent) -> bool:
 	if listening:
 		_capture(event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode)
 		return true
+	if event.is_action_pressed("mute"):
+		toggle_mute()
+		return true
 	match state:
 		NONE:
 			if event.is_action_pressed("pause"):
@@ -132,8 +136,10 @@ func handle(event: InputEvent) -> bool:
 				close()
 			elif _pressed(event, "down"):
 				pause_index = (pause_index + 1) % PAUSE_ITEMS.size()
+				Sound.play("select")
 			elif _pressed(event, "up"):
 				pause_index = (pause_index + PAUSE_ITEMS.size() - 1) % PAUSE_ITEMS.size()
+				Sound.play("select")
 			elif event.is_action_pressed("confirm"):
 				_activate_pause()
 			return true
@@ -149,6 +155,7 @@ func _pressed(event: InputEvent, action: String) -> bool:
 
 
 func _activate_pause() -> void:
+	Sound.play("confirm")
 	match PAUSE_ITEMS[pause_index]:
 		"RESUME":
 			close()
@@ -181,8 +188,10 @@ func _keys_input(event: InputEvent) -> void:
 		error = ""
 	if _pressed(event, "down"):
 		key_row = (key_row + 1) % _keys_rows()
+		Sound.play("select")
 	elif _pressed(event, "up"):
 		key_row = (key_row + _keys_rows() - 1) % _keys_rows()
+		Sound.play("select")
 	elif _pressed(event, "right"):
 		key_slot = mini(Settings.SLOTS - 1, key_slot + 1)
 	elif _pressed(event, "left"):
@@ -197,6 +206,7 @@ func _activate_keys() -> void:
 		error = ""
 	elif key_row == Settings.BINDABLE.size():
 		Settings.reset_defaults()
+		Sound.play("confirm")
 		error = ""
 	else:
 		_close_keys()
@@ -224,9 +234,17 @@ func _capture(code: int) -> void:
 		if other != &"":
 			# Refuse and keep listening, so another key can be picked.
 			error = "%s ALREADY BOUND TO %s" % [Settings.key_label(code), Settings.LABELS[other]]
+			Sound.play("denied")
 			return
 	listening = false
 	error = ""
+	Sound.play("confirm")
+
+
+## The mute key or the HUD's speaker (toggleMute() in src/app.ts); saved with the settings.
+func toggle_mute() -> void:
+	Settings.set_muted(not Settings.muted)
+	Sound.set_muted(Settings.muted)
 
 
 func _hover(p: Vector2) -> void:
@@ -255,6 +273,9 @@ func _click(p: Vector2) -> bool:
 	var hud: Dictionary = main.hud.buttons()
 	match state:
 		NONE:
+			if hud.mute.has_point(p):
+				toggle_mute()
+				return true
 			if hud.controls.has_point(p):
 				open_controls()
 			elif hud.pause.has_point(p):
@@ -304,7 +325,7 @@ func control_lines() -> Array:
 		[k.call([&"attack", &"spin"]), "Spin attack"],
 		[k.call([&"down"]) + " (AIR)", "Ground pound — breaks corrupted data"],
 		[first.call(&"down") + " + " + first.call(&"jump"), "Drop through platforms"],
-		[k.call([&"pause"]) + " / ESC · " + k.call([&"controls"]), "Pause · this help"],
+		[k.call([&"pause"]) + " / ESC · " + k.call([&"mute"]) + " · " + k.call([&"controls"]), "Pause · mute · this help"],
 	]
 
 

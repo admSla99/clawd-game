@@ -54,6 +54,7 @@ func _init() -> void:
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
+	await section("sound and music (src/core/audio.ts)", check_sound)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -809,5 +810,120 @@ func check_menus() -> bool:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.path))
 	settings.path = real_path
 	settings._ready()
+	await frames(3)
+	return true
+
+
+## Samples of a 16-bit mono AudioStreamWAV in [-1, 1].
+func samples(w: AudioStreamWAV, from := 0.0, to := -1.0) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	var n := w.data.size() / 2
+	var a := int(from * w.mix_rate)
+	var b := n if to < 0 else mini(n, int(to * w.mix_rate))
+	for i in range(a, b):
+		out.append(w.data.decode_s16(i * 2) / 32767.0)
+	return out
+
+
+## Frequency from the rising zero crossings of `x`.
+func pitch(x: PackedFloat32Array, rate: float) -> float:
+	var first := -1
+	var last := -1
+	var count := 0
+	for i in range(1, x.size()):
+		if x[i - 1] < 0 and x[i] >= 0:
+			if first < 0:
+				first = i
+			last = i
+			count += 1
+	return 0.0 if count < 2 else (count - 1) * rate / (last - first)
+
+
+func check_sound() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	for i in 120:
+		if snd.sfx.has("_hover"):
+			break
+		await process_frame
+	ok(snd.sfx.size() == snd.PRELOAD.size() + 1, "every effect the port uses is rendered at start-up (%d)" % snd.sfx.size())
+	var loud := []
+	for n in snd.PRELOAD:
+		var x := samples(snd.sfx[n])
+		var peak := 0.0
+		for v in x:
+			peak = maxf(peak, absf(v))
+		if peak < 0.01 or peak > 0.99:
+			loud.append("%s %.2f" % [n, peak])
+	ok(loud.is_empty(), "each effect is audible and does not clip %s" % [loud])
+	var token := pitch(samples(snd.sfx["token"], 0.005, 0.035), 44100)
+	ok(absf(token - 1320) < 20, "token: a 1320 Hz blip first (%.0f Hz)" % token)
+	var token2 := pitch(samples(snd.sfx["token"], 0.06, 0.1), 44100)
+	ok(absf(token2 - 1760) < 25, "then 1760 Hz (%.0f Hz)" % token2)
+	var j0 := pitch(samples(snd.sfx["jump"], 0.0, 0.02), 44100)
+	var j1 := pitch(samples(snd.sfx["jump"], 0.09, 0.115), 44100)
+	ok(j0 > 200 and j0 < 260 and j1 > 430 and j1 < 530, "jump sweeps up from 220 to 520 Hz (%.0f -> %.0f Hz)" % [j0, j1])
+	var cp := pitch(samples(snd.sfx["checkpoint"], 0.01, 0.07), 44100)
+	ok(absf(cp - 440) < 8, "checkpoint starts on A4 (%.0f Hz)" % cp)
+
+	var plains: AudioStreamWAV = snd.render_track("plains")
+	var secs := plains.data.size() / 2.0 / plains.mix_rate
+	ok(absf(secs - 128 * 60.0 / 128 / 4) < 0.01 and plains.loop_mode == AudioStreamWAV.LOOP_FORWARD, "plains loops every 128 sixteenths at 128 bpm (%.2f s)" % secs)
+	var map: AudioStreamWAV = snd.render_track("map")
+	ok(absf(map.data.size() / 2.0 / map.mix_rate - 64 * 60.0 / 100 / 4) < 0.01, "map (no lead) loops every 64 sixteenths")
+
+	m.load_level("1-1")
+	await frames(3)
+	ok(snd.track == "plains", "1-1 plays its track (%s)" % snd.track)
+	snd.played.clear()
+	p.vel = Vector2.ZERO
+	Input.action_press("jump")
+	await frames(2)
+	ok("jump" in snd.played, "jumping plays jump")
+	await frames(40)
+	ok(snd._hover_on, "holding jump in the air starts the jet's hiss")
+	Input.action_release("jump")
+	await frames(3)
+	ok(not snd._hover_on, "and letting go stops it")
+	await frames(60)
+	ok("land" in snd.played, "landing plays land")
+
+	snd.played.clear()
+	var bug = get_nodes_in_group("enemies")[0]
+	p.pos = bug.pos + Vector2(0, -40)
+	p.vel = Vector2.ZERO
+	p.invuln = 1
+	for i in 60:
+		await physics_frame
+		if "stomp" in snd.played: break
+	ok("stomp" in snd.played and "enemyDie" in snd.played, "a stomp plays stomp and enemyDie")
+	await frames(60)
+	ok("token" in snd.played, "collected tokens play token")
+
+	snd.played.clear()
+	m.activate_checkpoint(m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/checkpoint.gd"))[0])
+	ok("checkpoint" in snd.played, "a checkpoint plays checkpoint")
+	p.invuln = 0
+	p.hurt(p.pos.x + 10)
+	ok("hurt" in snd.played, "getting hurt plays hurt")
+	# After the hurt hitstop.
+	await frames(10)
+	p.pos = Vector2(p.pos.x, p.kill_y + 10)
+	await frames(3)
+	ok("die" in snd.played, "falling out plays die")
+
+	m.menu.handle(key(KEY_M))
+	ok(root.get_node("Settings").muted and AudioServer.is_bus_mute(0), "M mutes")
+	m.menu.handle(key(KEY_M))
+	ok(not root.get_node("Settings").muted and not AudioServer.is_bus_mute(0), "and unmutes")
+
+	var goal = m.level.get_node("Goal")
+	p.pos = goal.feet()
+	await frames(3)
+	ok("complete" in snd.played and snd.track == "", "the exit plays complete and stops the music")
+	await frames(150)
+	ok(snd.track == "map", "the results play the map tune (%s)" % snd.track)
+	m.load_level("1-1")
 	await frames(3)
 	return true

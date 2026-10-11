@@ -117,6 +117,7 @@ func load_level(id: String) -> void:
 	overlay.clear()
 	tokens = 0
 	hud.reset(id, info.name)
+	Sound.play_music(info.get("music", ""))
 	# Every token placed in the map plus what every bug drops.
 	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() 		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
 	complete_t = -1.0
@@ -149,6 +150,8 @@ func shake(amount: float) -> void:
 
 
 func _physics_process(dt: float) -> void:
+	# The jet's hiss while Clawd hovers (hoverStart() / hoverStop()); pausing stops it, like openPause().
+	Sound.hover(player.hovering and not Game.paused and complete_t < 0)
 	if Game.frozen():
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
@@ -222,6 +225,7 @@ func _update_lights() -> void:
 
 # Same counts, speeds and colors as the matching particles.emit() calls in src/scenes/game.ts.
 func _on_player_event(kind: StringName, at: Vector2) -> void:
+	_sound(kind)
 	match kind:
 		&"jump":
 			particles.emit(at, {count = 6, speed = 40, angle = -PI / 2, spread = PI, life = 0.3, color = [Color8(170, 170, 170)]})
@@ -244,6 +248,31 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			Game.hitstop(0.05)
 
 
+## The sound of a player event (handlePlayerEvents(), hurtPlayer(), die() and the stomp in src/scenes/game.ts;
+## enemyDie from Enemy.die() in src/entities/entity.ts).
+func _sound(kind: StringName) -> void:
+	match kind:
+		&"jump":
+			Sound.play("jump")
+		&"land", &"hard_land":
+			Sound.play("land")
+		&"spin":
+			Sound.play("spin")
+		&"pound_start":
+			Sound.play("pound")
+		&"pound_land":
+			Sound.play("poundLand")
+		&"hurt":
+			Sound.play("hurt")
+		&"die", &"fell":
+			Sound.play("die")
+		&"stomp":
+			Sound.play("stomp")
+			Sound.play("enemyDie")
+		&"defeat":
+			Sound.play("enemyDie")
+
+
 ## Ground pound landing (onPoundLand() in src/scenes/game.ts): dust and shake, breaks the corrupted
 ## blocks under Clawd's feet (and keeps falling through them), and the shockwave defeats bugs nearby.
 func _on_pound_land() -> void:
@@ -258,6 +287,7 @@ func _on_pound_land() -> void:
 			# The blocks are 3 m deep: spread the debris through their depth.
 			particles.emit(Vector2(t) * 16 + Vector2(8, 8), {count = 10, speed = 90, life = 0.6, color = [Color8(200, 200, 200), Color("#C25BD6"), ORANGE], gravity = 400, size = 1.5, depth = 24})
 	if broke:
+		Sound.play("break")
 		Game.hitstop(0.06)
 		player.continue_pound()
 	var wave := Rect2(p.x - 30, p.y - 14, 60, 16)
@@ -271,9 +301,11 @@ func _on_pound_land() -> void:
 ## counter, and every TOKENS_PER_HEART tokens give a heart, up to HEART_CAP.
 func collect_token(at: Vector2) -> void:
 	tokens += 1
+	Sound.play("token")
 	hud.collect_token(overlay.to_view(at))
 	if tokens % TOKENS_PER_HEART == 0 and player.hearts < HEART_CAP:
 		player.hearts += 1
+		Sound.play("heart")
 		overlay.popup("+1 HEART", player.pos + Vector2(0, -28), RED)
 
 
@@ -281,6 +313,7 @@ func collect_token(at: Vector2) -> void:
 ## refill the hearts.
 func activate_checkpoint(cp: Checkpoint) -> void:
 	player.spawn_point = cp.feet()
+	Sound.play("checkpoint")
 	# Refill, but keep hearts won from tokens (`if (hearts < maxHearts)` in TS).
 	player.hearts = maxi(player.hearts, Player.MAX_HEARTS)
 	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
@@ -294,6 +327,8 @@ func reach_goal(goal: Goal) -> void:
 		return
 	complete_t = 0.0
 	player.frozen = true
+	Sound.play("complete")
+	Sound.play_music("")
 	particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 80, speed = 200, life = 1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
 	shake(0.2)
 	set_meta("goal", goal)
@@ -321,6 +356,8 @@ func _update_complete(dt: float) -> void:
 			particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 30, speed = 90, life = 0.6, color = [Color("#F0A585"), Color.WHITE], drag = 3}))
 	if was < 2.0 and complete_t >= 2.0:
 		var secs: float = get_meta("time")
+		# The results scene plays the map tune (src/scenes/results.ts).
+		Sound.play_music("map")
 		overlay.results = {
 			"title": "LEVEL COMPLETE",
 			"subtitle": "%s · %s" % [level_id, info.name],

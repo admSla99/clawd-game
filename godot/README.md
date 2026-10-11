@@ -145,14 +145,18 @@ crossing the 26-tile gap of 1-1 on its two moving platforms (a
 small controller jumps when the next platform comes close), that a tapped jump is a full jump, and the HUD
 (tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 100 tokens up
 to 5), and the menus (pause freezes the world, every pause item, the HUD buttons, rebinding with conflicts,
-clearing, reset, saving to a separate settings file, glyphs for every key name).
+clearing, reset, saving to a separate settings file, glyphs for every key name), and the sound (every effect
+renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
+the game's events play their sounds, the jet hisses while hovering, M mutes, the exit and results switch the
+music).
 
 ## Game clock and camera
 
 - `Game` (autoload, `scripts/game.gd`): game time and hitstop. Level objects skip their update while
   `Game.frozen()`, so hitstop and pause stop the world like in `src/scenes/game.ts`.
-- `Settings` (autoload, `scripts/settings.gd`): key bindings and the CRT filter, saved in `user://`
+- `Settings` (autoload, `scripts/settings.gd`): key bindings, the CRT filter and mute, saved in `user://`
   (see Menus and key bindings).
+- `Sound` (autoload, `scripts/sound.gd`): synthesized effects and music (see Sound and music).
 - `ViewScale` (autoload, `scripts/view_scale.gd`): view size from the window like `Renderer.resize()` in
   `src/render/renderer.ts` (integer scale, view about 270 tall and at least ~420 wide), same as the 2D port.
 - `scripts/game_camera.gd`: port of `src/core/camera.ts` (look-ahead, vertical deadzone, small levels
@@ -197,9 +201,9 @@ over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the t
 dark panel with the 2D panel's open corners, a 1 px shadow under it, a faint highlight inside its top edge and a
 short orange tab on top; in it 9 x 8 px hearts lit from the top left (lost ones are dark sockets), a dotted
 divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and the count in 4 x 7 px digits
-with a 1 px shadow and dim leading zeros (`007`). Top right are a CONTROLS button, a pause button (two bars)
-and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
-stay orange while their menu is open (the 2D HUD's mute button is left out: no audio yet). Everything sits 6 px
+with a 1 px shadow and dim leading zeros (`007`). Top right are a CONTROLS button, a pause button (two bars), a
+mute button (`drawSpeaker()`) and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
+stay orange while their menu is open, and the speaker shows a red cross while muted. Everything sits 6 px
 inside the part of the SubViewport on screen (it is `Main.PAD` bigger on every side). It animates on real time,
 so through hitstop:
 
@@ -213,6 +217,29 @@ so through hitstop:
 
 Like `collectToken()` in TS, every 100th token gives a heart, up to 5 (the HUD grows a slot, "+1 HEART"
 pops up), and a checkpoint refills to 3 without taking those away.
+
+## Sound and music
+
+`scripts/sound.gd` (autoload `Sound`) is `src/core/audio.ts`. Like the TS game it ships no audio files: it
+synthesizes the same sounds, but offline into `AudioStreamWAV`s (16-bit mono, 44.1 kHz) instead of live
+WebAudio nodes:
+
+- `tone()`: an oscillator (sine, triangle, and square / sawtooth band-limited with PolyBLEP, like WebAudio's
+  wavetables) with the exponential frequency ramp and the TS envelope (0.0001 -> vol in 8 ms -> 0.0001).
+- `noise()`: white noise through WebAudio's bandpass biquad (RBJ, constant 0 dB peak gain) with an exponential
+  centre sweep and fade.
+- Effects: `play()`'s recipes; the ones the port uses (`PRELOAD`) render in a thread at start-up (~80 ms).
+- Music: `scheduleStep()` (bass, arpeggio, lead on every other 4 bars, kick / snare / hats) rendered as one
+  seamless loop of the whole pattern (128 sixteenths with a lead, 64 without; notes that ring past the end wrap
+  to the start), in a thread the first time a track plays (~0.35 s for plains). Each level plays its `music`
+  from `levels/index.json`; the level select and the results panel play `map`; the exit stops the music.
+- The hover jet: the looping bandpassed noise with `hoverUpdate()`'s 40 rad/s wobble baked into 6 periods,
+  faded in and out while `Player.hovering` (stopped while paused).
+
+The TS bus gains are baked into the samples (effects 0.55, music 0.22); the Master bus is at 0.8 and is muted by
+the `mute` key (M) or the HUD's speaker button (saved in `Settings`). Sounds follow the TS call sites: player
+events (jump, land, spin, pound, pound landing, break, hurt, die / fell, stomp + enemyDie, defeat), tokens,
++1 heart, checkpoints, the exit (complete), and the menus (select, confirm, denied).
 
 ## Menus and key bindings
 
@@ -236,8 +263,8 @@ resumes two physics frames later, so the Space that picked RESUME is not also a 
 
 `scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
 positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
-the InputMap actions of the same names (`left right up down jump attack spin pause controls`; the TS menu
-also has weapon, shop and mute keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
+the InputMap actions of the same names (`left right up down jump attack spin pause mute controls`; the TS
+menu also has weapon and shop keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
 Escape pauses and goes back, Enter / Space confirm, Backspace goes back. `Settings.key_label()` is `keyLabel()`
 (arrows, letters and symbols as themselves, short names like SHIFT or BKSP).
 
@@ -375,6 +402,7 @@ without COOP/COEP headers.
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
 | `scripts/hud.gd` | HUD: hearts, token counter, CONTROLS and pause buttons, level label |
 | `scripts/game_menu.gd`, `scripts/settings.gd` | Pause, controls help and keybinding menus; saved bindings |
+| `scripts/sound.gd` | Synthesized sound effects, music loops and the hover jet (`src/core/audio.ts`) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |

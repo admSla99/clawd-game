@@ -281,13 +281,16 @@ func _draw() -> void:
 		var p := from.lerp(ctrl, e).lerp(ctrl.lerp(to, e), e)
 		draw_texture(_coin_small_tex, (p - Vector2(2, 2)).round())
 
-	# Top right: CONTROLS and pause buttons, then the level label (like the 2D HUD, without mute: no audio yet).
+	# Top right: CONTROLS, pause and mute buttons, then the level label (like the 2D HUD).
 	var b := buttons()
 	if b.has("label"):
 		panel(self, b.label, BORDER)
 		PixelFont.draw(self, label_id, b.label.position + Vector2(6, 5), ORANGE_LIGHT)
 		PixelFont.draw(self, " · " + label_name, b.label.position + Vector2(6 + PixelFont.width(label_id) + 1, 5), TEXT_DIM)
-	var on: bool = b.pause.has_point(mouse)
+	var on: bool = b.mute.has_point(mouse)
+	panel(self, b.mute, _button_border(on, false))
+	_speaker(b.mute.position + Vector2(5, 8), Settings.muted, ORANGE_LIGHT if on else TEXT)
+	on = b.pause.has_point(mouse)
 	panel(self, b.pause, _button_border(on, pause_open))
 	var bars := ORANGE_LIGHT if on or pause_open else TEXT
 	for x in [6, 10]:
@@ -297,11 +300,27 @@ func _draw() -> void:
 	PixelFont.draw(self, "CONTROLS", b.controls.position + Vector2(6, 5), ORANGE_LIGHT if on or controls_open else TEXT)
 
 
+## drawSpeaker() in src/render/shapes.ts: a speaker with two sound waves, or a cross when muted. `at` is the
+## left end of its middle row.
+func _speaker(at: Vector2, muted: bool, color: Color) -> void:
+	draw_rect(Rect2(at + Vector2(0, -1), Vector2(2, 3)), color)
+	draw_rect(Rect2(at + Vector2(2, -2), Vector2(1, 5)), color)
+	draw_rect(Rect2(at + Vector2(3, -3), Vector2(1, 7)), color)
+	if muted:
+		for i in 4:
+			draw_rect(Rect2(at + Vector2(5 + i, -2 + i), Vector2.ONE), RED)
+			draw_rect(Rect2(at + Vector2(8 - i, -2 + i), Vector2.ONE), RED)
+	else:
+		draw_rect(Rect2(at + Vector2(5, -1), Vector2(1, 3)), color)
+		draw_rect(Rect2(at + Vector2(7, -3), Vector2(1, 7)), color)
+
+
 func _button_border(hovered: bool, active: bool) -> Color:
 	return ORANGE if active else BORDER.lerp(ORANGE_LIGHT, 0.45) if hovered else BORDER
 
 
-## The rects of the top-right items in SubViewport pixels: `label` (when there is one), `pause`, `controls`.
+## The rects of the top-right items in SubViewport pixels: `label` (when there is one), `mute`, `pause`,
+## `controls`.
 func buttons() -> Dictionary:
 	var right := get_viewport_rect().size.x - ORIGIN.x
 	var out := {}
@@ -309,6 +328,8 @@ func buttons() -> Dictionary:
 		var tw := PixelFont.width(label_id) + 1 + PixelFont.width(" · " + label_name)
 		out.label = Rect2(right - tw - 12, ORIGIN.y, tw + 12, H)
 		right -= tw + 12 + 4
+	out.mute = Rect2(right - 18, ORIGIN.y, 18, H)
+	right -= 18 + 4
 	out.pause = Rect2(right - 18, ORIGIN.y, 18, H)
 	right -= 18 + 4
 	var cw := PixelFont.width("CONTROLS") + 12

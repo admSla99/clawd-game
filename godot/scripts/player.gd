@@ -415,8 +415,9 @@ func _check_hazards() -> void:
 		return
 	if pos.y > kill_y:
 		hearts -= 1
+		# fellOut() in TS: a heart less, and back to the checkpoint ("die" when it was the last one).
+		event.emit(&"die" if hearts <= 0 else &"fell", pos)
 		if hearts <= 0:
-			event.emit(&"die", pos)
 			hearts = MAX_HEARTS
 		respawn()
 		return
