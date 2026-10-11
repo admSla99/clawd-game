@@ -144,12 +144,15 @@ level), and that a running jump clears
 crossing the 26-tile gap of 1-1 on its two moving platforms (a
 small controller jumps when the next platform comes close), that a tapped jump is a full jump, and the HUD
 (tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 100 tokens up
-to 5).
+to 5), and the menus (pause freezes the world, every pause item, the HUD buttons, rebinding with conflicts,
+clearing, reset, saving to a separate settings file, glyphs for every key name).
 
 ## Game clock and camera
 
 - `Game` (autoload, `scripts/game.gd`): game time and hitstop. Level objects skip their update while
   `Game.frozen()`, so hitstop and pause stop the world like in `src/scenes/game.ts`.
+- `Settings` (autoload, `scripts/settings.gd`): key bindings and the CRT filter, saved in `user://`
+  (see Menus and key bindings).
 - `ViewScale` (autoload, `scripts/view_scale.gd`): view size from the window like `Renderer.resize()` in
   `src/render/renderer.ts` (integer scale, view about 270 tall and at least ~420 wide), same as the 2D port.
 - `scripts/game_camera.gd`: port of `src/core/camera.ts` (look-ahead, vertical deadzone, small levels
@@ -194,8 +197,11 @@ over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the t
 dark panel with the 2D panel's open corners, a 1 px shadow under it, a faint highlight inside its top edge and a
 short orange tab on top; in it 9 x 8 px hearts lit from the top left (lost ones are dark sockets), a dotted
 divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and the count in 4 x 7 px digits
-with a 1 px shadow and dim leading zeros (`007`). Top right is the level's label (`1-1 · token plains`, the id
-in light orange). It animates on real time, so through hitstop:
+with a 1 px shadow and dim leading zeros (`007`). Top right are a CONTROLS button, a pause button (two bars)
+and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
+stay orange while their menu is open (the 2D HUD's mute button is left out: no audio yet). Everything sits 6 px
+inside the part of the SubViewport on screen (it is `Main.PAD` bigger on every side). It animates on real time,
+so through hitstop:
 
 - a lost heart flashes white and breaks into falling shards, while the panel shakes and its border turns red;
   on the last heart (Player emits `die`) it breaks first and the hearts come back one by one 0.55 s later;
@@ -207,6 +213,33 @@ in light orange). It animates on real time, so through hitstop:
 
 Like `collectToken()` in TS, every 100th token gives a heart, up to 5 (the HUD grows a slot, "+1 HEART"
 pops up), and a checkpoint refills to 3 without taking those away.
+
+## Menus and key bindings
+
+`scripts/game_menu.gd` (`GameMenu`, `Ui/Menu`, drawn over everything) holds the in-level menus of
+`src/scenes/game.ts` and `src/scenes/keybinds.ts`, in the HUD's panel look (orange tab, titles at twice the
+size, the selected row as a faint orange bar with a bright left edge and a `>` prompt):
+
+- **Controls help** (`controls` key, H; or the HUD's CONTROLS button): what every key does, built from the
+  current bindings like `controlLines()`; Enter (or its button) opens the keybindings.
+- **Pause** (`pause` key, P, or Escape; or the HUD's pause button): RESUME, RESTART FROM CHECKPOINT, RESTART
+  LEVEL, CRT FILTER: ON/OFF, KEYBINDINGS, QUIT TO MAP (`scenes/level_select.tscn`).
+- **Keybindings**: every bindable action with 3 key slots drawn as keycaps. Enter (or a click) on a slot
+  listens for the next key: Escape cancels, Backspace clears the slot (the last key of an action stays), a
+  key that belongs to another action is refused with "X ALREADY BOUND TO ..." (W may be both jump and up, as
+  in the default layout). RESET DEFAULTS, BACK.
+
+`Main._input()` hands every event to `GameMenu.handle()` first, with mouse positions moved into SubViewport
+pixels; the mouse hovers and clicks rows, slots and the HUD buttons. Menus navigate with the bound up/down/
+left/right keys and always with the arrows. While a menu is open `Game.paused` stops the world; closing it
+resumes two physics frames later, so the Space that picked RESUME is not also a jump.
+
+`scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
+positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
+the InputMap actions of the same names (`left right up down jump attack spin pause controls`; the TS menu
+also has weapon, shop and mute keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
+Escape pauses and goes back, Enter / Space confirm, Backspace goes back. `Settings.key_label()` is `keyLabel()`
+(arrows, letters and symbols as themselves, short names like SHIFT or BKSP).
 
 ## Voxel models
 
@@ -340,7 +373,8 @@ without COOP/COEP headers.
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
-| `scripts/hud.gd` | HUD: hearts, token counter, level label |
+| `scripts/hud.gd` | HUD: hearts, token counter, CONTROLS and pause buttons, level label |
+| `scripts/game_menu.gd`, `scripts/settings.gd` | Pause, controls help and keybinding menus; saved bindings |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |

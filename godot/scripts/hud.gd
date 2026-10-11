@@ -11,7 +11,8 @@ extends Node2D
 ## (the count shown lags Main.tokens by the flight) and bumps its digits in light orange.
 ## Runs on real time (_process), so it keeps moving through hitstop.
 
-const ORIGIN := Vector2(6, 6)
+## Top left of the panel: 6 px into the part of the SubViewport that is on screen (Main.PAD is cut off).
+const ORIGIN := Vector2(Main.PAD + 6, Main.PAD + 6)
 const H := 16
 const BORDER := Color("#343434")
 const FILL := Color(0.075, 0.07, 0.085, 0.86)
@@ -77,6 +78,11 @@ static var _coin_white_tex := _texture(COIN[8], {"c": Color.WHITE, "L": Color.WH
 static var _coin_small_tex := _texture(COIN_SMALL, TokenSprite.PALETTE)
 static var _digit_tex: Array = DIGITS.map(func(rows: Array) -> ImageTexture: return _texture(rows, {"#": Color.WHITE}))
 
+## Mouse position in SubViewport pixels (GameMenu passes it on), for the buttons' hover look.
+var mouse := Vector2(-1000, -1000)
+## Whether the controls help / pause menu is open, so their buttons show as pressed.
+var controls_open := false
+var pause_open := false
 ## Level label at the top right, set by reset().
 var label_id := ""
 var label_name := ""
@@ -216,10 +222,7 @@ func _draw() -> void:
 	var digits := _count_text()
 	var w := hw + 1 + 4 + 8 + 4 + digits.length() * 5 - 1 + 6
 	var hurt_k := clampf(_hurt / 0.3, 0.0, 1.0)
-	_panel(Rect2(o, Vector2(w, H)), BORDER.lerp(RED, hurt_k))
-	# The orange tab on the top edge.
-	draw_rect(Rect2(o.x + 3, o.y, 7, 1), ORANGE)
-	draw_rect(Rect2(o.x + 3, o.y + 1, 7, 1), Color(ORANGE, 0.25))
+	panel(self, Rect2(o, Vector2(w, H)), BORDER.lerp(RED, hurt_k), FILL, true)
 
 	# Hearts.
 	var beat := _hearts == 1 and _slots() > 1 and fmod(_t, 0.9) < 0.14
@@ -278,28 +281,56 @@ func _draw() -> void:
 		var p := from.lerp(ctrl, e).lerp(ctrl.lerp(to, e), e)
 		draw_texture(_coin_small_tex, (p - Vector2(2, 2)).round())
 
-	# Level label, top right.
+	# Top right: CONTROLS and pause buttons, then the level label (like the 2D HUD, without mute: no audio yet).
+	var b := buttons()
+	if b.has("label"):
+		panel(self, b.label, BORDER)
+		PixelFont.draw(self, label_id, b.label.position + Vector2(6, 5), ORANGE_LIGHT)
+		PixelFont.draw(self, " · " + label_name, b.label.position + Vector2(6 + PixelFont.width(label_id) + 1, 5), TEXT_DIM)
+	var on: bool = b.pause.has_point(mouse)
+	panel(self, b.pause, _button_border(on, pause_open))
+	var bars := ORANGE_LIGHT if on or pause_open else TEXT
+	for x in [6, 10]:
+		draw_rect(Rect2(b.pause.position + Vector2(x, 5), Vector2(2, 6)), bars)
+	on = b.controls.has_point(mouse)
+	panel(self, b.controls, _button_border(on, controls_open))
+	PixelFont.draw(self, "CONTROLS", b.controls.position + Vector2(6, 5), ORANGE_LIGHT if on or controls_open else TEXT)
+
+
+func _button_border(hovered: bool, active: bool) -> Color:
+	return ORANGE if active else BORDER.lerp(ORANGE_LIGHT, 0.45) if hovered else BORDER
+
+
+## The rects of the top-right items in SubViewport pixels: `label` (when there is one), `pause`, `controls`.
+func buttons() -> Dictionary:
+	var right := get_viewport_rect().size.x - ORIGIN.x
+	var out := {}
 	if label_id != "":
-		var rest := " · " + label_name
-		var tw := PixelFont.width(label_id) + 1 + PixelFont.width(rest)
-		var view := get_viewport_rect().size
-		var r := Rect2(view.x - ORIGIN.x - tw - 12, ORIGIN.y, tw + 12, H)
-		_panel(r, BORDER)
-		PixelFont.draw(self, label_id, r.position + Vector2(6, 5), ORANGE_LIGHT)
-		PixelFont.draw(self, rest, r.position + Vector2(6 + PixelFont.width(label_id) + 1, 5), TEXT_DIM)
+		var tw := PixelFont.width(label_id) + 1 + PixelFont.width(" · " + label_name)
+		out.label = Rect2(right - tw - 12, ORIGIN.y, tw + 12, H)
+		right -= tw + 12 + 4
+	out.pause = Rect2(right - 18, ORIGIN.y, 18, H)
+	right -= 18 + 4
+	var cw := PixelFont.width("CONTROLS") + 12
+	out.controls = Rect2(right - cw, ORIGIN.y, cw, H)
+	return out
 
 
 ## panel() from src/render/shapes.ts (fill, 1 px border with open corners) with a 1 px shadow under it and a
-## faint highlight along the inside of the top edge.
-func _panel(r: Rect2, border: Color) -> void:
+## faint highlight along the inside of the top edge; `tab` adds the short orange tab on top. Drawn onto `c`
+## (inside its _draw()), so the menus share the look.
+static func panel(c: CanvasItem, r: Rect2, border: Color, fill := FILL, tab := false) -> void:
 	r = Rect2(r.position.round(), r.size.round())
-	draw_rect(Rect2(r.position.x + 1, r.end.y, r.size.x - 2, 1), Color(0, 0, 0, 0.35))
-	draw_rect(r, FILL)
-	draw_rect(Rect2(r.position.x + 2, r.position.y + 1, r.size.x - 4, 1), Color(1, 1, 1, 0.05))
-	draw_rect(Rect2(r.position.x + 1, r.position.y, r.size.x - 2, 1), border)
-	draw_rect(Rect2(r.position.x + 1, r.end.y - 1, r.size.x - 2, 1), border)
-	draw_rect(Rect2(r.position.x, r.position.y + 1, 1, r.size.y - 2), border)
-	draw_rect(Rect2(r.end.x - 1, r.position.y + 1, 1, r.size.y - 2), border)
+	c.draw_rect(Rect2(r.position.x + 1, r.end.y, r.size.x - 2, 1), Color(0, 0, 0, 0.35))
+	c.draw_rect(r, fill)
+	c.draw_rect(Rect2(r.position.x + 2, r.position.y + 1, r.size.x - 4, 1), Color(1, 1, 1, 0.05))
+	c.draw_rect(Rect2(r.position.x + 1, r.position.y, r.size.x - 2, 1), border)
+	c.draw_rect(Rect2(r.position.x + 1, r.end.y - 1, r.size.x - 2, 1), border)
+	c.draw_rect(Rect2(r.position.x, r.position.y + 1, 1, r.size.y - 2), border)
+	c.draw_rect(Rect2(r.end.x - 1, r.position.y + 1, 1, r.size.y - 2), border)
+	if tab:
+		c.draw_rect(Rect2(r.position.x + 3, r.position.y, 7, 1), ORANGE)
+		c.draw_rect(Rect2(r.position.x + 3, r.position.y + 1, 7, 1), Color(ORANGE, 0.25))
 
 
 ## A text-grid sprite as a texture ('.' transparent).

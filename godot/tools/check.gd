@@ -53,6 +53,7 @@ func _init() -> void:
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
+	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -647,5 +648,166 @@ func check_hud() -> bool:
 	m.collect_token(p.pos)
 	ok(p.hearts == 5, "no more than 5 hearts")
 	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+func key(code: int) -> InputEventKey:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.pressed = true
+	return e
+
+
+func click(at: Vector2) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = true
+	e.position = at
+	return e
+
+
+func check_menus() -> bool:
+	var m = current_scene
+	var p = m.player
+	var menu = m.menu
+	var settings = root.get_node("Settings")
+	# Never touch the player's own settings file.
+	var real_path: String = settings.path
+	settings.path = "user://settings_check.cfg"
+	settings.bindings = settings.defaults()
+	settings.apply()
+	m.load_level("1-1")
+	await frames(5)
+
+	menu.handle(key(KEY_P))
+	ok(menu.state == menu.PAUSE and root.get_node("Game").frozen(), "P opens the pause menu and freezes the world")
+	var at: Vector2 = p.pos
+	Input.action_press("right")
+	await frames(10)
+	Input.action_release("right")
+	ok(p.pos == at, "Clawd does not move while paused")
+	menu.handle(key(KEY_ESCAPE))
+	ok(menu.state == menu.NONE, "Escape resumes")
+	await frames(3)
+	ok(not root.get_node("Game").paused, "the world runs again")
+
+	# Resuming with Space must not also jump.
+	await frames(5)
+	menu.handle(key(KEY_ESCAPE))
+	ok(menu.state == menu.PAUSE, "Escape pauses too")
+	var space := key(KEY_SPACE)
+	Input.parse_input_event(space)
+	await frames(1)
+	var up := key(KEY_SPACE)
+	up.pressed = false
+	Input.parse_input_event(up)
+	await frames(10)
+	ok(menu.state == menu.NONE and p.on_ground and p.vel.y >= 0, "Space on RESUME resumes without a jump")
+
+	# RESTART FROM CHECKPOINT, CRT FILTER, RESTART LEVEL.
+	p.pos += Vector2(200, -40)
+	menu.handle(key(KEY_P))
+	menu.handle(key(KEY_DOWN))
+	menu.handle(key(KEY_ENTER))
+	ok(menu.state == menu.NONE and p.pos.is_equal_approx(p.spawn_point), "RESTART FROM CHECKPOINT puts Clawd back")
+	await frames(3)
+	var crt: bool = settings.crt
+	menu.handle(key(KEY_P))
+	for i in 3:
+		menu.handle(key(KEY_DOWN))
+	menu.handle(key(KEY_ENTER))
+	ok(settings.crt != crt and m.crt.visible == settings.crt, "CRT FILTER toggles the filter")
+	var cfg := ConfigFile.new()
+	cfg.load(settings.path)
+	ok(cfg.get_value("video", "crt") == settings.crt, "and saves it")
+	menu.handle(key(KEY_ENTER))
+	ok(settings.crt == crt, "and toggles it back")
+	menu.handle(key(KEY_UP))
+	m.tokens = 5
+	menu.handle(key(KEY_ENTER))
+	ok(menu.state == menu.NONE and m.tokens == 0, "RESTART LEVEL reloads the level")
+	await frames(3)
+
+	# The HUD buttons, at the usual 480 x 270 view (the headless window is smaller).
+	var vp_size: Vector2i = m.subviewport.size
+	m.subviewport.size = Vector2i(480, 270) + Vector2i.ONE * m.PAD * 2
+	var b: Dictionary = m.hud.buttons()
+	ok(b.controls.end.x < b.pause.position.x and b.pause.end.x < b.label.position.x, "HUD: CONTROLS, pause and the level label in a row at the top right")
+	var view := Rect2(Vector2.ONE * m.PAD, Vector2(m.subviewport.size) - Vector2.ONE * m.PAD * 2)
+	ok(view.encloses(b.controls) and view.encloses(b.label), "the HUD lies inside the part of the view on screen (%s in %s)" % [b.controls.merge(b.label), view])
+	m.subviewport.size = vp_size
+	b = m.hud.buttons()
+	menu.handle(click(b.pause.get_center()))
+	ok(menu.state == menu.PAUSE, "clicking the pause button pauses")
+	menu.handle(click(b.pause.get_center()))
+	ok(menu.state == menu.NONE, "clicking it again resumes")
+	menu.handle(click(b.controls.get_center()))
+	ok(menu.state == menu.CONTROLS, "clicking CONTROLS shows the controls help")
+	var lines: Array = menu.control_lines()
+	ok(lines[1][0] == "SPACE W K" and lines[0][0] == "← A → D", "the help lists the bound keys (%s, %s)" % [lines[0][0], lines[1][0]])
+
+	# Keybindings: rebind jump's second slot.
+	menu.handle(key(KEY_ENTER))
+	ok(menu.state == menu.KEYS, "Enter on the help opens the keybindings")
+	for i in 4:
+		menu.handle(key(KEY_DOWN))
+	menu.handle(key(KEY_RIGHT))
+	menu.handle(key(KEY_ENTER))
+	ok(menu.listening and settings.BINDABLE[menu.key_row] == &"jump" and menu.key_slot == 1, "Enter on a slot listens for a key")
+	menu.handle(key(KEY_X))
+	ok(menu.listening and menu.error == "X ALREADY BOUND TO ATTACK (SPIN)", "a key of another action is refused (%s)" % menu.error)
+	menu.handle(key(KEY_U))
+	ok(not menu.listening and settings.bindings[&"jump"] == [KEY_SPACE, KEY_U, KEY_K], "a free key is bound")
+	ok(InputMap.event_is_action(key(KEY_U), "jump") and not InputMap.event_is_action(key(KEY_W), "jump"), "the InputMap follows")
+	cfg = ConfigFile.new()
+	cfg.load(settings.path)
+	ok(cfg.get_value("keys", "jump") == [KEY_SPACE, KEY_U, KEY_K], "and the binding is saved")
+	menu.handle(key(KEY_ENTER))
+	menu.handle(key(KEY_BACKSPACE))
+	ok(settings.bindings[&"jump"] == [KEY_SPACE, KEY_K], "Backspace clears a slot")
+	settings.bindings[&"pause"] = [KEY_P]
+	settings.clear(&"pause", 0)
+	ok(settings.bindings[&"pause"] == [KEY_P], "the last key of an action can't be cleared")
+	ok(InputMap.event_is_action(key(KEY_ESCAPE), "pause"), "Escape always pauses")
+	menu.handle(key(KEY_ENTER))
+	menu.handle(key(KEY_ESCAPE))
+	ok(not menu.listening and menu.state == menu.KEYS, "Escape cancels listening")
+	menu.key_row = settings.BINDABLE.size()
+	menu.handle(key(KEY_ENTER))
+	ok(settings.bindings == settings.defaults() and InputMap.event_is_action(key(KEY_W), "jump"), "RESET DEFAULTS")
+	menu.handle(key(KEY_ESCAPE))
+	ok(menu.state == menu.CONTROLS, "back from the keybindings to the help")
+	menu.handle(key(KEY_H))
+	ok(menu.state == menu.NONE, "H closes the help")
+
+	# Mouse in the keybindings: clicking a slot listens.
+	menu.open_keys()
+	var l: Dictionary = menu.layout()
+	menu.handle(click(l.slots[6][0].get_center()))
+	ok(menu.listening and settings.BINDABLE[menu.key_row] == &"spin" and menu.key_slot == 0, "clicking a slot listens for a key")
+	menu.handle(click(Vector2(1, 1)))
+	ok(not menu.listening, "a click cancels it")
+	menu.handle(click(l.back.get_center()))
+	ok(menu.state == menu.NONE, "BACK closes it")
+
+	# Every text the menus draw is in the font.
+	var texts: Array = menu.PAUSE_ITEMS + ["PAUSED", "CONTROLS", "KEYBINDINGS", "RESET DEFAULTS", "BACK", "...", ">",
+		"ENTER — CHANGE KEYS", "PRESS A KEY · ESC CANCEL · BKSP CLEAR", "↑↓ ROW · ←→ SLOT · ENTER REBIND",
+		"↑↓ SELECT · ENTER OK · ESC RESUME", "ON", "OFF", "ALREADY BOUND TO"] + settings.LABELS.values()
+	for row in lines:
+		texts += row
+	for code in [KEY_A, KEY_Z, KEY_0, KEY_9, KEY_SEMICOLON, KEY_COMMA, KEY_PERIOD, KEY_SLASH, KEY_APOSTROPHE, KEY_QUOTELEFT, KEY_BACKSLASH, KEY_BRACKETLEFT, KEY_MINUS, KEY_EQUAL, KEY_SHIFT, KEY_TAB, KEY_F1, KEY_KP_1]:
+		texts.append(settings.key_label(code))
+	var missing := []
+	for t in texts:
+		for ch in t:
+			if ch != " " and not PixelFont.GLYPHS.has(ch) and ch not in missing:
+				missing.append(ch)
+	ok(missing.is_empty(), "PixelFont has every character the menus and key names use %s" % [missing])
+
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.path))
+	settings.path = real_path
+	settings._ready()
 	await frames(3)
 	return true

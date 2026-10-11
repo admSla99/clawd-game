@@ -51,6 +51,7 @@ var complete_t := -1.0
 @onready var crt: ColorRect = $ScreenFx/Crt
 @onready var overlay: Overlay = $View/SubViewport/World/Ui/Overlay
 @onready var hud: Hud = $View/SubViewport/World/Ui/Hud
+@onready var menu: GameMenu = $View/SubViewport/World/Ui/Menu
 
 
 func _ready() -> void:
@@ -61,11 +62,23 @@ func _ready() -> void:
 	world.add_child(player)
 	player.event.connect(_on_player_event)
 	hud.bind(player)
+	menu.main = self
+	crt.visible = Settings.crt
 	camera.pad = PAD
 	overlay.camera = camera
 	get_tree().root.size_changed.connect(_resize)
 	_resize()
 	load_level(start_level)
+
+
+## The menus (pause, controls, keybindings) get every event first; mouse positions move into SubViewport
+## pixels, which start PAD px left of and above the window.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouse:
+		event = event.duplicate()
+		event.position += Vector2.ONE * PAD
+	if menu.handle(event):
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:

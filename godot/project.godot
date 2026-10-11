@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 Game="*res://scripts/game.gd"
 ViewScale="*res://scripts/view_scale.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+Settings="*res://scripts/settings.gd"
 
 [display]
 

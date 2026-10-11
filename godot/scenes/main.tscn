@@ -13,6 +13,7 @@
 [ext_resource type="Shader" path="res://shaders/grade.gdshader" id="11"]
 [ext_resource type="Script" path="res://scripts/overlay.gd" id="12"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="hud"]
+[ext_resource type="Script" path="res://scripts/game_menu.gd" id="menu"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 3
@@ -113,6 +114,9 @@ script = ExtResource("hud")
 
 [node name="Overlay" type="Node2D" parent="View/SubViewport/World/Ui"]
 script = ExtResource("12")
+
+[node name="Menu" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("menu")
 
 [node name="ScreenFx" type="CanvasLayer" parent="."]
 layer = 10
