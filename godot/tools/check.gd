@@ -52,6 +52,7 @@ func _init() -> void:
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
+	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -338,6 +339,8 @@ func check_hazards() -> bool:
 		await physics_frame
 		if m.tokens == had + 10: break
 	ok(m.tokens == had + 10, "the dropped tokens fly to Clawd and are collected (%d of 10)" % (m.tokens - had))
+	await frames(60)
+	ok(m.hud.shown == m.tokens, "they all land on the HUD counter one after another (%d of %d)" % [m.hud.shown, m.tokens])
 
 	# Walking left off the start: the map's edge is a wall, like the solid columns outside it in TS.
 	m.load_level("1-1")
@@ -479,8 +482,7 @@ func check_objects() -> bool:
 	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
 		for t in l.get("signs", []) + [l.name, l.id]:
 			for ch in t:
-				if ch != "
-" and not PixelFont.GLYPHS.has(ch):
+				if ch != "\n" and not PixelFont.GLYPHS.has(ch):
 					missing[ch] = true
 	ok(missing.is_empty(), "PixelFont has every character of the signs and level names %s" % [missing.keys()])
 	ok(signs[1].text.begins_with("BUGS!") and signs[3].text.begins_with("IN THE AIR"), "signs get their texts from index.json")
@@ -593,4 +595,57 @@ func check_platforms() -> bool:
 	Input.action_release("right")
 	Input.action_release("jump")
 	ok(stage == 3, "1-1: Clawd crosses the last gap on the two platforms (reached stage %d of 3)" % stage)
+	return true
+
+
+func check_hud() -> bool:
+	var m = current_scene
+	var p = m.player
+	var hud = m.hud
+	m.load_level("1-1")
+	await frames(3)
+	ok(hud.label_id == "1-1" and hud.label_name == "token plains" and hud.shown == 0, "HUD shows the level and starts at 0 tokens")
+	var missing := []
+	for l in m.levels:
+		for ch in (l.id + " · " + String(l.name).to_lower()):
+			if not PixelFont.GLYPHS.has(ch) and ch != " " and ch not in missing:
+				missing.append(ch)
+	ok(missing.is_empty(), "PixelFont has every character of the HUD level labels %s" % [missing])
+
+	# A token flies to the counter, and is counted when it lands.
+	var token = m.level.get_children().filter(func(c): return c is Area3D)[0]
+	p.pos = Px.of(token.position) + Vector2(0, 8)
+	await frames(3)
+	ok(m.tokens == 1 and hud.shown == 0 and hud._flights.size() == 1, "a collected token is in flight to the HUD")
+	await frames(40)
+	ok(hud.shown == 1 and hud._flights.is_empty(), "it lands on the counter (shown %d)" % hud.shown)
+
+	# Losing a heart breaks it; losing the last one refills them all after a moment.
+	p.invuln = 0
+	p.hurt(p.pos.x + 10)
+	await frames(2)
+	ok(hud._hearts == 2 and hud._shards.size() > 0 and hud._hurt > 0, "a lost heart breaks into shards and shakes the panel")
+	p.hearts = 1
+	await frames(2)
+	p.invuln = 0
+	p.hurt(p.pos.x + 10)
+	await frames(2)
+	ok(hud._hearts == 0, "the last heart breaks before the refill")
+	await frames(60)
+	ok(hud._hearts == p.MAX_HEARTS, "then the hearts come back")
+
+	# Every 100 tokens give a heart, up to 5, and a checkpoint keeps them.
+	m.tokens = 99
+	m.collect_token(p.pos)
+	ok(p.hearts == p.MAX_HEARTS + 1, "the 100th token gives a heart")
+	await frames(2)
+	ok(hud._slots() == p.MAX_HEARTS + 1, "the HUD grows a slot for it")
+	m.activate_checkpoint(m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/checkpoint.gd"))[0])
+	ok(p.hearts == p.MAX_HEARTS + 1, "a checkpoint does not take it away")
+	m.tokens = 499
+	p.hearts = 5
+	m.collect_token(p.pos)
+	ok(p.hearts == 5, "no more than 5 hearts")
+	m.load_level("1-1")
+	await frames(3)
 	return true

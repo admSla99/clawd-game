@@ -142,7 +142,9 @@ air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1'
 respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit (completion, results, next
 level), and that a running jump clears
 crossing the 26-tile gap of 1-1 on its two moving platforms (a
-small controller jumps when the next platform comes close), and that a tapped jump is a full jump.
+small controller jumps when the next platform comes close), that a tapped jump is a full jump, and the HUD
+(tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 100 tokens up
+to 5).
 
 ## Game clock and camera
 
@@ -184,6 +186,27 @@ atlas with nearest filtering on whole view pixels, 8 px per line like the 2D gam
 over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the text of nodes in the group
 `world_text` (they implement `overlay_draw(overlay)`) and panels like `panel()` in `src/render/shapes.ts`.
 `Overlay.to_view()` maps a level position (and depth) through the camera and the oblique projection.
+
+## HUD
+
+`scripts/hud.gd` (`Hud`, in the same `Ui` CanvasLayer, under the Overlay) is `drawHud()` from
+`src/render/hud.ts` for hearts and tokens, drawn as sprites from text grids at view resolution. Top left is one
+dark panel with the 2D panel's open corners, a 1 px shadow under it, a faint highlight inside its top edge and a
+short orange tab on top; in it 9 x 8 px hearts lit from the top left (lost ones are dark sockets), a dotted
+divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and the count in 4 x 7 px digits
+with a 1 px shadow and dim leading zeros (`007`). Top right is the level's label (`1-1 · token plains`, the id
+in light orange). It animates on real time, so through hitstop:
+
+- a lost heart flashes white and breaks into falling shards, while the panel shakes and its border turns red;
+  on the last heart (Player emits `die`) it breaks first and the hearts come back one by one 0.55 s later;
+- refilled hearts pop up 1 px with a fading white outline; the last heart left beats;
+- a collected token (`Main.collect_token()`) flies from where it was along an arc to the counter coin, tokens
+  picked up together 0.04 s apart, and the count shown (`Hud.shown`) ticks up when each lands: the coin
+  glints and the digits jump 1 px in light orange;
+- it fades out under the level-complete panel.
+
+Like `collectToken()` in TS, every 100th token gives a heart, up to 5 (the HUD grows a slot, "+1 HEART"
+pops up), and a checkpoint refills to 3 without taking those away.
 
 ## Voxel models
 
@@ -317,6 +340,7 @@ without COOP/COEP headers.
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
+| `scripts/hud.gd` | HUD: hearts, token counter, level label |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |

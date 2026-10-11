@@ -163,6 +163,7 @@ func hurt(from_x: float) -> bool:
 		return false
 	hearts -= 1
 	if hearts <= 0:
+		event.emit(&"die", pos)
 		hearts = MAX_HEARTS
 		respawn()
 		return false
@@ -415,6 +416,7 @@ func _check_hazards() -> void:
 	if pos.y > kill_y:
 		hearts -= 1
 		if hearts <= 0:
+			event.emit(&"die", pos)
 			hearts = MAX_HEARTS
 		respawn()
 		return

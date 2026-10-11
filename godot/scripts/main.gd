@@ -17,6 +17,9 @@ const PLAYER_SHADOW := 0.5
 const ENEMY_SHADOW := 0.42
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
+## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts.
+const TOKENS_PER_HEART := 100
+const HEART_CAP := 5
 
 ## Level to load on start; set by the level select before it switches to this scene.
 static var start_level := "1-1"
@@ -47,6 +50,7 @@ var complete_t := -1.0
 @onready var grade: ColorRect = $View/SubViewport/World/Grade/Grade
 @onready var crt: ColorRect = $ScreenFx/Crt
 @onready var overlay: Overlay = $View/SubViewport/World/Ui/Overlay
+@onready var hud: Hud = $View/SubViewport/World/Ui/Hud
 
 
 func _ready() -> void:
@@ -56,6 +60,7 @@ func _ready() -> void:
 	player = PLAYER.instantiate()
 	world.add_child(player)
 	player.event.connect(_on_player_event)
+	hud.bind(player)
 	camera.pad = PAD
 	overlay.camera = camera
 	get_tree().root.size_changed.connect(_resize)
@@ -98,6 +103,7 @@ func load_level(id: String) -> void:
 	particles.clear()
 	overlay.clear()
 	tokens = 0
+	hud.reset(id, info.name)
 	# Every token placed in the map plus what every bug drops.
 	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() 		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
 	complete_t = -1.0
@@ -248,11 +254,22 @@ func _on_pound_land() -> void:
 			e.hit(&"pound")
 
 
+## A token was picked up at `at` (collectToken() in src/scenes/game.ts): count it, send it flying to the HUD
+## counter, and every TOKENS_PER_HEART tokens give a heart, up to HEART_CAP.
+func collect_token(at: Vector2) -> void:
+	tokens += 1
+	hud.collect_token(overlay.to_view(at))
+	if tokens % TOKENS_PER_HEART == 0 and player.hearts < HEART_CAP:
+		player.hearts += 1
+		overlay.popup("+1 HEART", player.pos + Vector2(0, -28), RED)
+
+
 ## A checkpoint was touched (activateCheckpoint() in src/scenes/game.ts): respawn there from now on and
 ## refill the hearts.
 func activate_checkpoint(cp: Checkpoint) -> void:
 	player.spawn_point = cp.feet()
-	player.hearts = Player.MAX_HEARTS
+	# Refill, but keep hearts won from tokens (`if (hearts < maxHearts)` in TS).
+	player.hearts = maxi(player.hearts, Player.MAX_HEARTS)
 	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
 	overlay.popup("STATE SAVED", cp.feet() + Vector2(0, -36), Color("#F0A585"), 1.5, Checkpoint.Z, 6.0)
 

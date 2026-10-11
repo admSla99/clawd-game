@@ -89,7 +89,7 @@ func collect() -> void:
 	collected = true
 	var main := get_tree().get_first_node_in_group("main")
 	if main:
-		main.tokens += 1
+		main.collect_token(Px.of(global_position) - Vector2(0, coin.position.y / Px.M + 3))
 	Fx.burst(self, Px.of(global_position), {count = 4, speed = 40, life = 0.25, color = [COLOR]})
 	# Sparks are 11 px tall and the coin 6 px: line their centres up.
 	SpriteFx.spawn(get_parent(), position + coin.position + Vector3(0, -2.5, 0) * Px.M, TokenSprite.SPARK_MESHES, [0.05, 0.06, 0.07], false, 1.2)
