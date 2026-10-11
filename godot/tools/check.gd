@@ -322,6 +322,32 @@ func check_hazards() -> bool:
 	await frames(5)
 	ok(not is_instance_valid(tokens[0]) or tokens[0].is_queued_for_deletion(), "touching a token collects it")
 
+	# The last gap of 1-1 (columns 263..267) was 26 tiles with moving platforms; now a running jump clears it.
+	m.load_level("1-1")
+	await frames(3)
+	p.pos = Vector2(256 * TILE, 15 * TILE)
+	p.vel = Vector2.ZERO
+	var jumped := false
+	var crossed := false
+	var airborne := false
+	Input.action_press("right")
+	for i in 240:
+		if not jumped and p.pos.x > 263 * TILE - 10:
+			Input.action_press("jump")
+			jumped = true
+		elif airborne and p.vel.y >= 0:
+			Input.action_release("jump")
+		await physics_frame
+		airborne = airborne or (jumped and not p.is_on_floor())
+		if airborne and p.is_on_floor() and p.pos.y <= 15 * TILE:
+			crossed = p.pos.x > 268 * TILE - 9
+			break
+		if p.pos.y > 16 * TILE:
+			break
+	Input.action_release("right")
+	Input.action_release("jump")
+	ok(crossed, "1-1: a running jump without hover clears the last gap")
+
 	p.hearts = 1
 	p.invuln = 0
 	p.hurt(p.pos.x + 10)

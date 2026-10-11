@@ -79,7 +79,9 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
-`tests/player.test.ts`, the level select and level switching, and spikes, bugs, stomps and tokens in 1-1.
+`tests/player.test.ts`, the level select and level switching, and spikes, bugs, stomps and tokens in 1-1, and that a running jump clears the last gap of 1-1
+(narrowed to 5 tiles in `src/world/levels/1-1.ts`; it was 26 tiles bridged by moving platforms, which the port
+does not have).
 
 ## Game clock and camera
 
