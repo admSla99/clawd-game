@@ -1048,10 +1048,11 @@ func check_sparks() -> bool:
 	ok(m.hud.coin_centre().x > m.hud.ORIGIN.x + m.hud._hearts_w() + m.hud._sparks_w(), "the token counter moves right of the sparks")
 	ok(sparks.all(func(sp): return not sp.ghost), "none is a ghost in a new game")
 	var grid: Array = spark_script.rows(4)
-	ok(grid.size() == 19 and grid[9][9] == "W" and grid[9][18] == "O" and grid[0][9] == "O" and grid[14][14] == "h",
-		"the spark is drawSpark()'s dots: core, 4 dots per arm, diagonals")
-	ok(spark_script.rows(3)[9][18] == "." and spark_script.rows(3, true)[9].count("O") < spark_script.rows(3)[9].count("O"),
-		"the arms flicker between 3 and 4 dots; a ghost keeps every other dot")
+	ok(grid.size() == 21 and grid[10][10] == "W" and grid[10][19] == "h" and grid[10][15] == "O" and grid[1][10] == "h"
+		and grid[11][12] == "O" and grid[14][14] == "h", "the spark is a solid star: white core, tapering rays, diagonals")
+	var dotted: Array = spark_script.rows(3, true)
+	ok(spark_script.rows(3)[10][19] == "." and spark_script.rows(3)[10][17] == "h" and dotted[10].count("O") + dotted[10].count("L") < spark_script.rows(3)[10].count("O") + spark_script.rows(3)[10].count("L"),
+		"its rays flicker between 7 and 9 px; a ghost is drawSpark()'s dotted star")
 
 	snd.played.clear()
 	var sp = sparks[1]

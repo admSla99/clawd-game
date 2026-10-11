@@ -98,13 +98,14 @@ clear the level it unlocked) fades in over the level, and jump goes back to the 
 recorded the moment the exit is touched (`Progress.record_run()`).
 
 Sparks (`scripts/spark.gd`, `S`): `Spark` from `src/entities/collectibles.ts`, the level's rare collectible
-(5 in 1-1). It is `drawSpark()` in voxels: glowing 1 px dots around a white-hot core, dotted arms in the four
-directions that flicker between 3 and 4 dots, four diagonal dots and, while the arms are long, four fainter
-ones further out (`Spark.rows()`, 19 x 19 px), bobbing 2 px, in front of a dithered dark orange halo
-(`shaders/halo.gdshader`, the 2D glow circle at about 12 %) that breathes, with a GlowLight. Touching it (14 x 14
+(5 in 1-1). `drawSpark()`'s 1 px dots were too faint to spot in the dark levels, so the port draws a solid
+star (`Spark.rows()`, 21 x 21 px): a white-hot core, four rays that taper from light orange to a faint tip and
+flicker between 7 and 9 px long (drawSpark()'s 3 / 4 dots), short diagonal rays, all glowing strongly (bloom),
+bobbing 2 px, in front of a dithered orange halo (`shaders/halo.gdshader`, the 2D glow circle, 15 px and bright
+in the middle) that breathes, with a GlowLight and small embers drifting up. Touching it (14 x 14
 px box) calls `Main.collect_spark()`: the spark sound, 0.05 s hitstop, a 40-particle burst and "SPARK n/total";
-the HUD's spark counter flashes. One found on an earlier run is a ghost: every other dot, muted orange, no halo,
-still collectible. The results list the level's sparks one by one (a tick for each found one, NEW under the
+the HUD's spark counter flashes. One found on an earlier run is a ghost: drawSpark()'s dotted star with every other
+dot, muted orange, no halo or embers, still collectible. The results list the level's sparks one by one (a tick for each found one, NEW under the
 first finds), the map card shows found / total and the map's bottom left all sparks found.
 
 Sub-agents (`scripts/sub_agent.gd`, `A`): `SubAgent` from `src/entities/collectibles.ts`, a small Clawd, the 2D
