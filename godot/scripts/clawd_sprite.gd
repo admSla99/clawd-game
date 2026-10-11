@@ -41,10 +41,11 @@ static var _cache := {}
 ## Options: bw / bh body size in px (bw even), arms ("mid", "up", "high", "low"; "swingA" / "swingB"
 ## put one arm 1 px up and the other 1 px down), legs (a LEGS key), eyes ("open", "blink", "squint"),
 ## look (pupil offset in px, x towards the facing side, -1..1 each).
+## `palette` / `top` (optional) recolour him (HAIKU, the shopkeeper, is a blue Clawd).
 static func mesh(o: Dictionary) -> ArrayMesh:
 	var key := str(o)
 	if not _cache.has(key):
-		_cache[key] = Voxel.mesh(rows(o), PALETTE, DEPTH, Px.M, Voxel.MATERIAL, TOP)
+		_cache[key] = Voxel.mesh(rows(o), o.get("palette", PALETTE), DEPTH, Px.M, Voxel.MATERIAL, o.get("top", TOP))
 	return _cache[key]
 
 

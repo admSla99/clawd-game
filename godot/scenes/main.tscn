@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/hud.gd" id="hud"]
 [ext_resource type="Script" path="res://scripts/game_menu.gd" id="menu"]
 [ext_resource type="Script" path="res://scripts/front_end.gd" id="front"]
+[ext_resource type="Script" path="res://scripts/shop_screen.gd" id="shop"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 3
@@ -118,6 +119,10 @@ script = ExtResource("12")
 
 [node name="FrontEnd" type="Node2D" parent="View/SubViewport/World/Ui"]
 script = ExtResource("front")
+
+[node name="Shop" type="Node2D" parent="View/SubViewport/World/Ui"]
+visible = false
+script = ExtResource("shop")
 
 [node name="Menu" type="Node2D" parent="View/SubViewport/World/Ui"]
 script = ExtResource("menu")

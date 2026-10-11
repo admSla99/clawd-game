@@ -169,7 +169,8 @@ clearing, reset, saving to a separate settings file, glyphs for every key name),
 renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
 the game's events play their sounds, the jet hisses while hovering, M mutes, the exit and results switch the
 music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, results, saved progress, ghosts on the
-next run).
+next run), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+effect in a level, refusals, fortunes read from the map, saving, back to the map).
 
 ## Game clock and camera
 
@@ -227,7 +228,10 @@ divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and
 with a 1 px shadow and dim leading zeros (`007`). Between the hearts and the token, in a level with sparks, a
 small spark (grey until one is found) and "x/y", flashing light orange for 1.4 s after a find (the 2D SPARKS
 panel). In a level with sub-agents, past another divider, a small
-Clawd (grey until one is rescued, cheering for a moment after each rescue) and "x/y". Top right are a CONTROLS button, a pause button (two bars), a
+Clawd (grey until one is rescued, cheering for a moment after each rescue) and "x/y". With shop items: a
+Firewall is one more slot after the hearts (a shield that flashes white and shatters when it takes a hit),
+Double Tokens puts "x2" after the count, and the Spark Radar draws a chevron 28 px from Clawd towards the
+nearest never-found spark, beating faster the closer it is. Top right are a CONTROLS button, a pause button (two bars), a
 mute button (`drawSpeaker()`) and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
 stay orange while their menu is open, and the speaker shows a red cross while muted. Everything sits 6 px
 inside the part of the SubViewport on screen (it is `Main.PAD` bigger on every side). It animates on real time,
@@ -293,15 +297,41 @@ moving platforms. The level's own world text, the HUD and the see-through window
   32 % and 62 % of the height (30 % / 56 % in TS) to make room. The nodes lie along a dotted path that lifts
   between them, with a light running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
   game's 1 px Clawd as a 2D sprite); locked levels show a padlock, finished ones an orange corner, bosses a
-  red-tinted node labelled BOSS. The banked tokens sit top right. An
+  red-tinted node labelled BOSS. The banked tokens and the sparks not spent sit top right, next to the SHOP
+  button (B), which opens once 1-1 is cleared. An
   info card names the selected level with its subtitle, rescued sub-agents, CLEARED and the best time, and
   doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
   Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.
 
 `scripts/progress.gd` (autoload `Progress`) is the level part of `src/save.ts`, saved as JSON in
 `user://progress.json`: per level completed, found sparks and rescued sub-agents (merged, never lost) and the
-best time, plus the wallet of banked tokens. A level is unlocked when it is the first or the one before it is completed
-(`App.isUnlocked()`).
+best time, plus the wallet of banked tokens and the shop's state (upgrade levels, sparks spent, consumables in
+stock, which secrets HAIKU has told about, the last fortune). A level is unlocked when it is the first or the one
+before it is completed (`App.isUnlocked()`).
+
+## Shop
+
+`scripts/shop.gd` (`Shop`) is what the shop sells and what buying does, `scripts/shop_screen.gd` (`ShopScreen`,
+Main's `SHOP` mode over the drifting backdrop) draws it like `ShopScene` in `src/scenes/shop.ts`: the items by
+section on the left (icon, name, level pips / stock, price in tokens and sparks, red when short), the selected
+item's card on the right (description, level or stock, what Space does now), and HAIKU, the shopkeeper who
+only speaks in 5-7-5: a blue Clawd with an orange bow tie (a voxel model at twice the size, hung on the camera)
+whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the fortunes). Prices are paid from
+`Progress.wallet` and, for the rarer things, `Progress.sparks_available()`.
+
+- From TS, the upgrades that work in world 1, at the TS prices (`loadoutFromSave()`): Extra Heart (+1 heart
+  per level, 100 / 250 tokens + 4 sparks), Jet Tuning (+30 % hover per level, 60 / 160), Token Magnet (tokens
+  within 72 px come loose and fly to Clawd, 120). Main applies them when a level loads (`_apply_loadout()`:
+  `Player.max_hearts`, `hover_duration`).
+- The weapons and gun mods of world 2 are one locked ARMORY row until the port has shooting.
+- Added in the port: the **Spark Radar** (60 tokens + 3 sparks; the HUD chevron), the **Fortune Haiku** (25
+  tokens, repeatable: HAIKU names a spark or sub-agent still missing in a playable level, the stretch between
+  checkpoints it is in and how high it is, read from the level map; each fortune tells about a new one), and two
+  consumables, up to 3 in stock: **Firewall** (40; up at the start of every level while one is in stock, it
+  takes the next hit instead of a heart and is only used up when it breaks) and **Double Tokens** (50; every
+  token counts twice, used up when a level is cleared).
+
+## Menus and key bindings
 
 ## Menus and key bindings
 
@@ -325,8 +355,8 @@ resumes two physics frames later, so the Space that picked RESUME is not also a 
 
 `scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
 positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
-the InputMap actions of the same names (`left right up down jump attack spin pause mute controls`; the TS
-menu also has weapon and shop keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
+the InputMap actions of the same names (`left right up down jump attack spin pause shop mute controls`; the TS
+menu also has weapon keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
 Escape pauses and goes back, Enter / Space confirm, Backspace goes back. `Settings.key_label()` is `keyLabel()`
 (arrows, letters and symbols as themselves, short names like SHIFT or BKSP).
 
@@ -453,7 +483,7 @@ without COOP/COEP headers.
 | Path | Contents |
 |---|---|
 | `project.godot` | 480×270 base view (integer-scaled by `ViewScale`), 60 Hz physics, input actions named as in `src/core/input.ts`, 3D physics layers `world`, `player`, `enemies`, `oneway` |
-| `scenes/main.tscn`, `scripts/main.gd` | Main scene (title, map and game modes): `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
+| `scenes/main.tscn`, `scripts/main.gd` | Main scene (title, map, shop and game modes): `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
 | `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spin, ground pound, drop-through, spikes, enemy contact and stomps, voxel frames, spin ring, hover jets |
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
@@ -463,7 +493,8 @@ without COOP/COEP headers.
 | `scripts/sub_agent.gd`, `shaders/beam.gdshader` | Sub-agent (`A`), its HELP bubble and rescue beam |
 | `scripts/spark.gd`, `shaders/halo.gdshader` | Spark (`S`), its icon and its halo |
 | `scripts/front_end.gd` | Title screen and world map |
-| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet |
+| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state |
+| `scripts/shop.gd`, `scripts/shop_screen.gd` | The shop: items, prices, fortunes; its screen and HAIKU |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
 | `scripts/hud.gd` | HUD: hearts, found sparks, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label |

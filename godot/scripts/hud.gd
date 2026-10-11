@@ -109,6 +109,14 @@ var _agent_t := 10.0
 var _hold := 0.0
 ## Delay for the next token's flight, growing while tokens come in quickly.
 var _stagger := 0.0
+## Double Tokens is on (Main sets it): "x2" by the count, and each landing token counts twice.
+var double_tokens := false
+## The Firewall: drawn as one more slot after the hearts while it is up; when it breaks it flashes and shatters
+## (seconds left of that).
+var _shield_up := false
+var _shield_break := 0.0
+static var _shield_tex := Spark._texture(ShopScreen.ICONS["firewall"], {"o": ORANGE, "L": ORANGE_LIGHT, "W": Color("#FFF1E6")})
+static var _shield_white := Spark._texture(ShopScreen.ICONS["firewall"], {"o": Color.WHITE, "L": Color.WHITE, "W": Color.WHITE})
 var _player: Player
 
 
@@ -137,8 +145,8 @@ func bind(player: Player) -> void:
 
 ## A token was collected at `from` (view pixels): it flies to the counter and is counted when it lands.
 ## Tokens picked up together leave one after another (a bug's ten stream in instead of flying as one clump).
-func collect_token(from: Vector2) -> void:
-	_flights.append({"from": from, "t": -_stagger, "arc": randf_range(18, 34)})
+func collect_token(from: Vector2, n := 1) -> void:
+	_flights.append({"from": from, "t": -_stagger, "arc": randf_range(18, 34), "n": n})
 	_stagger += STAGGER
 
 
@@ -168,6 +176,16 @@ func _process(dt: float) -> void:
 	_stagger = maxf(0.0, _stagger - dt)
 	_agent_t += dt
 	_spark_flash = maxf(0.0, _spark_flash - dt)
+	_shield_break = maxf(0.0, _shield_break - dt)
+	if _player:
+		if _shield_up and not _player.shield:
+			_shield_break = 0.5
+			var at := _heart_pos(_slots()) + Vector2(4.5, 4)
+			for k in 10:
+				var a := randf() * TAU
+				_shards.append({"p": at, "v": Vector2(cos(a), sin(a)) * randf_range(30, 70) + Vector2(0, -40),
+					"c": [ORANGE, ORANGE_LIGHT, Color.WHITE][k % 3], "t": 0.0})
+		_shield_up = _player.shield
 	var rescued := agents.count(true)
 	if rescued != _rescued:
 		_rescued = rescued
@@ -196,7 +214,7 @@ func _process(dt: float) -> void:
 	for f in _flights:
 		f.t += dt
 		if f.t >= FLIGHT:
-			landed += 1
+			landed += int(f.get("n", 1))
 	if landed:
 		_flights = _flights.filter(func(f: Dictionary) -> bool: return f.t < FLIGHT)
 		shown += landed
@@ -209,7 +227,12 @@ func _process(dt: float) -> void:
 
 
 func _slots() -> int:
-	return maxi(Player.MAX_HEARTS, _hearts)
+	return maxi(_player.max_hearts if _player else Player.MAX_HEARTS, _hearts)
+
+
+## Whether the Firewall slot is drawn (up, or still shattering).
+func _shield_slot() -> bool:
+	return _shield_up or _shield_break > 0
 
 
 func _heart_pos(i: int) -> Vector2:
@@ -221,7 +244,7 @@ func _shake() -> Vector2:
 
 
 func _hearts_w() -> int:
-	return 5 + _slots() * HEART_STEP - 2 + 5
+	return 5 + (_slots() + (1 if _shield_slot() else 0)) * HEART_STEP - 2 + 5
 
 
 func _count_text() -> String:
@@ -251,7 +274,7 @@ func _draw() -> void:
 	var o := ORIGIN + _shake()
 	var hw := _hearts_w()
 	var digits := _count_text()
-	var tw := 1 + 4 + 8 + 4 + digits.length() * 5 - 1 + 6
+	var tw := 1 + 4 + 8 + 4 + digits.length() * 5 - 1 + 6 + (4 + PixelFont.width("x2") if double_tokens else 0)
 	# Sub-agents (when the level has any): a small Clawd, grey until one is rescued, and "x/y".
 	var agents_text := "%d/%d" % [_rescued, agents.size()]
 	var aw := 4 + 13 + 4 + agents_text.length() * 5 - 1 + 6 if not agents.is_empty() else 0
@@ -325,6 +348,17 @@ func _draw() -> void:
 		draw_texture(_digit_tex[d], Vector2(dx + k * 5, y + 1), SHADOW)
 		draw_texture(_digit_tex[d], Vector2(dx + k * 5, y), col)
 
+	if double_tokens:
+		_text_shadowed("x2", Vector2(dx + digits.length() * 5 + 3, o.y + 5), ORANGE_LIGHT)
+
+	# Firewall slot.
+	if _shield_slot():
+		var sp := _heart_pos(_slots())
+		if _shield_up:
+			draw_texture(_shield_tex, sp + Vector2(0, -1 if fmod(_t, 2.0) < 0.12 else 0))
+		elif _shield_break > 0.4:
+			draw_texture(_shield_white, sp)
+
 	if not agents.is_empty():
 		var ax := o.x + hw + sw + tw
 		for y in range(3, H - 3, 2):
@@ -338,6 +372,8 @@ func _draw() -> void:
 			var glyph: ImageTexture = _slash_tex if ch == "/" else _digit_tex[int(ch)]
 			draw_texture(glyph, Vector2(ax + 4 + 13 + 4 + k * 5, o.y + 5), SHADOW)
 			draw_texture(glyph, Vector2(ax + 4 + 13 + 4 + k * 5, o.y + 4), col)
+
+	_draw_radar()
 
 	# Tokens in flight: an arc from where they were picked up, speeding up into the counter.
 	var to := coin_centre()
@@ -380,6 +416,45 @@ func _speaker(at: Vector2, muted: bool, color: Color) -> void:
 	else:
 		draw_rect(Rect2(at + Vector2(5, -1), Vector2(1, 3)), color)
 		draw_rect(Rect2(at + Vector2(7, -3), Vector2(1, 7)), color)
+
+
+func _text_shadowed(s: String, at: Vector2, color: Color) -> void:
+	PixelFont.draw(self, s, at + Vector2(0, 1), SHADOW)
+	PixelFont.draw(self, s, at, color)
+
+
+## The Spark Radar: a small chevron 26 px from Clawd's middle, pointing to the nearest never-found spark, beating
+## faster the closer it is; gone once the spark is about on Clawd.
+func _draw_radar() -> void:
+	var main := get_tree().get_first_node_in_group("main")
+	if main == null or not _player or main.complete_t >= 0:
+		return
+	var target: Spark = main.radar_target()
+	if target == null:
+		return
+	var d: Vector2 = target.feet() + Vector2(0, -Spark.CENTRE_Y) - (_player.pos + Vector2(0, -9))
+	var dist := d.length()
+	if dist < 40:
+		return
+	var dir := d / dist
+	var beat := clampf(dist / 400.0, 0.25, 1.2)
+	var on := fmod(_t, beat) < beat * 0.55
+	var col := Color(ORANGE_LIGHT if on else ORANGE, 1.0 if on else 0.7)
+	var c: Vector2 = main.overlay.to_view(_player.pos + Vector2(0, -9))
+	var perp := Vector2(-dir.y, dir.x)
+	# A chevron 2 px thick: a shadow, the arms, and a white-hot tip while it beats.
+	var pts := []
+	for k in 5:
+		pts.append(dir * (28 - k) + perp * k)
+		pts.append(dir * (28 - k) - perp * k)
+		pts.append(dir * (27 - k) + perp * k)
+		pts.append(dir * (27 - k) - perp * k)
+	for p in pts:
+		draw_rect(Rect2((c + p).round() + Vector2(0, 1), Vector2.ONE), SHADOW)
+	for p in pts:
+		draw_rect(Rect2((c + p).round(), Vector2.ONE), col)
+	if on:
+		draw_rect(Rect2((c + dir * 28).round(), Vector2.ONE), Color.WHITE)
 
 
 func _button_border(hovered: bool, active: bool) -> Color:

@@ -325,6 +325,7 @@ func control_lines() -> Array:
 		[k.call([&"attack", &"spin"]), "Spin attack"],
 		[k.call([&"down"]) + " (AIR)", "Ground pound — breaks corrupted data"],
 		[first.call(&"down") + " + " + first.call(&"jump"), "Drop through platforms"],
+		[k.call([&"shop"]) + " (MAP)", "Shop"],
 		[k.call([&"pause"]) + " / ESC · " + k.call([&"mute"]) + " · " + k.call([&"controls"]), "Pause · mute · this help"],
 	]
 

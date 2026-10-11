@@ -158,6 +158,8 @@ func _map_key(event: InputEvent) -> bool:
 		else:
 			sel = open[mini(k, open.size() - 1)]
 			Sound.play("select")
+	elif event.is_action_pressed("shop"):
+		_open_shop()
 	elif event.is_action_pressed("back"):
 		Sound.play("select")
 		main.show_title()
@@ -173,7 +175,30 @@ func _pressed(event: InputEvent, action: String) -> bool:
 	return event.is_action_pressed(action) or event.is_action_pressed("ui_" + action)
 
 
+## The shop opens once 1-1 is cleared (in TS once a weapon is found; the port's shop sells world-1 things).
+func shop_open() -> bool:
+	return Progress.progress_for(main.level_ids[0]).completed
+
+
+func _open_shop() -> void:
+	if not shop_open():
+		Sound.play("denied")
+		return
+	Sound.play("confirm")
+	main.show_shop()
+
+
+func _shop_rect() -> Rect2:
+	var v := view()
+	var label := "B · SHOP" if shop_open() else "SHOP (LOCKED)"
+	var w := PixelFont.width(label) + 14
+	return Rect2(v.end.x - 14 - w, v.position.y + 8, w, 14)
+
+
 func _map_click(p: Vector2) -> bool:
+	if _shop_rect().has_point(p):
+		_open_shop()
+		return true
 	for i in main.level_ids.size():
 		if Rect2(node_pos(i) - Vector2(16, 16), Vector2(32, 32)).has_point(p) and Progress.is_unlocked(main.level_ids, i):
 			if sel == i:
@@ -431,12 +456,21 @@ func _draw_map() -> void:
 	# The level stays alive behind the map, but dimmed so the paths and nodes read.
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.02, 0.02, 0.04, 0.5))
 	_big("WORLD MAP", v.position + Vector2(14, 8), Hud.TEXT)
-	# Wallet: banked tokens, top right.
+	# Shop button, then the wallet: banked tokens and sparks not spent (top right, like the TS map).
+	var sr := _shop_rect()
+	var shop_ok := shop_open()
+	var shop_hover := sr.has_point(_mouse) and shop_ok
+	Hud.panel(self, sr, Hud.ORANGE if shop_ok else Color("#333333"), Color(0.07, 0.07, 0.08, 0.9))
+	PixelFont.draw_centred(self, "B · SHOP" if shop_ok else "SHOP (LOCKED)", sr.get_center().x, sr.position.y + 4,
+		Hud.ORANGE_LIGHT if shop_hover else Hud.TEXT if shop_ok else DIM)
+	var sparks := str(Progress.sparks_available())
+	var wx := sr.position.x - 8 - PixelFont.width(sparks)
+	_text(sparks, Vector2(wx, v.position.y + 12), Hud.TEXT)
+	draw_texture(Spark.icon(), Vector2(wx - 12, v.position.y + 10))
 	var wallet := str(Progress.wallet)
-	var wx := v.end.x - 14 - PixelFont.width(wallet)
+	wx -= 18 + PixelFont.width(wallet)
 	_text(wallet, Vector2(wx, v.position.y + 12), Hud.TEXT)
 	draw_texture(Hud._coin_tex[8], Vector2(wx - 12, v.position.y + 11))
-	_text("BANKED", Vector2(wx - 16 - PixelFont.width("BANKED"), v.position.y + 12), Color(DIM))
 
 	for world in [1, 2]:
 		var row := _indices_of(world)
@@ -488,7 +522,7 @@ func _draw_map() -> void:
 		all += sparks_total.get(id, 0)
 	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
 	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
-	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   ESC TITLE   H CONTROLS"
+	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   ESC TITLE"
 	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
 

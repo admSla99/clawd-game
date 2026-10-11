@@ -6,8 +6,9 @@ extends Node
 ## shaders, Clawd and the particles land on whole view pixels; the CRT overlay sits on top at window
 ## resolution. Level is a converted level (levels/<id>.tscn, see tools/convert_level.gd); load_level()
 ## swaps it and puts the player on its Start marker.
-## Three modes, like the TS scenes: TITLE (src/scenes/title.ts) and MAP (src/scenes/levelSelect.ts) draw their
-## screens (FrontEnd) over BACKDROP, a level the camera slowly drifts through with Clawd away; PLAY is the game.
+## Four modes, like the TS scenes: TITLE (src/scenes/title.ts), MAP (src/scenes/levelSelect.ts) and SHOP
+## (src/scenes/shop.ts) draw their screens (FrontEnd, ShopScreen) over BACKDROP, a level the camera slowly drifts
+## through with Clawd away; PLAY is the game.
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
@@ -23,7 +24,7 @@ const RED := Color("#E0605A")
 const TOKENS_PER_HEART := 100
 const HEART_CAP := 5
 
-enum Mode { TITLE, MAP, PLAY }
+enum Mode { TITLE, MAP, PLAY, SHOP }
 
 ## The level behind the title and the map.
 const BACKDROP := "1-1"
@@ -57,6 +58,8 @@ var sparks: Array[bool] = []
 var prev_sparks: Array[bool] = []
 ## Whether this run finished the level for the first time (the results say what it unlocked).
 var first_clear := false
+## A Double Tokens from the shop is active in this run (every token counts twice).
+var double_tokens := false
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -75,6 +78,7 @@ var first_clear := false
 @onready var hud: Hud = $View/SubViewport/World/Ui/Hud
 @onready var menu: GameMenu = $View/SubViewport/World/Ui/Menu
 @onready var front: FrontEnd = $View/SubViewport/World/Ui/FrontEnd
+@onready var shop: ShopScreen = $View/SubViewport/World/Ui/Shop
 
 
 func _ready() -> void:
@@ -92,6 +96,7 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(_resize)
 	_resize()
 	front.main = self
+	shop.main = self
 	if start_mode == Mode.PLAY:
 		play(start_level)
 	else:
@@ -104,7 +109,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouse:
 		event = event.duplicate()
 		event.position += Vector2.ONE * PAD
-	if menu.handle(event) or (mode != Mode.PLAY and not menu.is_open() and front.handle(event)):
+	var screen: Variant = shop if mode == Mode.SHOP else front
+	if menu.handle(event) or (mode != Mode.PLAY and not menu.is_open() and screen.handle(event)):
 		get_viewport().set_input_as_handled()
 
 
@@ -129,6 +135,7 @@ func next_level() -> void:
 func play(id: String) -> void:
 	mode = Mode.PLAY
 	front.close()
+	shop.close()
 	load_level(id)
 
 
@@ -144,8 +151,18 @@ func show_title() -> void:
 func show_map(focus := -1) -> void:
 	_backdrop()
 	mode = Mode.MAP
+	shop.close()
 	front.open_map(focus)
 	Sound.play_music("map")
+
+
+## The shop, over the drifting backdrop (goToShop()).
+func show_shop() -> void:
+	_backdrop()
+	mode = Mode.SHOP
+	front.close()
+	shop.open()
+	Sound.play_music("shop")
 
 
 ## Loads BACKDROP for the title and the map (unless it is already there, untouched) with Clawd put away.
@@ -198,9 +215,11 @@ func load_level(id: String) -> void:
 	hud.sparks = sparks
 	hud.visible = true
 	Sound.play_music(info.get("music", ""))
-	# Every token placed in the map plus what every bug drops.
-	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() \
-		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
+	# Every token placed in the map plus what every bug drops (twice that with Double Tokens).
+	double_tokens = Progress.in_stock("double") > 0
+	hud.double_tokens = double_tokens
+	tokens_total = (level.get_children().filter(func(c: Node) -> bool: return c is Token).size() \
+		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS) * (2 if double_tokens else 1)
 	complete_t = -1.0
 	var texts: Array = info.get("signs", [])
 	for s in level.get_children().filter(func(c: Node) -> bool: return c is Sign):
@@ -209,6 +228,7 @@ func load_level(id: String) -> void:
 	camera.bounds = level.size()
 	camera.trauma = 0
 	var start := Px.of(level.get_node("Start").position)
+	_apply_loadout()
 	player.enter_level(level, start, camera.bounds.y)
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
@@ -330,6 +350,13 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			Game.hitstop(0.08)
 		&"pound_land":
 			_on_pound_land()
+		&"shield":
+			# The Firewall broke instead of a heart: a white and orange ring and it leaves the stock.
+			particles.emit(at + Vector2(0, -9), {count = 24, speed = 120, life = 0.45, color = [Color.WHITE, Color("#F0A585")], drag = 3})
+			shake(0.2)
+			Game.hitstop(0.06)
+			Progress.use_stock("firewall")
+			overlay.popup("FIREWALL", at + Vector2(0, -30), Color("#F0A585"))
 		&"stomp", &"defeat":
 			# Enemy death in src/entities/entity.ts: two bursts, hitstop and shake.
 			particles.emit(at + Vector2(0, -5), {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
@@ -354,6 +381,8 @@ func _sound(kind: StringName) -> void:
 			Sound.play("poundLand")
 		&"hurt":
 			Sound.play("hurt")
+		&"shield":
+			Sound.play("deflect")
 		&"die", &"fell":
 			Sound.play("die")
 		&"stomp":
@@ -402,6 +431,26 @@ func _drift(dt: float) -> void:
 	_set_reveal(PackedVector4Array())
 
 
+## The shop's upgrades for this level (loadoutFromSave() in src/weapons.ts): Extra Heart, Jet Tuning, and a
+## Firewall up while one is in stock.
+func _apply_loadout() -> void:
+	player.max_hearts = Player.MAX_HEARTS + Progress.upgrade("hearts")
+	player.hover_duration = Player.HOVER_DURATION * (1 + 0.3 * Progress.upgrade("hover"))
+	player.shield = Progress.in_stock("firewall") > 0
+
+
+## The Spark Radar's target: the nearest spark in the level that was never found (no ghost), or null.
+func radar_target() -> Spark:
+	if Progress.upgrade("radar") == 0 or mode != Mode.PLAY:
+		return null
+	var best: Spark = null
+	for c in level.get_children():
+		if c is Spark and not c.ghost and not c.is_queued_for_deletion():
+			if best == null or c.feet().distance_to(player.pos) < best.feet().distance_to(player.pos):
+				best = c
+	return best
+
+
 ## A spark was touched (collectSpark() in src/scenes/game.ts): a big burst, a short hitstop and SPARK n/total.
 func collect_spark(sp: Spark) -> void:
 	if sp.index < sparks.size():
@@ -424,11 +473,14 @@ func rescue_agent(a: SubAgent) -> void:
 
 ## A token was picked up at `at` (collectToken() in src/scenes/game.ts): count it, send it flying to the HUD
 ## counter, and every TOKENS_PER_HEART tokens give a heart, up to HEART_CAP.
+## With Double Tokens each counts twice.
 func collect_token(at: Vector2) -> void:
-	tokens += 1
+	var n := 2 if double_tokens else 1
+	var before := tokens
+	tokens += n
 	Sound.play("token")
-	hud.collect_token(overlay.to_view(at))
-	if tokens % TOKENS_PER_HEART == 0 and player.hearts < HEART_CAP:
+	hud.collect_token(overlay.to_view(at), n)
+	if tokens / TOKENS_PER_HEART > before / TOKENS_PER_HEART and player.hearts < maxi(HEART_CAP, player.max_hearts):
 		player.hearts += 1
 		Sound.play("heart")
 		overlay.popup("+1 HEART", player.pos + Vector2(0, -28), RED)
@@ -440,7 +492,7 @@ func activate_checkpoint(cp: Checkpoint) -> void:
 	player.spawn_point = cp.feet()
 	Sound.play("checkpoint")
 	# Refill, but keep hearts won from tokens (`if (hearts < maxHearts)` in TS).
-	player.hearts = maxi(player.hearts, Player.MAX_HEARTS)
+	player.hearts = maxi(player.hearts, player.max_hearts)
 	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
 	overlay.popup("STATE SAVED", cp.feet() + Vector2(0, -36), Color("#F0A585"), 1.5, Checkpoint.Z, 6.0)
 
@@ -457,6 +509,9 @@ func reach_goal(goal: Goal) -> void:
 	# recordRun(): the level counts as finished (and what it unlocks opens) as soon as Clawd is through.
 	first_clear = not Progress.progress_for(level_id).completed
 	Progress.record_run(level_id, sparks, agents, Game.time, tokens)
+	# A Double Tokens is used up by a cleared level.
+	if double_tokens:
+		Progress.use_stock("double")
 	particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 80, speed = 200, life = 1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
 	shake(0.2)
 	set_meta("goal", goal)

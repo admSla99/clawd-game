@@ -65,6 +65,12 @@ var pos: Vector2:
 var vel := Vector2.ZERO
 var kill_y := INF
 var hearts := MAX_HEARTS
+## Hearts after a refill and hover time: MAX_HEARTS and HOVER_DURATION raised by the shop's Extra Heart and Jet
+## Tuning (loadoutFromSave() in src/weapons.ts); Main sets them per level.
+var max_hearts := MAX_HEARTS
+var hover_duration := HOVER_DURATION
+## A Firewall from the shop is up: the next hit costs no heart.
+var shield := false
 var invuln := 0.0
 var hurt_timer := 0.0
 var coyote := 0.0
@@ -133,7 +139,7 @@ func enter_level(l: Level, start: Vector2, level_bottom: float) -> void:
 	level = l
 	spawn_point = start
 	kill_y = level_bottom + 24
-	hearts = MAX_HEARTS
+	hearts = max_hearts
 	respawn()
 
 
@@ -171,13 +177,18 @@ func hitbox() -> Rect2:
 
 ## Knocks Clawd away from from_x. Returns false when invulnerable or when the last heart was lost
 ## (Clawd then respawns with full hearts).
+## A Firewall takes the hit instead: Clawd is knocked back and briefly invulnerable, but keeps his hearts.
 func hurt(from_x: float) -> bool:
 	if invuln > 0:
 		return false
-	hearts -= 1
+	var blocked := shield
+	if blocked:
+		shield = false
+	else:
+		hearts -= 1
 	if hearts <= 0:
 		event.emit(&"die", pos)
-		hearts = MAX_HEARTS
+		hearts = max_hearts
 		respawn()
 		return false
 	hurt_timer = HURT_STUN
@@ -187,7 +198,7 @@ func hurt(from_x: float) -> bool:
 	vel = Vector2((-1.0 if pos.x < from_x else 1.0) * HURT_KNOCK_X, -HURT_KNOCK_Y)
 	jumping = false
 	hovering = false
-	event.emit(&"hurt", pos)
+	event.emit(&"shield" if blocked else &"hurt", pos)
 	return true
 
 
@@ -219,7 +230,7 @@ func _physics_process(dt: float) -> void:
 	var grounded := is_on_floor() or riding != null
 	if grounded:
 		coyote = COYOTE_TIME
-		hover_left = HOVER_DURATION
+		hover_left = hover_duration
 		air_spin_used = false
 	else:
 		coyote = maxf(0.0, coyote - dt)
@@ -431,7 +442,7 @@ func _check_hazards() -> void:
 		# fellOut() in TS: a heart less, and back to the checkpoint ("die" when it was the last one).
 		event.emit(&"die" if hearts <= 0 else &"fell", pos)
 		if hearts <= 0:
-			hearts = MAX_HEARTS
+			hearts = max_hearts
 		respawn()
 		return
 	if invuln <= 0 and _touches_tile(Level.SPIKE, SPIKE_PROBE):
@@ -463,7 +474,7 @@ func _bounce() -> void:
 	var held := Input.is_action_pressed("jump")
 	vel.y = -(STOMP_BOUNCE_HELD if held else STOMP_BOUNCE)
 	jumping = held
-	hover_left = HOVER_DURATION
+	hover_left = hover_duration
 	air_spin_used = false
 	riding = null
 	if state == &"pound" or state == &"pound_windup":

@@ -63,6 +63,7 @@ func _init() -> void:
 	await section("sound and music (src/core/audio.ts)", check_sound)
 	await section("sub-agents in 1-1 (src/entities/collectibles.ts)", check_agents)
 	await section("sparks in 1-1 (src/entities/collectibles.ts)", check_sparks)
+	await section("shop (src/scenes/shop.ts, src/weapons.ts)", check_shop)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.path = real_progress
 	progress.load_file()
@@ -1072,4 +1073,117 @@ func check_sparks() -> bool:
 	sparks = m.level.get_children().filter(func(c): return c.get_script() == spark_script)
 	sparks.sort_custom(func(a, b): return a.index < b.index)
 	ok(sparks[1].ghost and sparks[0].ghost and not sparks[2].ghost, "next time the found ones are ghosts")
+	return true
+
+
+func check_shop() -> bool:
+	var m = current_scene
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	var shop_items = load("res://scripts/shop.gd")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.load_file()
+
+	# Every sound the scripts play is rendered.
+	var missing := []
+	for f in DirAccess.get_files_at("res://scripts"):
+		if not f.ends_with(".gd"):
+			continue
+		var src := FileAccess.get_file_as_string("res://scripts/" + f)
+		var re := RegEx.create_from_string('Sound\\.play\\("([A-Za-z]+)"\\)')
+		for r in re.search_all(src):
+			if r.get_string(1) not in snd.PRELOAD and r.get_string(1) not in missing:
+				missing.append(r.get_string(1))
+	ok(missing.is_empty(), "every Sound.play() in the scripts has a rendered effect %s" % [missing])
+
+	# The shop opens from the map once 1-1 is cleared.
+	m.show_map(0)
+	await frames(3)
+	m.front.handle(key(KEY_B))
+	ok(m.mode == m.Mode.MAP and "denied" in snd.played, "the shop is locked until 1-1 is cleared")
+	progress.record_run("1-1", [true, true, true, false, false], [], 80.0, 300)
+	m.front.handle(key(KEY_B))
+	await frames(3)
+	ok(m.mode == m.Mode.SHOP and m.shop.visible and snd.track == "shop", "then B on the map opens it, with its tune")
+	var shop = m.shop
+	ok(shop_items.ITEMS.map(func(it): return it.id) == ["hearts", "hover", "magnet", "radar", "fortune", "firewall", "double", "armory"],
+		"it sells the world-1 upgrades, the tools, the consumables and a locked armory")
+
+	# Extra Heart: 100 tokens.
+	shop.sel = 0
+	shop.handle(key(KEY_ENTER))
+	ok(progress.upgrade("hearts") == 1 and progress.wallet == 200 and "buy" in snd.played, "buying Extra Heart costs 100 tokens")
+	ok(shop.haiku == shop.THANKS[0], "HAIKU thanks you")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.upgrade("hearts") == 1 and progress.wallet == 200 and shop.haiku == shop.DENIED[0],
+		"its second level also needs 4 sparks: refused")
+	# Jet Tuning, the radar (3 sparks), a fortune, a Firewall and a Double Tokens.
+	shop.handle(key(KEY_DOWN))
+	shop.handle(key(KEY_ENTER))
+	ok(progress.upgrade("hover") == 1 and progress.wallet == 140, "Jet Tuning: 60 tokens")
+	shop.sel = 3
+	shop.handle(key(KEY_ENTER))
+	ok(progress.upgrade("radar") == 1 and progress.wallet == 80 and progress.sparks_available() == 0, "Spark Radar: 60 tokens and 3 sparks")
+	shop.sel = 4
+	shop.handle(key(KEY_ENTER))
+	var first: Array = progress.fortune
+	ok(progress.wallet == 55 and first.size() == 3 and first[0].ends_with("1-1") and shop.haiku == first,
+		"a fortune: HAIKU tells where something still hides (%s)" % [first])
+	progress.wallet += 25
+	shop.handle(key(KEY_ENTER))
+	ok(progress.fortune != first and progress.hinted.size() == 2, "the next one tells about something else")
+	var spark_hint: Array = shop_items.fortune_lines({"level": "1-1", "kind": "S", "index": 0, "x": 160, "y": 5})
+	# Spark 0 of 1-1 sits on a one-way ledge between the first and second checkpoint (columns 107, 177).
+	ok(spark_hint == ["a spark sleeps in 1-1", "past save number one", "right above a ledge"], "hints read the map: %s" % [spark_hint])
+	progress.wallet = 100
+	shop.sel = 5
+	shop.handle(key(KEY_ENTER))
+	shop.sel = 6
+	shop.handle(key(KEY_ENTER))
+	ok(progress.in_stock("firewall") == 1 and progress.in_stock("double") == 1 and progress.wallet == 10, "Firewall 40, Double Tokens 50")
+	shop.sel = 7
+	snd.played.clear()
+	shop.handle(key(KEY_ENTER))
+	ok("denied" in snd.played and shop.haiku == shop.LOCKED[0], "the armory is locked")
+	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(progress.path))
+	ok(cfg.upgrades.hearts == 1 and cfg.stock.firewall == 1 and cfg.sparks_spent == 3, "purchases are saved")
+	shop.handle(key(KEY_ESCAPE))
+	ok(m.mode == m.Mode.MAP and not shop.visible, "Escape goes back to the map")
+
+	# What they do in a level.
+	m.play("1-1")
+	await frames(3)
+	await process_frame
+	await process_frame
+	var p = m.player
+	ok(p.max_hearts == 4 and p.hearts == 4 and m.hud._slots() == 4, "Extra Heart: 4 hearts")
+	ok(is_equal_approx(p.hover_duration, 0.85 * 1.3), "Jet Tuning: 30% longer hover")
+	ok(p.shield and m.hud._shield_up, "a Firewall is up")
+	ok(m.double_tokens and m.hud.double_tokens, "Double Tokens is on")
+	var target = m.radar_target()
+	ok(target != null and target.index >= 3, "the radar points to a spark never found (%s)" % [target.index if target else null])
+	p.invuln = 0
+	p.hurt(p.pos.x + 10)
+	await frames(2)
+	ok(p.hearts == 4 and not p.shield and progress.in_stock("firewall") == 0, "the Firewall takes the hit and is used up")
+	var tokens: Array = m.level.get_children().filter(func(c): return c is Area3D and not c.popped)
+	var had: int = m.tokens
+	p.pos = Px.of(tokens[0].position) + Vector2(0, 8)
+	await frames(5)
+	ok(m.tokens == had + 2, "with Double Tokens a token counts twice")
+	m.player.pos = m.level.get_node("Goal").feet()
+	await frames(5)
+	ok(progress.in_stock("double") == 0, "clearing the level uses the Double Tokens up")
+
+	# Token Magnet.
+	progress.upgrades["magnet"] = 1
+	m.play("1-1")
+	await frames(3)
+	tokens = m.level.get_children().filter(func(c): return c is Area3D)
+	tokens.sort_custom(func(a, b): return a.position.x < b.position.x)
+	m.player.pos = Px.of(tokens[0].position) + Vector2(-50, 9)
+	await frames(2)
+	ok(tokens[0].popped, "Token Magnet: a token 50 px away comes loose and flies to Clawd")
+	m.load_level("1-1")
+	await frames(3)
 	return true

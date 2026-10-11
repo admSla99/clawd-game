@@ -9,9 +9,9 @@ extends Node
 ## Where they are saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://settings.cfg"
 const SLOTS := 3
-## Actions the player can rebind, in the order the keybinding menu lists them. The TS list also has prev,
-## next and shop, which the port does not have yet.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"mute", &"controls"]
+## Actions the player can rebind, in the order the keybinding menu lists them. The TS list also has prev and
+## next (weapon switching), which the port does not have yet.
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"shop", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -21,6 +21,7 @@ const LABELS := {
 	&"attack": "ATTACK (SPIN)",
 	&"spin": "SPIN",
 	&"pause": "PAUSE",
+	&"shop": "SHOP (MAP)",
 	&"mute": "MUTE",
 	&"controls": "CONTROLS HELP",
 }
@@ -33,6 +34,7 @@ const DEFAULTS := {
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
 	&"pause": [KEY_P],
+	&"shop": [KEY_B],
 	&"mute": [KEY_M],
 	&"controls": [KEY_H],
 }

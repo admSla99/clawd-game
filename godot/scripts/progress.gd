@@ -4,12 +4,24 @@ extends Node
 ## completed, which sparks were found and which sub-agents rescued, and the best time; plus the wallet of tokens
 ## banked from finished levels. Saved as JSON in user://progress.json. A level is unlocked when it is the first
 ## one or the one before it was completed (App.isUnlocked() in src/app.ts).
+## The shop's state lives here too (the rest of SaveData): upgrade levels, sparks spent, the stock of
+## consumables, which hidden things HAIKU has already told about, and the last fortune.
 
 ## Where it is saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://progress.json"
 ## id -> {completed: bool, sparks: Array[bool], agents: Array[bool], best_time: float or null}
 var levels := {}
 var wallet := 0
+## Upgrade id -> level bought (save.upgrades).
+var upgrades := {}
+## Sparks spent in the shop (save.sparksSpent).
+var sparks_spent := 0
+## Consumable id -> how many are in stock.
+var stock := {}
+## Hidden things HAIKU has already hinted at ("<level id>:<S or A>:<index>").
+var hinted: Array = []
+## The last fortune's three lines.
+var fortune: Array = []
 
 
 func _ready() -> void:
@@ -19,18 +31,29 @@ func _ready() -> void:
 func load_file() -> void:
 	levels = {}
 	wallet = 0
+	upgrades = {}
+	sparks_spent = 0
+	stock = {}
+	hinted = []
+	fortune = []
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if data is Dictionary:
 		levels = data.get("levels", {})
 		wallet = int(data.get("wallet", 0))
+		upgrades = data.get("upgrades", {})
+		sparks_spent = int(data.get("sparks_spent", 0))
+		stock = data.get("stock", {})
+		hinted = data.get("hinted", [])
+		fortune = data.get("fortune", [])
 
 
 func save() -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet}))
+		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
+			"stock": stock, "hinted": hinted, "fortune": fortune}))
 
 
 ## progressFor(): a level's progress, or an empty one.
@@ -67,6 +90,26 @@ func total_sparks() -> int:
 	for id in levels:
 		n += count(progress_for(id).sparks)
 	return n
+
+
+## sparksAvailable(): found sparks not spent yet.
+func sparks_available() -> int:
+	return total_sparks() - sparks_spent
+
+
+## upgradeLevel()
+func upgrade(id: String) -> int:
+	return int(upgrades.get(id, 0))
+
+
+func in_stock(id: String) -> int:
+	return int(stock.get(id, 0))
+
+
+## Takes one of a consumable out of stock (it was used).
+func use_stock(id: String) -> void:
+	stock[id] = maxi(0, in_stock(id) - 1)
+	save()
 
 
 func is_unlocked(ids: Array, index: int) -> bool:
