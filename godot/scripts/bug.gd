@@ -1,3 +1,4 @@
+class_name Bug
 extends CharacterBody3D
 
 ## The patrolling bug from src/entities/enemies.ts: walks, turns at walls and ledges, dies when stomped.
@@ -10,6 +11,8 @@ const MAX_FALL := 400.0
 const SIZE := Vector2(16, 11)
 ## The sprite sits 1 px below the feet, like drawSprite(..., bottom + 1) in the 2D game.
 const SPRITE_Y := -1.0
+## Tokens it drops when defeated (Enemy.tokens is 2 in TS; the port gives more).
+const TOKENS := 10
 
 var dir := -1.0
 var vel := Vector2.ZERO
@@ -86,13 +89,22 @@ func hit(kind: StringName) -> void:
 	if kind == &"stomp" or kind == &"pound":
 		stomped()
 	else:
-		remove_from_group("enemies")
+		_drop_tokens()
 		queue_free()
 
 
 ## Leaves the flattened shell behind (a white flash, then grey; hitstop holds it) and frees the bug.
 func stomped() -> void:
-	remove_from_group("enemies")
+	_drop_tokens()
 	var at := Px.to3(pos.round()) + Vector3(0, SPRITE_Y * Px.M, 0)
 	SpriteFx.spawn(level, at, [BugSprite.mesh(0, -1, true, true), BugSprite.mesh(0, -1, true)], [0.06, 0.22], dir > 0)
 	queue_free()
+
+
+## popTokens() in src/scenes/game.ts: the bug leaves the "enemies" group and its tokens pop out of its middle.
+func _drop_tokens() -> void:
+	if not is_in_group("enemies"):
+		return
+	remove_from_group("enemies")
+	for i in TOKENS:
+		Token.pop(level, pos + Vector2(0, -SIZE.y / 2))

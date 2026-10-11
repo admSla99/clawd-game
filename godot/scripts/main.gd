@@ -98,7 +98,8 @@ func load_level(id: String) -> void:
 	particles.clear()
 	overlay.clear()
 	tokens = 0
-	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Area3D).size()
+	# Every token placed in the map plus what every bug drops.
+	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Token).size() 		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS
 	complete_t = -1.0
 	var texts: Array = info.get("signs", [])
 	for s in level.get_children().filter(func(c: Node) -> bool: return c is Sign):

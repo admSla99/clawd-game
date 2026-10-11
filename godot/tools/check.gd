@@ -329,6 +329,28 @@ func check_hazards() -> bool:
 			break
 	ok(bounced, "stomping a bug kills it and bounces")
 	ok(m.particles.list.size() > 0, "stomp emits particles")
+	var popped: Array = m.level.get_children().filter(func(c): return c is Area3D and c.popped)
+	ok(popped.size() == 10, "a defeated bug drops 10 tokens (got %d)" % popped.size())
+	ok(m.tokens_total == m.level.get_children().filter(func(c): return c is Area3D and not c.popped).size() + n * 10,
+		"the level's token total counts what the bugs drop")
+	var had: int = m.tokens
+	for i in 180:
+		await physics_frame
+		if m.tokens == had + 10: break
+	ok(m.tokens == had + 10, "the dropped tokens fly to Clawd and are collected (%d of 10)" % (m.tokens - had))
+
+	# Walking left off the start: the map's edge is a wall, like the solid columns outside it in TS.
+	m.load_level("1-1")
+	await frames(3)
+	Input.action_press("left")
+	await frames(150)
+	Input.action_release("left")
+	ok(absf(p.pos.x - p.SIZE.x / 2) < 0.5 and absf(p.pos.y - _start(m).y) < 0.05 and p.on_ground,
+		"Clawd stops at the left edge of the map instead of falling (%s)" % p.pos)
+	ok(m.level.tile(Vector2(-1, 0)) == m.level.SOLID and m.level.tile(Vector2(m.level.width * 16, 100)) == m.level.SOLID,
+		"tiles outside the map are solid")
+	m.load_level("1-1")
+	await frames(3)
 
 	var tokens: Array = m.level.get_children().filter(func(c): return c is Area3D)
 	p.pos = Px.of(tokens[0].position) + Vector2(0, 8)

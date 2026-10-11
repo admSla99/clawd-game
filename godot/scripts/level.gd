@@ -40,10 +40,39 @@ var _cells_tex: ImageTexture
 
 @onready var terrain: GridMap = $Terrain
 @onready var oneway: GridMap = $OneWay
+## Level width in tiles (Level.w in TS), fixed when the level enters the tree.
+var width := 0
+
+
+func _ready() -> void:
+	width = int(size().x / 16)
+	_add_side_walls()
+
+
+## Like `tile()` in src/world/level.ts, everything left and right of the map is solid: two invisible walls
+## on the terrain's physics layer, from far above the level to below where Clawd falls out of it.
+func _add_side_walls() -> void:
+	var body := StaticBody3D.new()
+	body.name = "SideWalls"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var top := -4096.0
+	var bottom := size().y + 256
+	for x: float in [-64.0, width * 16.0]:
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(64, bottom - top, 64) * Px.M
+		shape.shape = box
+		shape.position = Px.to3(Vector2(x + 32, (top + bottom) / 2))
+		body.add_child(shape)
+	add_child(body)
 
 
 ## Tile item under a point in level pixels, or -1.
+## Columns outside the map count as solid, like in TS.
 func tile(p: Vector2) -> int:
+	if width > 0 and (p.x < 0 or p.x >= width * 16):
+		return SOLID
 	var c := Px.cell(p)
 	var item := oneway.get_cell_item(c)
 	return item if item != GridMap.INVALID_CELL_ITEM else terrain.get_cell_item(c)

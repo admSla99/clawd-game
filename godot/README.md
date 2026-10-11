@@ -72,7 +72,13 @@ Gameplay ported so far: run, jump, coyote time, jump buffer, hover, corner corre
 ground pound and drop-through from `src/entities/player.ts`. Unlike the TS player every jump is a full jump
 (about 4.4 tiles): letting go of jump early does not cut it (`JUMP_CUT_MULT` is gone); spikes knock Clawd back and cost a heart; bugs
 patrol, turn at walls and ledges, hurt on contact and die when stomped, spun, pounded or hit by the hover jet;
-tokens are collected on touch.
+tokens are collected on touch. A defeated bug drops `Bug.TOKENS` = 10 tokens (2 in TS): `Token.pop()` makes
+popped tokens that burst out of its middle with a random sideways speed, fall under gravity, and over 0.6 s turn
+into a 260 px/s flight to Clawd (`Token._home()`, after `Token.update()` for a free token); they can be picked
+up only after 0.3 s, so the burst is seen even when Clawd stomps from right above. The level's token total
+(results panel) counts the map's tokens plus 10 per bug. Like `Level.tile()` in TS, the columns left and right of
+the map are solid: `Level` adds two invisible walls (`SideWalls`, physics layer 1) at its edges, so Clawd and
+the bugs stop there instead of walking off the start, and `Level.tile()` returns solid outside the map.
 
 Checkpoints (`scripts/checkpoint.gd`, `C` in the map): a voxel terminal on a ribbed post, standing 0.6 m
 behind the gameplay plane so Clawd walks in front of it. Its 18 x 12 px screen has dark glass 1 px back in the
@@ -130,7 +136,8 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
-`tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1, spin,
+`tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1 (the 10
+tokens a bug drops fly to Clawd; the map's left edge stops him), spin,
 air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1's checkpoints (activation,
 respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit (completion, results, next
 level), and that a running jump clears
