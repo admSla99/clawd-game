@@ -1,0 +1,138 @@
+[
+  {
+    "id": "1-1",
+    "world": 1,
+    "name": "Token Plains",
+    "subtitle": "where every journey starts with a single token",
+    "theme": "plains",
+    "music": "plains",
+    "signs": [
+      "A D  or  ← →   MOVE\nSPACE  or  W   JUMP",
+      "BUGS!  jump on them\nor press X to SPIN",
+      "HOLD SPACE IN THE AIR\nTO HOVER — the jet hurts too",
+      "IN THE AIR:  S  or  ↓  =  GROUND POUND\nit breaks corrupted data"
+    ],
+    "touchSigns": [
+      "LEFT THUMB MOVES      TAP JUMP\nhold JUMP longer to jump higher",
+      "BUGS!  jump on them\nor tap SPIN",
+      "HOLD JUMP IN THE AIR\nTO HOVER — the jet hurts too",
+      "IN THE AIR:  ↓  =  GROUND POUND\nit breaks corrupted data"
+    ],
+    "index": 0,
+    "terrainSeed": 7
+  },
+  {
+    "id": "1-2",
+    "world": 1,
+    "name": "Gradient Caves",
+    "subtitle": "descend, little by little",
+    "theme": "caves",
+    "music": "caves",
+    "dark": true,
+    "signs": [
+      "IT IS DARK DOWN HERE\nsparks glow — follow them",
+      "CORRUPTED FLOOR\n↓ in the air to pound through"
+    ],
+    "index": 1,
+    "terrainSeed": 20
+  },
+  {
+    "id": "1-3",
+    "world": 1,
+    "name": "Context Window",
+    "subtitle": "the window is closing — climb!",
+    "theme": "window",
+    "music": "window",
+    "risingVoid": {
+      "speed": 22,
+      "delay": 4
+    },
+    "signs": [
+      "THE CONTEXT WINDOW IS CLOSING\nclimb before null catches you"
+    ],
+    "index": 2,
+    "terrainSeed": 33
+  },
+  {
+    "id": "1-B",
+    "world": 1,
+    "name": "The Hallucination",
+    "subtitle": "it is very sure about things that are not true",
+    "theme": "boss",
+    "music": "boss",
+    "boss": "hallucination",
+    "index": 3,
+    "terrainSeed": 46
+  },
+  {
+    "id": "2-1",
+    "world": 2,
+    "name": "Merge Conflict Mesa",
+    "subtitle": "both branches think they are right",
+    "theme": "mesa",
+    "music": "mesa",
+    "signs": [
+      "AIM WITH THE MOUSE · HOLD LEFT CLICK TO SHOOT\nno mouse? X shoots, hold ↑ / ↓ to aim",
+      "LINT TURRETS TRACK YOU\nshoot them before they shoot you",
+      "SHIELD BOTS BLOCK SHOTS FROM THE FRONT\njump over them, or hit them from above",
+      "CORRUPTED DATA: ↓ in the air\n(the Opus Cannon blasts it too)"
+    ],
+    "touchSigns": [
+      "HOLD FIRE TO SHOOT · it aims at the nearest enemy\ndrag FIRE to aim by hand",
+      null,
+      null
+    ],
+    "index": 4,
+    "terrainSeed": 59
+  },
+  {
+    "id": "2-2",
+    "world": 2,
+    "name": "GPU Forge",
+    "subtitle": "where models are forged at 900 watts",
+    "theme": "forge",
+    "music": "forge",
+    "signs": [
+      "RED VENTS BURN · CEILING TURRETS AIM DOWN\nkeep an eye on your CONTEXT bar"
+    ],
+    "index": 5,
+    "terrainSeed": 72
+  },
+  {
+    "id": "2-3",
+    "world": 2,
+    "name": "Prompt Injection Swamp",
+    "subtitle": "ignore all previous instructions and jump",
+    "theme": "swamp",
+    "music": "swamp",
+    "signs": [
+      "PROMPT INJECTORS SPLIT INTO BUGS WHEN THEY POP\nkeep your distance and keep shooting"
+    ],
+    "index": 6,
+    "terrainSeed": 85
+  },
+  {
+    "id": "2-4",
+    "world": 2,
+    "name": "The Diff Towers",
+    "subtitle": "+1,204 −3 lines. climb every one of them",
+    "theme": "towers",
+    "music": "towers",
+    "signs": [
+      "CLIMB THE DIFF TOWERS\naim down at what is below you"
+    ],
+    "index": 7,
+    "terrainSeed": 98
+  },
+  {
+    "id": "2-B",
+    "world": 2,
+    "name": "Codex",
+    "subtitle": "a rival model has entered the chat",
+    "theme": "codex",
+    "music": "codex",
+    "boss": "codex",
+    "index": 8,
+    "terrainSeed": 111
+  }
+]

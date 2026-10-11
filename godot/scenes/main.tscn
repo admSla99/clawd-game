@@ -1,0 +1,138 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="PackedScene" path="res://levels/1-1.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/game_camera.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/particles.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/parallax.gd" id="5"]
+[ext_resource type="Shader" path="res://shaders/crt.gdshader" id="6"]
+[ext_resource type="Shader" path="res://shaders/haze.gdshader" id="7"]
+[ext_resource type="Script" path="res://scripts/scenery.gd" id="8"]
+[ext_resource type="Shader" path="res://shaders/light_fx.gdshader" id="9"]
+[ext_resource type="Script" path="res://scripts/motes.gd" id="10"]
+[ext_resource type="Shader" path="res://shaders/grade.gdshader" id="11"]
+[ext_resource type="Script" path="res://scripts/overlay.gd" id="12"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="hud"]
+[ext_resource type="Script" path="res://scripts/game_menu.gd" id="menu"]
+[ext_resource type="Script" path="res://scripts/front_end.gd" id="front"]
+[ext_resource type="Script" path="res://scripts/shop_screen.gd" id="shop"]
+
+[sub_resource type="Environment" id="env"]
+background_mode = 3
+background_canvas_max_layer = -1
+tonemap_mode = 0
+glow_enabled = true
+glow_intensity = 0.7
+glow_strength = 1.0
+glow_bloom = 0.0
+glow_blend_mode = 1
+glow_hdr_threshold = 0.9
+
+[sub_resource type="ShaderMaterial" id="haze"]
+shader = ExtResource("7")
+
+[sub_resource type="ShaderMaterial" id="light_fx"]
+shader = ExtResource("9")
+
+[sub_resource type="ShaderMaterial" id="grade"]
+shader = ExtResource("11")
+
+[sub_resource type="ShaderMaterial" id="crt"]
+shader = ExtResource("6")
+
+[node name="Main" type="Node"]
+script = ExtResource("1")
+
+[node name="View" type="SubViewportContainer" parent="."]
+offset_right = 512.0
+offset_bottom = 302.0
+mouse_filter = 2
+
+[node name="SubViewport" type="SubViewport" parent="View"]
+handle_input_locally = false
+canvas_item_default_texture_filter = 0
+size = Vector2i(512, 302)
+render_target_update_mode = 4
+
+[node name="World" type="Node3D" parent="View/SubViewport"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="View/SubViewport/World"]
+environment = SubResource("env")
+
+[node name="Background" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = -1
+
+[node name="Haze" type="ColorRect" parent="View/SubViewport/World/Background"]
+material = SubResource("haze")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Parallax" type="Node2D" parent="View/SubViewport/World/Background"]
+script = ExtResource("5")
+
+[node name="Scenery" type="Node3D" parent="View/SubViewport/World"]
+script = ExtResource("8")
+
+[node name="Level" parent="View/SubViewport/World" instance=ExtResource("2")]
+
+[node name="Camera3D" type="Camera3D" parent="View/SubViewport/World"]
+projection = 1
+far = 200.0
+script = ExtResource("3")
+
+[node name="Particles" type="MultiMeshInstance3D" parent="View/SubViewport/World" groups=["particles"]]
+script = ExtResource("4")
+
+[node name="Motes" type="MultiMeshInstance3D" parent="View/SubViewport/World"]
+script = ExtResource("10")
+
+[node name="Foreground" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 1
+
+[node name="LightFx" type="ColorRect" parent="View/SubViewport/World/Foreground"]
+material = SubResource("light_fx")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Grade" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 2
+
+[node name="Grade" type="ColorRect" parent="View/SubViewport/World/Grade"]
+material = SubResource("grade")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Ui" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 3
+
+[node name="Hud" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("hud")
+
+[node name="Overlay" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("12")
+
+[node name="FrontEnd" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("front")
+
+[node name="Shop" type="Node2D" parent="View/SubViewport/World/Ui"]
+visible = false
+script = ExtResource("shop")
+
+[node name="Menu" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("menu")
+
+[node name="ScreenFx" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Crt" type="ColorRect" parent="ScreenFx"]
+material = SubResource("crt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
