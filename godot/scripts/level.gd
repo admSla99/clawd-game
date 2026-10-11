@@ -24,9 +24,10 @@ const SHADOWS_MAX := 16
 const BUG := "res://scenes/bug.tscn"
 const TOKEN := "res://scenes/token.tscn"
 const CHECKPOINT := "res://scripts/checkpoint.gd"
-# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint. Positions are the
+const GOAL := "res://scripts/goal.gd"
+# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit. Positions are the
 # tile's bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -225,6 +226,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> void:
 		"checkpoint":
 			node = load(CHECKPOINT).new()
 			node.name = "Checkpoint"
+		"goal":
+			node = load(GOAL).new()
+			node.name = "Goal"
 	node.position = Px.to3(pos)
 	level.add_child(node, true)
 	node.owner = level

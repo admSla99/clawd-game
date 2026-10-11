@@ -463,4 +463,25 @@ func check_objects() -> bool:
 		await physics_frame
 		if p.pos.is_equal_approx(cp.feet()): break
 	ok(p.pos.distance_to(cp.feet()) < 1.0, "falling out respawns on the checkpoint")
+
+	# The exit 'G' at column 303: walking into it completes the level and shows the results.
+	m.load_level("1-1")
+	await frames(3)
+	var goals: Array = m.level.get_children().filter(func(c): return c.name == "Goal")
+	ok(goals.size() == 1 and goals[0].feet().is_equal_approx(Vector2(303.5 * TILE, 15 * TILE)), "1-1 has the exit at column 303")
+	p.pos = goals[0].feet() + Vector2(-40, 0)
+	Input.action_press("right")
+	for i in 60:
+		await physics_frame
+		if m.complete_t >= 0: break
+	Input.action_release("right")
+	ok(m.complete_t >= 0 and p.frozen, "touching the exit completes the level and stops Clawd")
+	await frames(130)
+	ok(not m.overlay.results.is_empty() and not p.visual.visible, "the gate draws Clawd in and the results panel shows")
+	await frames(70)
+	Input.action_press("jump")
+	await frames(3)
+	Input.action_release("jump")
+	await frames(2)
+	ok(m.level_id == "1-2" and not p.frozen and p.visual.visible, "jump on the results panel goes to the next level")
 	return true

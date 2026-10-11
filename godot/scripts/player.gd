@@ -143,6 +143,8 @@ func respawn() -> void:
 	hovering = false
 	state = &"normal"
 	frozen = false
+	visual.scale = Vector3.ONE
+	visual.visible = true
 
 
 ## Clawd's hurt and pick-up box in level pixels (hitbox in the TS player).
@@ -382,6 +384,8 @@ func _floor_is_one_way() -> bool:
 
 
 func _check_hazards() -> void:
+	if frozen:
+		return
 	if pos.y > kill_y:
 		hearts -= 1
 		if hearts <= 0:

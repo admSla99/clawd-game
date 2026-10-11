@@ -27,6 +27,11 @@ var level_id: String
 ## Metadata of the current level from levels/index.json (theme, dark, risingVoid, terrainSeed, ...).
 var info: Dictionary
 var player: Player
+## Tokens collected in this run of the level, and how many it has.
+var tokens := 0
+var tokens_total := 0
+## Seconds since the exit was reached, or -1 while playing.
+var complete_t := -1.0
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -92,6 +97,9 @@ func load_level(id: String) -> void:
 	Game.reset()
 	particles.clear()
 	overlay.clear()
+	tokens = 0
+	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Area3D).size()
+	complete_t = -1.0
 
 	camera.bounds = level.size()
 	camera.trauma = 0
@@ -123,6 +131,7 @@ func _physics_process(dt: float) -> void:
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
 	scenery.update(camera.top_left)
+	_update_complete(dt)
 	_update_shadows()
 	_update_reveal()
 	var decor: Decor = level.get_node_or_null("Decor")
@@ -242,3 +251,45 @@ func activate_checkpoint(cp: Checkpoint) -> void:
 	player.hearts = Player.MAX_HEARTS
 	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
 	overlay.popup("STATE SAVED", cp.feet() + Vector2(0, -36), Color("#F0A585"), 1.5, Checkpoint.Z, 6.0)
+
+
+## The exit was touched (reachGoal() in src/scenes/game.ts): Clawd stops and cheers, a big burst, then the
+## gate draws him in and the results panel follows (_update_complete()).
+func reach_goal(goal: Goal) -> void:
+	if complete_t >= 0:
+		return
+	complete_t = 0.0
+	player.frozen = true
+	particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 80, speed = 200, life = 1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
+	shake(0.2)
+	set_meta("goal", goal)
+	set_meta("time", Game.time)
+
+
+func _update_complete(dt: float) -> void:
+	if complete_t < 0:
+		return
+	var was := complete_t
+	complete_t += dt
+	if complete_t > 3.0 and Input.is_action_just_pressed("jump"):
+		next_level()
+		return
+	var goal: Goal = get_meta("goal")
+	# Clawd drifts to the middle of the gate; 0.6 s after touching it he is pulled in: he stretches into a
+	# thin beam and vanishes in a burst.
+	if not Game.frozen():
+		player.pos = Vector2(move_toward(player.pos.x, goal.feet().x, 60 * dt), player.pos.y)
+	if was < 0.6 and complete_t >= 0.6:
+		var tw := create_tween()
+		tw.tween_property(player.visual, "scale", Vector3(0.15, 1.7, 0.15), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func() -> void:
+			player.visual.visible = false
+			particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 30, speed = 90, life = 0.6, color = [Color("#F0A585"), Color.WHITE], drag = 3}))
+	if was < 2.0 and complete_t >= 2.0:
+		var secs: float = get_meta("time")
+		overlay.results = {
+			"title": "LEVEL COMPLETE",
+			"subtitle": "%s · %s" % [level_id, info.name],
+			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", "%d:%04.1f" % [floori(secs / 60), fmod(secs, 60.0)]]],
+			"t": 0.0,
+		}
