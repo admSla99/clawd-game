@@ -100,6 +100,9 @@ func load_level(id: String) -> void:
 	tokens = 0
 	tokens_total = level.get_children().filter(func(c: Node) -> bool: return c is Area3D).size()
 	complete_t = -1.0
+	var texts: Array = info.get("signs", [])
+	for s in level.get_children().filter(func(c: Node) -> bool: return c is Sign):
+		s.text = texts[s.index] if s.index < texts.size() else "..."
 
 	camera.bounds = level.size()
 	camera.trauma = 0

@@ -48,8 +48,9 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 `export_levels.mjs` writes each level's `map` rows to `levels/<id>.txt` and the id/name list to
 `levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
-`@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`.
-Other spawn characters are skipped. Only 1-1 has been re-converted since checkpoints and the exit were added.
+`@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
+`?` → `Sign` (numbered in map order like `Spawn.index`). Other spawn characters are skipped. Only 1-1 has been
+re-converted since checkpoints, the exit and signs were added.
 The result is saved as `levels/<id>.tscn`.
 
 One tile is 1 m; tile `(x, y)` of the map fills `x..x+1` × `-(y+1)..-y`, so the level's top-left corner is the
@@ -84,6 +85,12 @@ Clawd stops (`Player.frozen`) and cheers, drifts to the middle, after 0.6 s stre
 vanishes; after 2 s the results panel (tokens collected / in the level, time) fades in over the level, and jump
 goes to the next level.
 
+Signs (`scripts/sign.gd`, `?`): a 14 x 10 px board with a grey rim, a dark face 1 px back and a glowing orange
+"?" (from `PixelFont`) on a ribbed post, 0.6 m behind the gameplay plane, with a small GlowLight. `Main` gives
+each its text, `signs[index]` of the level in `levels/index.json`. While Clawd is within 52 px sideways and
+48 px up or down (like the 2D sign), `show` eases to 1 and the Overlay draws the text in a bubble above the
+board that fades in and slides up 6 px, with a small tail pointing at it.
+
 Moves (keys as in `src/core/input.ts`): **X / J** (attack) or **C / L** (spin) spins: 0.32 s attack around
 Clawd, with a hop once per jump in the air. **S / ↓** in the air starts a ground pound (a short windup, then a
 fall at 620 px/s); landing shakes the camera, defeats bugs within 30 px, and breaks the whole 4-connected
@@ -110,7 +117,8 @@ Compares the noise functions with values computed from `src/core/noise.ts`, ever
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
 `tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1, spin,
 air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1's checkpoints (activation,
-respawn) and exit (completion, results, next level), and that a running jump clears
+respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit (completion, results, next
+level), and that a running jump clears
 the last gap of 1-1
 (narrowed to 5 tiles in `src/world/levels/1-1.ts`; it was 26 tiles bridged by moving platforms, which the port
 does not have).
@@ -285,6 +293,7 @@ without COOP/COEP headers.
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |
+| `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |

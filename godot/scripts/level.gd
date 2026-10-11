@@ -25,9 +25,11 @@ const BUG := "res://scenes/bug.tscn"
 const TOKEN := "res://scenes/token.tscn"
 const CHECKPOINT := "res://scripts/checkpoint.gd"
 const GOAL := "res://scripts/goal.gd"
-# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit. Positions are the
+const SIGN := "res://scripts/sign.gd"
+# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
+# (numbered in map order, like Spawn.index). Positions are the
 # tile's bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -201,6 +203,7 @@ static func build(rows: PackedStringArray) -> Level:
 		level.add_child(map)
 		map.owner = level
 		maps.append(map)
+	var signs := 0
 	for y in rows.size():
 		for x in rows[y].length():
 			var ch := rows[y][x]
@@ -208,11 +211,14 @@ static func build(rows: PackedStringArray) -> Level:
 			if item >= 0:
 				maps[int(item == ONEWAY)].set_cell_item(Vector3i(x, -y - 1, 0), item)
 			elif SPAWNS.has(ch):
-				_add_spawn(level, SPAWNS[ch], Vector2(x * 16 + 8, (y + 1) * 16))
+				var node := _add_spawn(level, SPAWNS[ch], Vector2(x * 16 + 8, (y + 1) * 16))
+				if SPAWNS[ch] == "sign":
+					node.set("index", signs)
+					signs += 1
 	return level
 
 
-static func _add_spawn(level: Level, kind: String, pos: Vector2) -> void:
+static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 	var node: Node3D
 	match kind:
 		"start":
@@ -229,6 +235,10 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> void:
 		"goal":
 			node = load(GOAL).new()
 			node.name = "Goal"
+		"sign":
+			node = load(SIGN).new()
+			node.name = "Sign"
 	node.position = Px.to3(pos)
 	level.add_child(node, true)
 	node.owner = level
+	return node

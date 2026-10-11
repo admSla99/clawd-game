@@ -464,6 +464,26 @@ func check_objects() -> bool:
 		if p.pos.is_equal_approx(cp.feet()): break
 	ok(p.pos.distance_to(cp.feet()) < 1.0, "falling out respawns on the checkpoint")
 
+	# Signs '?' at columns 8, 68, 104, 212 with the texts of levels/index.json, shown when Clawd is near.
+	var signs: Array = m.level.get_children().filter(func(c): return String(c.name).begins_with("Sign"))
+	signs.sort_custom(func(a, b): return a.index < b.index)
+	ok(signs.size() == 4 and signs.map(func(g): return int(g.feet().x / TILE)) == [8, 68, 104, 212], "1-1 has 4 signs in map order")
+	var missing := {}
+	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
+		for t in l.get("signs", []) + [l.name, l.id]:
+			for ch in t:
+				if ch != "
+" and not PixelFont.GLYPHS.has(ch):
+					missing[ch] = true
+	ok(missing.is_empty(), "PixelFont has every character of the signs and level names %s" % [missing.keys()])
+	ok(signs[1].text.begins_with("BUGS!") and signs[3].text.begins_with("IN THE AIR"), "signs get their texts from index.json")
+	p.pos = signs[2].feet() + Vector2(-20, 0)
+	await frames(30)
+	ok(signs[2].show > 0.9 and signs[3].show < 0.01, "the sign near Clawd shows its bubble, the others don't")
+	p.pos = signs[2].feet() + Vector2(-120, 0)
+	await frames(30)
+	ok(signs[2].show < 0.1, "the bubble hides when Clawd walks away")
+
 	# The exit 'G' at column 303: walking into it completes the level and shows the results.
 	m.load_level("1-1")
 	await frames(3)
