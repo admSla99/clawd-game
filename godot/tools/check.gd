@@ -49,6 +49,7 @@ func _init() -> void:
 	await section("player physics (tests/player.test.ts)", check_physics)
 	await section("level select and main scene", check_scenes)
 	await section("hazards and enemies in 1-1", check_hazards)
+	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -357,3 +358,79 @@ func check_hazards() -> bool:
 
 func _start(m: Node) -> Vector2:
 	return Px.of(m.level.get_node("Start").position)
+
+
+func check_moves() -> bool:
+	var m = current_scene
+	var p = m.player
+	var events := []
+	p.event.connect(func(k, _a): events.append(k))
+
+	# Spin next to a bug kills it.
+	m.load_level("1-1")
+	await frames(3)
+	var n := get_nodes_in_group("enemies").size()
+	var bug = get_nodes_in_group("enemies")[0]
+	p.pos = bug.pos + Vector2(-20, 0)
+	p.vel = Vector2.ZERO
+	p.invuln = 5
+	await frames(2)
+	Input.action_press("spin")
+	await frames(2)
+	Input.action_release("spin")
+	ok(p.state == &"spin" and &"spin" in events, "spin starts the spin state")
+	await frames(10)
+	ok(get_nodes_in_group("enemies").size() == n - 1 and p.hearts == p.MAX_HEARTS, "spin defeats a bug next to Clawd")
+
+	# A spin in the air hops once.
+	p.pos = Vector2(10 * TILE, 10 * TILE)
+	p.vel = Vector2(0, 100)
+	p.air_spin_used = false
+	p.spin_cooldown = 0
+	p.state = &"normal"
+	await frames(1)
+	Input.action_press("spin")
+	await frames(2)
+	Input.action_release("spin")
+	ok(p.vel.y < 0, "a spin in the air hops")
+	await frames(60)
+
+	# Ground pound onto the corrupted blocks (columns 220..223, row 15) breaks the cluster and falls through.
+	var terrain: GridMap = m.level.terrain
+	ok(terrain.get_cell_item(Vector3i(221, -16, 0)) == 3, "1-1 has corrupted blocks at 220..223")
+	p.pos = Vector2(221.5 * TILE, 12 * TILE)
+	p.vel = Vector2.ZERO
+	p.state = &"normal"
+	await frames(2)
+	Input.action_press("down")
+	await frames(2)
+	Input.action_release("down")
+	ok(p.state == &"pound_windup" or p.state == &"pound", "down in the air starts a ground pound")
+	var t0 := Time.get_ticks_msec()
+	for i in 90:
+		await physics_frame
+		if p.pos.y > 17 * TILE and p.is_on_floor():
+			break
+	var cleared := true
+	for x in range(220, 224):
+		cleared = cleared and terrain.get_cell_item(Vector3i(x, -16, 0)) == -1
+	ok(cleared, "the pound breaks the whole corrupted cluster")
+	ok(absf(p.pos.y - 18 * TILE) < 0.05 and p.is_on_floor(), "Clawd falls through to the floor below (y %.1f)" % p.pos.y)
+	print("    pound sequence took %d ms" % (Time.get_ticks_msec() - t0))
+
+	# Drop through the one-way platform at row 12, columns 23..27: down + jump.
+	m.load_level("1-1")
+	await frames(3)
+	p.pos = Vector2(25.5 * TILE, 11 * TILE)
+	p.vel = Vector2.ZERO
+	await frames(20)
+	ok(p.is_on_floor() and p.on_one_way and absf(p.pos.y - 12 * TILE) < 0.05, "Clawd stands on a one-way platform")
+	Input.action_press("down")
+	await frames(1)
+	Input.action_press("jump")
+	await frames(3)
+	Input.action_release("jump")
+	Input.action_release("down")
+	await frames(30)
+	ok(p.pos.y > 13 * TILE, "down + jump drops through it (y %.1f)" % p.pos.y)
+	return true

@@ -62,9 +62,21 @@ The game starts in `scenes/level_select.tscn`: one button per entry in `levels/i
 `Main.start_level` and switches to `scenes/main.tscn`, which loads that level and puts the player on its
 `Start` marker. **N** loads the next level (wrapping after 2-B).
 
-Gameplay ported so far: run, variable jump, coyote time, jump buffer and hover from
-`src/entities/player.ts`; spikes knock Clawd back and cost a heart; bugs patrol, turn at walls and ledges,
-hurt on contact and die when stomped; tokens are collected on touch. Falling out of the level or losing
+Gameplay ported so far: run, variable jump, coyote time, jump buffer, hover, corner correction, spin,
+ground pound and drop-through from `src/entities/player.ts`; spikes knock Clawd back and cost a heart; bugs
+patrol, turn at walls and ledges, hurt on contact and die when stomped, spun, pounded or hit by the hover jet;
+tokens are collected on touch.
+
+Moves (keys as in `src/core/input.ts`): **X / J** (attack) or **C / L** (spin) spins: 0.32 s attack around
+Clawd, with a hop once per jump in the air. **S / ↓** in the air starts a ground pound (a short windup, then a
+fall at 620 px/s); landing shakes the camera, defeats bugs within 30 px, and breaks the whole 4-connected
+cluster of corrupted blocks (`X`) under Clawd, who then keeps falling (`Main._on_pound_land()`,
+`Level.break_corrupt()`). Breaking re-bakes only the cell texels within `MAX_DIST` of the broken tiles (a few ms;
+the full bake of 1-1 takes ~200 ms). **S + jump** on a one-way platform drops through it (the `oneway` mask is
+off for 0.18 s). Holding jump while hovering, the jet below Clawd hurts bugs. Spin and the pound windup turn
+the voxel body about its vertical axis (the 2D sprite's `turn` flip), and the spin ring is 10 glowing cubes on
+a real horizontal circle of 17 px around Clawd, which the oblique projection draws as the 2D game's 17 x 6 px
+ellipse, front half over Clawd. Falling out of the level or losing
 the last heart respawns on `@` with full hearts.
 
 Game logic keeps the TS units: positions and speeds in pixels with y down (`pos`, `vel` on the player and bugs,
@@ -79,7 +91,9 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
-`tests/player.test.ts`, the level select and level switching, and spikes, bugs, stomps and tokens in 1-1, and that a running jump clears the last gap of 1-1
+`tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1, spin,
+air spin hop, ground pound through 1-1's corrupted blocks and drop-through, and that a running jump clears
+the last gap of 1-1
 (narrowed to 5 tiles in `src/world/levels/1-1.ts`; it was 26 tiles bridged by moving platforms, which the port
 does not have).
 
@@ -212,7 +226,8 @@ Back to front:
   little towards the theme's haze colour, warms the lights towards the lanterns' orange and adds a touch of
   saturation, pixel for pixel.
 
-The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt` and `stomp`; `main.gd` answers
+The player emits `event(kind, at)` for `jump`, `land`, `hard_land`, `hurt`, `stomp`, `defeat`, `spin`,
+`pound_start`, `pound_land` and `drop_through`; `main.gd` answers
 with particles (same counts and colors as `particles.emit` in `src/scenes/game.ts`), camera shake and
 hitstop.
 
@@ -236,7 +251,7 @@ without COOP/COEP headers.
 | `project.godot` | 480×270 base view (integer-scaled by `ViewScale`), 60 Hz physics, input actions named as in `src/core/input.ts`, 3D physics layers `world`, `player`, `enemies`, `oneway` |
 | `scenes/level_select.tscn`, `scripts/level_select.gd` | Start scene, level buttons |
 | `scenes/main.tscn`, `scripts/main.gd` | Game scene: `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
-| `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spikes, enemy contact and stomps, voxel frames, hover jets |
+| `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spin, ground pound, drop-through, spikes, enemy contact and stomps, voxel frames, spin ring, hover jets |
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |

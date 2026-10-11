@@ -198,9 +198,34 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			particles.emit(at + Vector2(0, -9), {count = 14, speed = 100, life = 0.5, color = [ORANGE, Color.WHITE], gravity = 300})
 			shake(0.35)
 			Game.hitstop(0.08)
-		&"stomp":
+		&"pound_land":
+			_on_pound_land()
+		&"stomp", &"defeat":
 			# Enemy death in src/entities/entity.ts: two bursts, hitstop and shake.
 			particles.emit(at + Vector2(0, -5), {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
 			particles.emit(at + Vector2(0, -5), {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
 			shake(0.18)
 			Game.hitstop(0.05)
+
+
+## Ground pound landing (onPoundLand() in src/scenes/game.ts): dust and shake, breaks the corrupted
+## blocks under Clawd's feet (and keeps falling through them), and the shockwave defeats bugs nearby.
+func _on_pound_land() -> void:
+	var p := player.pos
+	shake(0.3)
+	particles.emit(p, {count = 24, speed = 120, angle = -PI / 2, spread = PI, life = 0.45, color = [Color8(220, 220, 220), Color8(140, 140, 140), ORANGE], gravity = 300})
+	var ty := floori((p.y + 1) / 16)
+	var broke := false
+	for tx in range(floori((p.x - Player.SIZE.x / 2) / 16), floori((p.x + Player.SIZE.x / 2 - 0.01) / 16) + 1):
+		for t in level.break_corrupt(tx, ty):
+			broke = true
+			# The blocks are 3 m deep: spread the debris through their depth.
+			particles.emit(Vector2(t) * 16 + Vector2(8, 8), {count = 10, speed = 90, life = 0.6, color = [Color8(200, 200, 200), Color("#C25BD6"), ORANGE], gravity = 400, size = 1.5, depth = 24})
+	if broke:
+		Game.hitstop(0.06)
+		player.continue_pound()
+	var wave := Rect2(p.x - 30, p.y - 14, 60, 16)
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if wave.intersects(e.rect()):
+			_on_player_event(&"defeat", e.pos)
+			e.hit(&"pound")

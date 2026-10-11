@@ -27,6 +27,11 @@ const TOKEN := "res://scenes/token.tscn"
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts.
 const SPAWNS := {"@": "start", "E": "bug", "o": "token"}
 
+## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
+var _seed := 0
+var _cells_img: Image
+var _cells_tex: ImageTexture
+
 @onready var terrain: GridMap = $Terrain
 @onready var oneway: GridMap = $OneWay
 
@@ -43,16 +48,28 @@ func tile(p: Vector2) -> int:
 ## from `seed`, B = 1 when the cell above is open, A = 1 for solid or corrupted cells. The MeshLibrary
 ## materials are shared, so this applies to the level shown last.
 func bake_cells(seed: int) -> void:
+	_seed = seed
 	var s := size()
-	var cw := int(s.x) / 4
-	var ch := int(s.y) / 4
+	_cells_img = Image.create_empty(int(s.x) / 4, int(s.y) / 4, false, Image.FORMAT_RGBA8)
+	_bake(Rect2i(Vector2i.ZERO, _cells_img.get_size()))
+	_cells_tex = ImageTexture.create_from_image(_cells_img)
+	set_param("cells_tex", _cells_tex)
+	set_param("cells", Vector2(_cells_img.get_size()))
+
+
+## Recomputes the texels of the cells in `r`. The distances come from a search over `r` grown by
+## MAX_DIST, so cells near its edge still see open air outside it.
+func _bake(r: Rect2i) -> void:
+	var w := r.grow(MAX_DIST).intersection(Rect2i(Vector2i.ZERO, _cells_img.get_size()))
+	var cw := w.size.x
+	var ch := w.size.y
 	var dist := PackedByteArray()
 	dist.resize(cw * ch)
 	dist.fill(MAX_DIST)
 	var queue := PackedInt32Array()
 	for y in ch:
 		for x in cw:
-			if not _blocky(x >> 2, y >> 2):
+			if not _blocky((w.position.x + x) >> 2, (w.position.y + y) >> 2):
 				dist[y * cw + x] = 0
 				queue.append(y * cw + x)
 	var i := 0
@@ -71,19 +88,39 @@ func bake_cells(seed: int) -> void:
 				if nx >= 0 and ny >= 0 and nx < cw and ny < ch and dist[ny * cw + nx] > nd:
 					dist[ny * cw + nx] = nd
 					queue.append(ny * cw + nx)
-	var img := Image.create_empty(cw, ch, false, Image.FORMAT_RGBA8)
-	for y in ch:
-		for x in cw:
+	for y in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
 			# The level's top row is a ceiling, not a floor: no crust on it.
 			var air_above := y > 0 and not _blocky(x >> 2, (y - 1) >> 2)
-			img.set_pixel(x, y, Color(
-				float(dist[y * cw + x]) / MAX_DIST,
-				DotNoise.hash2(x, y, seed),
+			_cells_img.set_pixel(x, y, Color(
+				float(dist[(y - w.position.y) * cw + x - w.position.x]) / MAX_DIST,
+				DotNoise.hash2(x, y, _seed),
 				1.0 if air_above else 0.0,
 				1.0 if _blocky(x >> 2, y >> 2) else 0.0))
-	var tex := ImageTexture.create_from_image(img)
-	set_param("cells_tex", tex)
-	set_param("cells", Vector2(cw, ch))
+
+
+## Removes the corrupted cluster around tile (tx, ty) (4-connected, like breakCluster() in
+## src/scenes/game.ts) and re-bakes the cell texture. Returns the broken tiles; empty if (tx, ty) is not
+## corrupted.
+func break_corrupt(tx: int, ty: int) -> Array[Vector2i]:
+	var broken: Array[Vector2i] = []
+	var stack: Array[Vector2i] = [Vector2i(tx, ty)]
+	while not stack.is_empty():
+		var t: Vector2i = stack.pop_back()
+		var c := Vector3i(t.x, -t.y - 1, 0)
+		if terrain.get_cell_item(c) != CORRUPT:
+			continue
+		terrain.set_cell_item(c, GridMap.INVALID_CELL_ITEM)
+		broken.append(t)
+		stack.append_array([t + Vector2i.RIGHT, t + Vector2i.LEFT, t + Vector2i.DOWN, t + Vector2i.UP])
+	if not broken.is_empty():
+		# Only cells up to MAX_DIST away from the broken tiles change.
+		var r := Rect2i(broken[0] * 4, Vector2i(4, 4))
+		for t in broken:
+			r = r.merge(Rect2i(t * 4, Vector2i(4, 4)))
+		_bake(r.grow(MAX_DIST + 1).intersection(Rect2i(Vector2i.ZERO, _cells_img.get_size())))
+		_cells_tex.update(_cells_img)
+	return broken
 
 
 ## Orange lights for terrain_pixels.gdshader: `lights` = (x, y, z, radius) in metres, `energy` one per light.

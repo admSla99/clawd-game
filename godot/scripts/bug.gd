@@ -80,6 +80,16 @@ func stomp_line() -> float:
 	return prev_pos.y - SIZE.y + maxf(8.0, SIZE.y / 2)
 
 
+## A hit from Clawd (Enemy.hit() in TS; a world-1 bug has 1 hp): a stomp or a pound flattens it, a spin
+## or the hover jet just destroys it (Player emits the burst).
+func hit(kind: StringName) -> void:
+	if kind == &"stomp" or kind == &"pound":
+		stomped()
+	else:
+		remove_from_group("enemies")
+		queue_free()
+
+
 ## Leaves the flattened shell behind (a white flash, then grey; hitstop holds it) and frees the bug.
 func stomped() -> void:
 	remove_from_group("enemies")

@@ -4,10 +4,13 @@ extends CharacterBody3D
 ## Clawd's movement, ported from src/entities/player.ts with the PLAYER constants from src/config.ts.
 ## The origin is at the feet, horizontally centred. Movement runs in level pixels (`pos`, `vel`, y down,
 ## see Px) like the TS game and is converted to metres only for move_and_slide().
-## Not ported yet: spin, ground pound, hover beam, drop-through, corner correction.
+## States as in the TS player: normal, spin (attack around Clawd, a hop in the air), pound_windup / pound /
+## pound_land (ground pound: down in the air; Main breaks corrupted blocks on landing and calls
+## continue_pound()). Hurt is `hurt_timer`. Down + jump on a one-way platform drops through it.
 
 ## Moments the game reacts to with particles and camera shake (events in the TS player):
-## jump, land, hard_land, hurt, stomp. `at` is where it happened, in level pixels.
+## jump, land, hard_land, hurt, stomp, defeat (an enemy killed by spin or the hover jet), spin,
+## pound_start, pound_land, drop_through. `at` is where it happened, in level pixels.
 signal event(kind: StringName, at: Vector2)
 
 const RUN_SPEED := 150.0
@@ -28,6 +31,14 @@ const JUMP_BUFFER := 0.12
 const HOVER_DURATION := 0.85
 const HOVER_FALL_SPEED := 18.0
 const HOVER_ACCEL := 2600.0
+const CORNER_CORRECTION := 6
+const DROP_THROUGH_TIME := 0.18
+const SPIN_DURATION := 0.32
+const SPIN_COOLDOWN := 0.12
+const SPIN_HOP := 160.0
+const SPIN_REACH := 10.0
+const POUND_WINDUP := 0.14
+const POUND_SPEED := 620.0
 const STOMP_BOUNCE := 330.0
 const STOMP_BOUNCE_HELD := 450.0
 const HURT_INVULN := 1.3
@@ -35,6 +46,10 @@ const HURT_STUN := 0.32
 const HURT_KNOCK_X := 170.0
 const HURT_KNOCK_Y := 250.0
 const MAX_HEARTS := 3
+const SPIN_DOTS := 10
+## Spin ring radius and height above the feet in px, like the ring drawn by drawClawd().
+const SPIN_RING_R := 17.0
+const SPIN_RING_Y := 10.0
 
 const SIZE := Vector2(18, 18)
 const HITBOX := Rect2(-7, -15, 14, 15)
@@ -65,10 +80,39 @@ var prev_pos: Vector2
 var squash := Vector2.ONE
 ## Counts down; Clawd blinks while it is below 0 (0.12 s), then it restarts at 2..5 s.
 var blink_timer := 2.5
+## &"normal", &"spin", &"pound_windup", &"pound" or &"pound_land".
+var state := &"normal"
+var state_timer := 0.0
+var spin_cooldown := 0.0
+var air_spin_used := false
+var drop_timer := 0.0
+## Standing on one-way tiles only (so down + jump drops through).
+var on_one_way := false
+## No input, only gravity and slowing down (the level is complete).
+var frozen := false
 
 @onready var visual: Node3D = $Visual
 @onready var body: MeshInstance3D = $Visual/Body
 @onready var jets: Array[Node] = $Visual/Jets.get_children()
+## The spin ring: SPIN_DOTS glowing cubes on a horizontal circle around Clawd (see _update_spin_ring()).
+var spin_ring: MultiMeshInstance3D
+
+
+func _ready() -> void:
+	spin_ring = MultiMeshInstance3D.new()
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/particles.gdshader")
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * 2 * Px.M
+	box.material = mat
+	spin_ring.multimesh = MultiMesh.new()
+	spin_ring.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	spin_ring.multimesh.use_colors = true
+	spin_ring.multimesh.mesh = box
+	spin_ring.multimesh.instance_count = SPIN_DOTS
+	spin_ring.layers = 2
+	spin_ring.visible = false
+	add_child(spin_ring)
 
 
 ## Hit flash: replaces every colour with white, like `tint` in the 2D drawing.
@@ -96,6 +140,8 @@ func respawn() -> void:
 	invuln = 1.0
 	jumping = false
 	hovering = false
+	state = &"normal"
+	frozen = false
 
 
 ## Knocks Clawd away from from_x. Returns false when invulnerable or when the last heart was lost
@@ -110,6 +156,7 @@ func hurt(from_x: float) -> bool:
 		return false
 	hurt_timer = HURT_STUN
 	invuln = HURT_INVULN
+	state = &"normal"
 	vel = Vector2((-1.0 if pos.x < from_x else 1.0) * HURT_KNOCK_X, -HURT_KNOCK_Y)
 	jumping = false
 	hovering = false
@@ -129,18 +176,23 @@ func _physics_process(dt: float) -> void:
 	invuln = maxf(0.0, invuln - dt)
 	hurt_timer = maxf(0.0, hurt_timer - dt)
 	jump_buffer = maxf(0.0, jump_buffer - dt)
-	if Input.is_action_just_pressed("jump"):
+	spin_cooldown -= dt
+	drop_timer -= dt
+	if Input.is_action_just_pressed("jump") and not frozen:
 		jump_buffer = JUMP_BUFFER
 
 	var grounded := is_on_floor()
 	if grounded:
 		coyote = COYOTE_TIME
 		hover_left = HOVER_DURATION
+		air_spin_used = false
 	else:
 		coyote = maxf(0.0, coyote - dt)
 
-	var dir := signf(Input.get_axis("left", "right"))
-	if hurt_timer > 0:
+	var dir := 0.0 if frozen else signf(Input.get_axis("left", "right"))
+	if state in [&"pound_windup", &"pound", &"pound_land"]:
+		vel.x = 0.0
+	elif hurt_timer > 0 or frozen:
 		vel.x = move_toward(vel.x, 0.0, AIR_DECEL * dt)
 	else:
 		var accel: float
@@ -158,9 +210,28 @@ func _physics_process(dt: float) -> void:
 			if int(dir) != facing and grounded:
 				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
 			facing = int(dir)
-		if jump_buffer > 0 and (grounded or coyote > 0):
+
+	# Actions: down in the air pounds, spin (or attack, unarmed) spins; down + jump on a one-way drops.
+	var can_act := (state == &"normal" or state == &"spin") and hurt_timer <= 0 and not frozen
+	if can_act:
+		var spin_pressed := Input.is_action_just_pressed("spin") or Input.is_action_just_pressed("attack")
+		if not grounded and (Input.is_action_just_pressed("down") or (Input.is_action_pressed("down") and spin_pressed)):
+			_start_pound()
+			can_act = false
+		elif spin_pressed and spin_cooldown <= 0 and state != &"spin":
+			_start_spin(grounded)
+	if can_act:
+		if grounded and on_one_way and Input.is_action_pressed("down") and jump_buffer > 0:
+			drop_timer = DROP_THROUGH_TIME
+			jump_buffer = 0.0
+			coyote = 0.0
+			grounded = false
+			position.y -= Px.M
+			event.emit(&"drop_through", pos)
+		elif jump_buffer > 0 and (grounded or coyote > 0):
 			vel.y = -JUMP_VELOCITY
 			jumping = true
+			grounded = false
 			coyote = 0.0
 			jump_buffer = 0.0
 			squash = Vector2(0.72, 1.3)
@@ -174,9 +245,13 @@ func _physics_process(dt: float) -> void:
 		jumping = false
 
 	# Hover: hold jump in the air once rising has (almost) stopped.
-	hovering = hurt_timer <= 0 and not grounded and coyote <= 0 and hover_left > 0 \
-		and Input.is_action_pressed("jump") and vel.y > -40
-	if hovering:
+	hovering = state == &"normal" and hurt_timer <= 0 and not frozen and not grounded and coyote <= 0 \
+		and hover_left > 0 and Input.is_action_pressed("jump") and vel.y > -40
+	if state == &"pound_windup" or state == &"pound_land":
+		vel.y = 0.0
+	elif state == &"pound":
+		vel.y = POUND_SPEED
+	elif hovering:
 		hover_left -= dt
 		vel.y = move_toward(vel.y, HOVER_FALL_SPEED, HOVER_ACCEL * dt)
 	else:
@@ -187,21 +262,117 @@ func _physics_process(dt: float) -> void:
 			g *= FALL_GRAVITY_MULT
 		vel.y = minf(vel.y + g * dt, MAX_FALL)
 
+	# State timers.
+	state_timer -= dt
+	if state_timer <= 0:
+		match state:
+			&"spin":
+				state = &"normal"
+				spin_cooldown = SPIN_COOLDOWN
+			&"pound_windup":
+				state = &"pound"
+				vel.y = POUND_SPEED
+			&"pound_land":
+				state = &"normal"
+
 	var fall_speed := vel.y
-	# One-way platforms block only a falling Clawd whose body is clear of them.
-	# ponytail: checks all one-way tiles the body overlaps, not the one landed on; fine for 1-tile slabs.
-	set_collision_mask_value(4, vel.y >= 0 and not _touches_tile(Level.ONEWAY, Rect2(-SIZE.x / 2, -SIZE.y, SIZE.x, SIZE.y)))
+	if vel.y < 0:
+		_corner_correct(vel.y * dt)
+	# One-way platforms block only a falling Clawd whose body is clear of them, and not while dropping
+	# through. ponytail: checks all one-way tiles the body overlaps, not the one landed on; fine for 1-tile slabs.
+	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _touches_tile(Level.ONEWAY, Rect2(-SIZE.x / 2, -SIZE.y, SIZE.x, SIZE.y)))
 	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
 	move_and_slide()
 	vel = Vector2(velocity.x, -velocity.y) / Px.M
 	if is_on_ceiling():
 		jumping = false
-	if not grounded and is_on_floor() and fall_speed > 120:
-		var k := minf(1.0, fall_speed / MAX_FALL)
-		squash = Vector2(1 + 0.35 * k, 1 - 0.3 * k)
-		event.emit(&"hard_land" if fall_speed > 300 else &"land", pos)
+	on_one_way = is_on_floor() and _floor_is_one_way()
+	if not grounded and is_on_floor():
+		if state == &"pound":
+			state = &"pound_land"
+			state_timer = 0.16
+			squash = Vector2(1.45, 0.6)
+			event.emit(&"pound_land", pos)
+		elif fall_speed > 120:
+			var k := minf(1.0, fall_speed / MAX_FALL)
+			squash = Vector2(1 + 0.35 * k, 1 - 0.3 * k)
+			event.emit(&"hard_land" if fall_speed > 300 else &"land", pos)
 	_check_hazards()
 	_update_visual()
+
+
+func _start_spin(grounded: bool) -> void:
+	state = &"spin"
+	state_timer = SPIN_DURATION
+	if not grounded and not air_spin_used:
+		vel.y = minf(vel.y, -SPIN_HOP)
+		air_spin_used = true
+		jumping = false
+	hovering = false
+	event.emit(&"spin", pos)
+
+
+func _start_pound() -> void:
+	state = &"pound_windup"
+	state_timer = POUND_WINDUP
+	vel = Vector2.ZERO
+	jumping = false
+	hovering = false
+	event.emit(&"pound_start", pos)
+
+
+## Called by Main when a ground pound broke through the floor: keep falling.
+func continue_pound() -> void:
+	state = &"pound"
+	vel.y = POUND_SPEED
+
+
+## Spin attack area in level pixels, or an empty rect when not spinning (attackBox in the TS player).
+func attack_box() -> Rect2:
+	if state != &"spin":
+		return Rect2()
+	return Rect2(pos.x - SIZE.x / 2 - SPIN_REACH, pos.y - SIZE.y - 2, SIZE.x + SPIN_REACH * 2, SIZE.y + 4)
+
+
+## The hover jet that hurts what is below Clawd (hoverBeam in the TS player), or an empty rect.
+func hover_beam() -> Rect2:
+	return Rect2(pos.x - 6, pos.y, 12, 30) if hovering else Rect2()
+
+
+## Nudges Clawd sideways (up to CORNER_CORRECTION px) when his head would clip a ceiling corner, like
+## cornerCorrect() in the TS player.
+func _corner_correct(dy: float) -> void:
+	if not _hits_solid(pos + Vector2(0, dy)):
+		return
+	for off in range(1, CORNER_CORRECTION + 1):
+		for side in [1, -1]:
+			var p := pos + Vector2(off * side, 0)
+			if not _hits_solid(p + Vector2(0, dy)) and not _hits_solid(p):
+				pos = p
+				return
+
+
+## Does Clawd's body with its feet at `p` overlap a solid or corrupted tile (rectHitsSolid)?
+func _hits_solid(p: Vector2) -> bool:
+	var a := p - Vector2(SIZE.x / 2, SIZE.y)
+	var b := p + Vector2(SIZE.x / 2, 0) - Vector2(0.001, 0.001)
+	for y in range(floori(a.y / 16), floori(b.y / 16) + 1):
+		for x in range(floori(a.x / 16), floori(b.x / 16) + 1):
+			if level.tile(Vector2(x, y) * 16) in [Level.SOLID, Level.CORRUPT]:
+				return true
+	return false
+
+
+## Standing on one-way tiles only (probeGround().oneWayOnly in src/world/collision.ts).
+func _floor_is_one_way() -> bool:
+	var ty := floori((pos.y + 0.5) / 16)
+	var one_way := false
+	for x in range(floori((pos.x - SIZE.x / 2) / 16), floori((pos.x + SIZE.x / 2 - 0.001) / 16) + 1):
+		var item := level.tile(Vector2(x, ty) * 16)
+		if item == Level.SOLID or item == Level.CORRUPT:
+			return false
+		one_way = one_way or item == Level.ONEWAY
+	return one_way
 
 
 func _check_hazards() -> void:
@@ -216,20 +387,35 @@ func _check_hazards() -> void:
 			vel.y = -HURT_KNOCK_Y * 1.3
 
 	var hb := Rect2(pos + HITBOX.position, HITBOX.size)
+	var attack := attack_box()
+	var beam := hover_beam()
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if not hb.intersects(e.rect()):
-			continue
-		# Stomp: falling onto the top part of an enemy.
-		if vel.y > 0 and prev_pos.y <= e.stomp_line():
+		var er: Rect2 = e.rect()
+		# Stomp: falling (or pounding) onto the top part of an enemy.
+		if (vel.y > 0 or state == &"pound") and hb.intersects(er) and prev_pos.y <= e.stomp_line():
 			event.emit(&"stomp", e.pos)
-			e.stomped()
-			squash = Vector2(0.8, 1.25)
-			var held := Input.is_action_pressed("jump")
-			vel.y = -(STOMP_BOUNCE_HELD if held else STOMP_BOUNCE)
-			jumping = held
-			hover_left = HOVER_DURATION
+			e.hit(&"pound" if state == &"pound" else &"stomp")
+			_bounce()
+		elif attack.has_area() and attack.intersects(er):
+			event.emit(&"defeat", e.pos)
+			e.hit(&"spin")
+		elif beam.has_area() and beam.intersects(er):
+			event.emit(&"defeat", e.pos)
+			e.hit(&"beam")
 		elif hb.intersects(e.hurtbox()):
 			hurt(e.pos.x)
+
+
+## Bounce off an enemy's head (bounce() in the TS player).
+func _bounce() -> void:
+	var held := Input.is_action_pressed("jump")
+	vel.y = -(STOMP_BOUNCE_HELD if held else STOMP_BOUNCE)
+	jumping = held
+	hover_left = HOVER_DURATION
+	air_spin_used = false
+	if state == &"pound" or state == &"pound_windup":
+		state = &"normal"
+	squash = Vector2(0.8, 1.25)
 
 
 func _touches_tile(item: int, probe: Rect2) -> bool:
@@ -250,10 +436,26 @@ func _update_visual() -> void:
 	var o := {"arms": "mid", "legs": "stand", "eyes": "open"}
 	var look := Vector2i.ZERO
 	var y_off := 0.0
+	var turn := 0.0
 	if hurt_timer > 0:
 		o.arms = "high"
 		o.legs = "dangle"
 		o.eyes = "squint"
+	elif state in [&"pound_windup", &"pound", &"pound_land"]:
+		# Arms up, legs tucked, eyes squeezed; a quick turn during the windup like `turn` in drawClawd().
+		o.arms = "up"
+		o.legs = "tuck"
+		o.eyes = "squint"
+		if state == &"pound_windup":
+			turn = anim * 40
+	elif state == &"spin":
+		# The idle frame on the ground, the jump frame in the air, turning round and round.
+		if not is_on_floor():
+			o.arms = "up"
+			o.legs = "tuck"
+		turn = anim * 38
+	elif frozen:
+		o.arms = "high" # cheering at the exit
 	elif not is_on_floor():
 		if hovering:
 			o.arms = "low"
@@ -288,8 +490,27 @@ func _update_visual() -> void:
 	# pixel grid and never lands between pixels.
 	var snap := pos.round() - pos
 	visual.position = Vector3(snap.x, -snap.y + y_off, 0) * Px.M
-	visual.rotation.y = 0.0 if facing > 0 else PI
+	# Spin and pound windup turn the voxel body about its vertical axis: the 2.5D version of the 2D
+	# sprite's horizontal flip by cos(turn).
+	visual.rotation.y = (0.0 if facing > 0 else PI) + turn
+	_update_spin_ring()
 	# Hover jet: two flickering beams from the legs.
 	for j: Node3D in jets:
 		j.visible = hovering
 		j.scale.y = randf_range(0.6, 1.0)
+
+
+## The spin ring of drawClawd(): SPIN_DOTS dots, white and light orange, circling Clawd. Here they lie on a
+## real horizontal circle SPIN_RING_R px around him; the oblique projection draws it as the 2D game's
+## 17 x 6 px ellipse, with the front half over Clawd and the back half behind him.
+func _update_spin_ring() -> void:
+	spin_ring.visible = state == &"spin"
+	if not spin_ring.visible:
+		return
+	var snap := pos.round() - pos
+	for i in SPIN_DOTS:
+		var a := anim * 25 + float(i) / SPIN_DOTS * TAU
+		var p := Vector3(roundf(cos(a) * SPIN_RING_R) - 1 + snap.x, SPIN_RING_Y - snap.y, sin(a) * SPIN_RING_R) * Px.M
+		spin_ring.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, p))
+		var c := Color("#F0A585") if i % 2 else Color.WHITE
+		spin_ring.multimesh.set_instance_color(i, Color(c.r * 1.6, c.g * 1.6, c.b * 1.6, 0.8))

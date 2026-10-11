@@ -29,7 +29,8 @@ func _ready() -> void:
 
 
 ## Same options and defaults as Particles.emit() in TS: count 8, speed 80 (x0.4..1), life 0.5
-## (x0.6..1), all directions unless `spread` is given, color picked at random from `colors`.
+## (x0.6..1), all directions unless `spread` is given, color picked at random from `colors`. Extra
+## option `depth`: start up to that many px in front of or behind the usual depth (breaking blocks).
 func emit(at: Vector2, o: Dictionary = {}) -> void:
 	var colors: Array = o.get("color", [Color.WHITE])
 	for i in o.get("count", 8):
@@ -38,7 +39,7 @@ func emit(at: Vector2, o: Dictionary = {}) -> void:
 		var life: float = o.get("life", 0.5) * (0.6 + randf() * 0.4)
 		list.append({
 			"p": at,
-			"z": FRONT,
+			"z": FRONT + randf_range(-1, 1) * o.get("depth", 0.0),
 			"vz": randf_range(-0.5, 1) * speed,
 			"v": Vector2(cos(angle), sin(angle)) * speed + Vector2(o.get("vx", 0.0), o.get("vy", 0.0)),
 			"life": life,
