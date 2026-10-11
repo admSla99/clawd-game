@@ -43,7 +43,12 @@ node tools/export_levels.mjs                                   # run from REPO R
 godot --headless --script tools/convert_level.gd -- 1-1        # levels/*.txt -> levels/*.tscn (no ids = all)
 godot --headless --script tools/build_meshlib.gd               # regenerate tiles/terrain_meshlib.tres
 godot --headless --export-release "Web" build/web/index.html   # web build (no threads, any static host)
+godot --headless --path . --import                             # after adding a class_name, before running scripts
 ```
+
+On this machine the editor executable is
+`C:/Program Files (x86)/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe`; wrap `--script` runs
+in `timeout` (a script that fails to parse never quits). The port targets desktop; the web build is not a focus.
 
 ## TypeScript architecture
 
@@ -82,10 +87,53 @@ godot --headless --export-release "Web" build/web/index.html   # web build (no t
 - Visuals (Clawd, bugs, tokens, decor) are voxel meshes built from text-grid sprites by `Voxel.mesh()`, ported from
   `src/render/sprites.ts` / `shapes.ts`.
 - `tools/check.gd` compares the noise ports, converted levels and player physics against values from the TS
-  sources; when porting more TS logic, add a check there.
+  sources, and plays through every ported feature in 1-1 (sections per feature); when porting more TS logic, add
+  a check there. It starts `Main` in `PLAY` mode and points `Settings.path` / `Progress.path` at their own files,
+  so it never touches the player's saves.
+- **Main scene and modes**: `scenes/main.tscn` (`scripts/main.gd`, class `Main`) is the main scene. `Main.mode`
+  is `TITLE`, `MAP`, `SHOP` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the player
+  parked) or `PLAY`. Ported TS scenes map to: `title.ts`/`levelSelect.ts` → `scripts/front_end.gd`, `shop.ts` →
+  `scripts/shop_screen.gd` + `scripts/shop.gd`, results → `Overlay`, pause/controls/keybinds → `scripts/game_menu.gd`.
+- **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute →
+  `user://settings.cfg`), `Sound` (synthesizes `src/core/audio.ts` effects/music offline into AudioStreamWAVs; every
+  `Sound.play("x")` needs `x` in `Sound.PRELOAD`, checked), `Progress` (the level part of `src/save.ts` plus shop
+  state → `user://progress.json`).
+- **UI** is pixel art drawn in the SubViewport's `Ui` CanvasLayer with `PixelFont` (`Hud`, `Overlay`, `FrontEnd`,
+  `Shop`, `Menu`). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
+  offset by PAD. Screen-fixed 3D props hang on the camera; anything in front of z = 0 is drawn shifted down by z/3.
+- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S` so far);
+  numbered spawns (signs, sub-agents, sparks) get `index` in map order like `Spawn.index` in TS.
+
+## Godot port status (branch `godot-2.5d`)
+
+Only **1-1** is converted with all current spawns and fully playable (title → map → level → results → map, shop).
+Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
+`godot/levels/overrides.json`); a bug drops 10 tokens; sparks are a solid glowing star; spikes are a bed across
+the block depth; the shop opens after clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
+Tokens; world-2 weapons/mods are a locked ARMORY row.
+
+Not ported yet (the next goal is all levels plus shooting and weapons):
+- Enemies `F` SpamBot, `R` RateLimiter (`src/entities/enemies.ts`), `T` Turret, `Y` ceiling turret, `D` Drone,
+  `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B` (`src/entities/boss/hallucination.ts` for 1-B,
+  `codex.ts` for 2-B). The port's enemies are 1-hp bugs (`scripts/bug.gd`); TS enemies share `Enemy`
+  (`src/entities/entity.ts`: hp, `hit()`, tokens, death burst), which the port needs as a base first.
+- Level features `dark` (1-2 darkness around Clawd) and `risingVoid` (1-3), both in `src/scenes/game.ts`.
+- Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
+  `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the
+  shop's ARMORY and the `prev` / `next` / slot keys in `Settings`.
+
+To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
+change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays
+(`tools/check.gd` section) and looks right (capture screenshots of the real window).
+
+To port an entity: a script in `godot/scripts/` that names the TS class it ports, a `Level.SPAWNS` entry, re-convert
+the levels using it, sounds through `Sound`, a `tools/check.gd` section, and a `godot/README.md` paragraph plus a
+Layout row.
 
 ## godot-ai MCP
 
 `.mcp.json` registers the `godot-ai` MCP server (needs `uvx`). Its editor plugin lives in `godot/addons/godot_ai/`
 (third-party, don't modify). It only works with the GUI editor open, not `--headless`. Use the `mcp__godot-ai__*`
-tools to inspect scenes, run the game and take screenshots.
+tools to inspect scenes, run the game and take screenshots. Add autoloads / change project settings through it
+(`autoload_manage`, `project_manage`) rather than by editing `project.godot` while the editor is open; it refuses
+while the game is running in the editor.
