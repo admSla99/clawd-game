@@ -50,6 +50,7 @@ func _init() -> void:
 	await section("level select and main scene", check_scenes)
 	await section("hazards and enemies in 1-1", check_hazards)
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
+	await section("checkpoints, exit and signs in 1-1", check_objects)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -433,4 +434,33 @@ func check_moves() -> bool:
 	Input.action_release("down")
 	await frames(30)
 	ok(p.pos.y > 13 * TILE, "down + jump drops through it (y %.1f)" % p.pos.y)
+	return true
+
+
+func check_objects() -> bool:
+	var m = current_scene
+	var p = m.player
+	m.load_level("1-1")
+	await frames(3)
+	var cp_script := load("res://scripts/checkpoint.gd")
+	var cps: Array = m.level.get_children().filter(func(c): return c.get_script() == cp_script)
+	ok(cps.size() == 3, "1-1 has 3 checkpoints ('C' at columns 107, 177, 247)")
+	var cp = cps[0]
+	ok(not cp.active, "a checkpoint starts inactive")
+	p.pos = cp.feet() + Vector2(-30, 0)
+	p.hearts = 1
+	Input.action_press("right")
+	for i in 60:
+		await physics_frame
+		if cp.active: break
+	Input.action_release("right")
+	ok(cp.active and p.spawn_point.is_equal_approx(cp.feet()) and p.hearts == p.MAX_HEARTS, "touching it saves the respawn point and refills the hearts")
+	ok(m.overlay.popups.any(func(q): return q.text == "STATE SAVED"), "it pops up STATE SAVED")
+	# Falling into the 9-tile gap at columns 112..120 respawns on the checkpoint.
+	p.pos = Vector2(116 * TILE, 15 * TILE)
+	p.vel = Vector2.ZERO
+	for i in 120:
+		await physics_frame
+		if p.pos.is_equal_approx(cp.feet()): break
+	ok(p.pos.distance_to(cp.feet()) < 1.0, "falling out respawns on the checkpoint")
 	return true

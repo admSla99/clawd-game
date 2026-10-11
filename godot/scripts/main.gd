@@ -41,15 +41,18 @@ var player: Player
 @onready var light_fx: ColorRect = $View/SubViewport/World/Foreground/LightFx
 @onready var grade: ColorRect = $View/SubViewport/World/Grade/Grade
 @onready var crt: ColorRect = $ScreenFx/Crt
+@onready var overlay: Overlay = $View/SubViewport/World/Ui/Overlay
 
 
 func _ready() -> void:
+	add_to_group("main")
 	levels = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_INDEX))
 	level_ids = levels.map(func(l): return l.id)
 	player = PLAYER.instantiate()
 	world.add_child(player)
 	player.event.connect(_on_player_event)
 	camera.pad = PAD
+	overlay.camera = camera
 	get_tree().root.size_changed.connect(_resize)
 	_resize()
 	load_level(start_level)
@@ -88,6 +91,7 @@ func load_level(id: String) -> void:
 		level.set_param("fog_" + key, Themes.vec(Themes.palette(info.theme)[key]))
 	Game.reset()
 	particles.clear()
+	overlay.clear()
 
 	camera.bounds = level.size()
 	camera.trauma = 0
@@ -229,3 +233,12 @@ func _on_pound_land() -> void:
 		if wave.intersects(e.rect()):
 			_on_player_event(&"defeat", e.pos)
 			e.hit(&"pound")
+
+
+## A checkpoint was touched (activateCheckpoint() in src/scenes/game.ts): respawn there from now on and
+## refill the hearts.
+func activate_checkpoint(cp: Checkpoint) -> void:
+	player.spawn_point = cp.feet()
+	player.hearts = Player.MAX_HEARTS
+	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
+	overlay.popup("STATE SAVED", cp.feet() + Vector2(0, -36), Color("#F0A585"), 1.5, Checkpoint.Z, 6.0)

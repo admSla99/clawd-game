@@ -23,9 +23,10 @@ const SHADOWS_MAX := 16
 # Loaded in _add_spawn, not preloaded: bug.gd refers back to Level, and a preload cycle fails to load.
 const BUG := "res://scenes/bug.tscn"
 const TOKEN := "res://scenes/token.tscn"
-# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token. Positions are the tile's
-# bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token"}
+const CHECKPOINT := "res://scripts/checkpoint.gd"
+# '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint. Positions are the
+# tile's bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts.
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -221,6 +222,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> void:
 		"token":
 			node = load(TOKEN).instantiate()
 			pos.y -= 8 # floats half a tile up, like `new Token(s.x, s.y - 8)` in src/scenes/game.ts
+		"checkpoint":
+			node = load(CHECKPOINT).new()
+			node.name = "Checkpoint"
 	node.position = Px.to3(pos)
 	level.add_child(node, true)
 	node.owner = level

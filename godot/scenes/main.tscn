@@ -11,6 +11,7 @@
 [ext_resource type="Shader" path="res://shaders/light_fx.gdshader" id="9"]
 [ext_resource type="Script" path="res://scripts/motes.gd" id="10"]
 [ext_resource type="Shader" path="res://shaders/grade.gdshader" id="11"]
+[ext_resource type="Script" path="res://scripts/overlay.gd" id="12"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 3
@@ -102,6 +103,12 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
+
+[node name="Ui" type="CanvasLayer" parent="View/SubViewport/World"]
+layer = 3
+
+[node name="Overlay" type="Node2D" parent="View/SubViewport/World/Ui"]
+script = ExtResource("12")
 
 [node name="ScreenFx" type="CanvasLayer" parent="."]
 layer = 10

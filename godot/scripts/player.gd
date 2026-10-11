@@ -99,6 +99,7 @@ var spin_ring: MultiMeshInstance3D
 
 
 func _ready() -> void:
+	add_to_group("player")
 	spin_ring = MultiMeshInstance3D.new()
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/particles.gdshader")
@@ -142,6 +143,11 @@ func respawn() -> void:
 	hovering = false
 	state = &"normal"
 	frozen = false
+
+
+## Clawd's hurt and pick-up box in level pixels (hitbox in the TS player).
+func hitbox() -> Rect2:
+	return Rect2(pos + HITBOX.position, HITBOX.size)
 
 
 ## Knocks Clawd away from from_x. Returns false when invulnerable or when the last heart was lost

@@ -48,7 +48,8 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 `export_levels.mjs` writes each level's `map` rows to `levels/<id>.txt` and the id/name list to
 `levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
-`@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`. Other spawn characters are skipped.
+`@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`. Other spawn
+characters are skipped. Only 1-1 has been re-converted since checkpoints were added.
 The result is saved as `levels/<id>.tscn`.
 
 One tile is 1 m; tile `(x, y)` of the map fills `x..x+1` × `-(y+1)..-y`, so the level's top-left corner is the
@@ -66,6 +67,13 @@ Gameplay ported so far: run, variable jump, coyote time, jump buffer, hover, cor
 ground pound and drop-through from `src/entities/player.ts`; spikes knock Clawd back and cost a heart; bugs
 patrol, turn at walls and ledges, hurt on contact and die when stomped, spun, pounded or hit by the hover jet;
 tokens are collected on touch.
+
+Checkpoints (`scripts/checkpoint.gd`, `C` in the map): a voxel terminal on a ribbed post, standing 0.6 m
+behind the gameplay plane so Clawd walks in front of it. Its 18 x 12 px screen has dark glass 1 px back in the
+bezel; off it shows a blinking grey cursor. Touching it (16 x 28 px box against Clawd's hitbox, like the TS
+`Checkpoint`) calls `Main.activate_checkpoint()`: Clawd respawns there from now on (falling out, losing the
+last heart), the hearts refill, an orange burst and a rising "STATE SAVED" popup play, the bezel turns
+orange, the screen shows a glowing "OK" for 1.2 s and then ">_", and a GlowLight warms the ground around it.
 
 Moves (keys as in `src/core/input.ts`): **X / J** (attack) or **C / L** (spin) spins: 0.32 s attack around
 Clawd, with a hop once per jump in the air. **S / ↓** in the air starts a ground pound (a short windup, then a
@@ -92,7 +100,8 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
 `tests/player.test.ts`, the level select and level switching, spikes, bugs, stomps and tokens in 1-1, spin,
-air spin hop, ground pound through 1-1's corrupted blocks and drop-through, and that a running jump clears
+air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1's checkpoints (activation,
+respawn), and that a running jump clears
 the last gap of 1-1
 (narrowed to 5 tiles in `src/world/levels/1-1.ts`; it was 26 tiles bridged by moving platforms, which the port
 does not have).
@@ -126,6 +135,17 @@ does not have).
 - `scripts/parallax.gd` (`Parallax`): the theme backgrounds of `src/render/parallax.ts`, unchanged from the 2D port
   (dot ridges, factory columns, twinkling stars, data rain, code lines, rings, embers, fog bands). It lives in a
   CanvasLayer behind the 3D level, over the haze; the Environment's background mode is *canvas*.
+
+## Text
+
+Text is pixel art too: `scripts/pixel_font.gd` (`PixelFont`) is a bitmap font with 5 px capitals and digits,
+lowercase with a 4 px x-height and 2 px descenders, arrows and the punctuation the signs use, drawn from one
+atlas with nearest filtering on whole view pixels, 8 px per line like the 2D game's 5.5 px text.
+`PixelFont.rows()` returns the same glyphs as text-grid rows for `Voxel.mesh()` (the checkpoint screen).
+`scripts/overlay.gd` (`Overlay`, `View/SubViewport/World/Ui`, a CanvasLayer above the colour grade) draws text
+over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the text of nodes in the group
+`world_text` (they implement `overlay_draw(overlay)`) and panels like `panel()` in `src/render/shapes.ts`.
+`Overlay.to_view()` maps a level position (and depth) through the camera and the oblique projection.
 
 ## Voxel models
 
@@ -254,6 +274,8 @@ without COOP/COEP headers.
 | `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spin, ground pound, drop-through, spikes, enemy contact and stomps, voxel frames, spin ring, hover jets |
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
+| `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
+| `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
 | `scripts/parallax.gd`, `scripts/view_scale.gd` | Theme backgrounds behind the level; view size from the window |
