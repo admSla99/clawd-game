@@ -201,8 +201,18 @@ void fragment() {
 				discard;
 			}
 		} else if (mode == 3) {
-			// Spikes: two 8 px triangles per tile, light tips.
+			// Spikes: a bed of rows across the block depth (tools/build_meshlib.gd), 0.75 m apart. Each row is
+			// 8 px triangles with light tips: two per tile in the front row and every other one, one in the
+			// middle of the tile in the rows between, so the bed is staggered and a run of spikes still ends on a
+			// whole spike. The rows further back are darker.
+			int row = int(round((half_depth - wpos.z) / 0.75));
 			int lx = q.x & 7;
+			if (row % 2 == 1) {
+				if (q.x < 4 || q.x >= 12) {
+					discard;
+				}
+				lx = q.x - 4;
+			}
 			int k = 15 - q.y;
 			float half_w = (8.0 - float(k)) * 0.5;
 			if (k > 7 || abs(float(lx) - 3.5) > half_w - 0.5) {
@@ -210,6 +220,9 @@ void fragment() {
 			}
 			col = k >= 5 ? ORANGE_LIGHT : k >= 2 ? (lx < 4 ? ORANGE : ORANGE * 0.8) : ORANGE_DARK;
 			boost = k >= 5 ? 1.6 : 1.0;
+			float back = float(row) / 4.0;
+			col *= 1.0 - 0.45 * back;
+			boost = mix(boost, 1.0, back);
 		} else {
 			// Corrupted data: orange checker cells, flickering bars, rows that jump sideways and a glitch
 			// scanline, re-rolled 12 times a second (drawCorrupted in src/render/dotRenderer.ts).

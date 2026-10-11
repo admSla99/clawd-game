@@ -374,7 +374,8 @@ Back to front:
   texel per 4 px cell (distance to open air, random, open cell above, solid). Front faces: a black body that
   steps darker away from air, faint panel seams, orange circuit traces with blinking nodes, rims where blocks
   meet air and a white/grey crust with orange sparkles on exposed tops. One-way platforms are crust strips
-  with orange LEDs, spikes orange triangles, corrupted blocks an animated orange glitch. Top faces are bands of
+  with orange LEDs, spikes a bed of orange triangles across the whole block depth (5 rows of flat quads
+  0.75 m apart, staggered, the back ones darker), corrupted blocks an animated orange glitch. Top faces are bands of
   view rows from the white front lip to dark speckled grey. Lower block corners that meet air below and to
   the side are rounded (4 px). One-way platforms are a thin strip (4 px tall,
   0.75 m deep), so they read as ledges rather than blocks. Blob shadows of Clawd and the enemies nearest the view
@@ -465,7 +466,7 @@ without COOP/COEP headers.
 | `tools/check.gd` | Headless checks, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |
 | `levels/overrides.json` | Port-specific level metadata merged into `index.json` (1-1's sign texts) |
-| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version |
+| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |
 | `tools/export_levels.mjs`, `tools/convert_level.gd` | Level pipeline, see *Levels* |
 | `addons/godot_ai/` | godot-ai editor plugin (MCP) |

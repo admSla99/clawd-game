@@ -199,7 +199,7 @@ func materials() -> Array[ShaderMaterial]:
 	var lib := terrain.mesh_library
 	var out: Array[ShaderMaterial] = []
 	for item in [SOLID, ONEWAY, SPIKE, CORRUPT]:
-		out.append((lib.get_item_mesh(item) as BoxMesh).material)
+		out.append(lib.get_item_mesh(item).surface_get_material(0))
 	return out
 
 

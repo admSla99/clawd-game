@@ -1,10 +1,13 @@
-[gd_resource type="MeshLibrary" format=3]
+[gd_resource type="MeshLibrary" format=4]
 
 [ext_resource type="Shader" path="res://shaders/terrain_pixels.gdshader" id="1_3usgr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_xq5bu"]
 render_priority = 0
 shader = ExtResource("1_3usgr")
+shader_parameter/fog_top = null
+shader_parameter/fog_mid = null
+shader_parameter/fog_haze = null
 shader_parameter/cells = null
 shader_parameter/mode = 0
 shader_parameter/half_depth = 1.5
@@ -12,6 +15,7 @@ shader_parameter/row_z = null
 shader_parameter/shadows = null
 shader_parameter/shadow_count = null
 shader_parameter/game_time = null
+shader_parameter/ambient = null
 shader_parameter/lights = null
 shader_parameter/light_energy = null
 shader_parameter/light_count = null
@@ -27,6 +31,9 @@ size = Vector3(1, 1, 3)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_4phgr"]
 render_priority = 0
 shader = ExtResource("1_3usgr")
+shader_parameter/fog_top = null
+shader_parameter/fog_mid = null
+shader_parameter/fog_haze = null
 shader_parameter/cells = null
 shader_parameter/mode = 1
 shader_parameter/half_depth = 0.375
@@ -34,6 +41,7 @@ shader_parameter/row_z = null
 shader_parameter/shadows = null
 shader_parameter/shadow_count = null
 shader_parameter/game_time = null
+shader_parameter/ambient = null
 shader_parameter/lights = null
 shader_parameter/light_energy = null
 shader_parameter/light_count = null
@@ -49,6 +57,9 @@ size = Vector3(1, 0.25, 3)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_raiyn"]
 render_priority = 0
 shader = ExtResource("1_3usgr")
+shader_parameter/fog_top = null
+shader_parameter/fog_mid = null
+shader_parameter/fog_haze = null
 shader_parameter/cells = null
 shader_parameter/mode = 3
 shader_parameter/half_depth = 1.5
@@ -56,18 +67,28 @@ shader_parameter/row_z = null
 shader_parameter/shadows = null
 shader_parameter/shadow_count = null
 shader_parameter/game_time = null
+shader_parameter/ambient = null
 shader_parameter/lights = null
 shader_parameter/light_energy = null
 shader_parameter/light_count = null
 
-[sub_resource type="BoxMesh" id="BoxMesh_xi3ku"]
-material = SubResource("ShaderMaterial_raiyn")
-size = Vector3(1, 1, 3)
-subdivide_depth = 1
+[sub_resource type="ArrayMesh" id="ArrayMesh_xi3ku"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -1.5, 1, 0.5, 3),
+"format": 34359738375,
+"material": SubResource("ShaderMaterial_raiyn"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 30,
+"vertex_data": PackedByteArray("AAAAvwAAAL8AAMA/AAAAPwAAAAAAAMA/AAAAPwAAAL8AAMA/AAAAvwAAAL8AAMA/AAAAvwAAAAAAAMA/AAAAPwAAAAAAAMA/AAAAvwAAAL8AAEA/AAAAPwAAAAAAAEA/AAAAPwAAAL8AAEA/AAAAvwAAAL8AAEA/AAAAvwAAAAAAAEA/AAAAPwAAAAAAAEA/AAAAvwAAAL8AAAAAAAAAPwAAAAAAAAAAAAAAPwAAAL8AAAAAAAAAvwAAAL8AAAAAAAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAvwAAAL8AAEC/AAAAPwAAAAAAAEC/AAAAPwAAAL8AAEC/AAAAvwAAAL8AAEC/AAAAvwAAAAAAAEC/AAAAPwAAAAAAAEC/AAAAvwAAAL8AAMC/AAAAPwAAAAAAAMC/AAAAPwAAAL8AAMC/AAAAvwAAAL8AAMC/AAAAvwAAAAAAAMC/AAAAPwAAAAAAAMC//3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA")
+}]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sm6n4"]
 render_priority = 0
 shader = ExtResource("1_3usgr")
+shader_parameter/fog_top = null
+shader_parameter/fog_mid = null
+shader_parameter/fog_haze = null
 shader_parameter/cells = null
 shader_parameter/mode = 2
 shader_parameter/half_depth = 1.5
@@ -75,6 +96,7 @@ shader_parameter/row_z = null
 shader_parameter/shadows = null
 shader_parameter/shadow_count = null
 shader_parameter/game_time = null
+shader_parameter/ambient = null
 shader_parameter/lights = null
 shader_parameter/light_energy = null
 shader_parameter/light_count = null
@@ -103,7 +125,7 @@ item/1/shapes = [SubResource("BoxShape3D_ux4jo"), Transform3D(1, 0, 0, 0, 1, 0, 
 item/1/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/1/navigation_layers = 1
 item/2/name = "spike"
-item/2/mesh = SubResource("BoxMesh_xi3ku")
+item/2/mesh = SubResource("ArrayMesh_xi3ku")
 item/2/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/2/mesh_cast_shadow = 1
 item/2/shapes = []
