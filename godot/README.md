@@ -271,13 +271,16 @@ moving platforms. The level's own world text, the HUD and the see-through window
   running through; here they are 2 px glowing cubes (a MultiMesh), so the bloom picks them up. Then "L A T E N T
   S P A C E" and the subtitle fade in, Clawd stands on a hovering platform (MovingPlatform's meshes, jets
   flickering) with a token spinning beside him, both voxel models at twice the size, and "PRESS SPACE TO START"
-  blinks. The logo and Clawd sit at `FRONT_Z` = 9 m, in front of the scenery's foreground layer (6 m), lifted by
-  the 3 m the oblique projection moves a point at that depth down. Space / Enter / jump or a click opens the
+  blinks. The logo and Clawd hang on the camera (placing them in the level from its position every frame left
+  them a fraction of a pixel off the view's rounding, and they jittered), at `FRONT_Z` = 9 m, in front of the
+  scenery's foreground layer (6 m), lifted by the 3 m the oblique projection moves a point at that depth down. Space / Enter / jump or a click opens the
   map; H and M work as in the game.
-- **Map**: per world a row of 24 x 18 px level nodes along a dotted path that lifts between them, with a light
-  running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
+- **Map**: per world a heading (WORLD n, its name and a dotted rule; a locked world puts the TS hint there)
+  above a row of 24 x 18 px level nodes, high enough that Clawd hopping on a node never covers it; the rows sit at
+  32 % and 62 % of the height (30 % / 56 % in TS) to make room. The nodes lie along a dotted path that lifts
+  between them, with a light running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
   game's 1 px Clawd as a 2D sprite); locked levels show a padlock, finished ones an orange corner, bosses a
-  red-tinted node labelled BOSS; world 2 shows the TS hint while locked. The banked tokens sit top right. An
+  red-tinted node labelled BOSS. The banked tokens sit top right. An
   info card names the selected level with its subtitle, rescued sub-agents, CLEARED and the best time, and
   doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
   Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.

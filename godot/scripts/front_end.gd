@@ -210,7 +210,8 @@ func _indices_of(world: int) -> Array:
 	return out
 
 
-## nodePos(): the worlds' rows at 30 % and 56 % of the height, nodes spread over up to 380 px, gently waving.
+## nodePos(): nodes spread over up to 380 px, gently waving. The worlds' rows sit at 32 % and 62 % of the
+## height (30 % and 56 % in TS), leaving room above each row for its heading.
 func node_pos(i: int) -> Vector2:
 	var v := view()
 	var world := _world_of(i)
@@ -218,14 +219,14 @@ func node_pos(i: int) -> Vector2:
 	var k := row.find(i)
 	var span := minf(v.size.x - 90, 380)
 	var x := v.position.x + v.size.x / 2 - span / 2 + span * k / maxf(1, row.size() - 1)
-	var y := v.position.y + v.size.y * (0.3 if world == 1 else 0.56)
+	var y := v.position.y + v.size.y * (0.32 if world == 1 else 0.62)
 	return Vector2(x, y + sin(k * 1.7 + world) * 10).round()
 
 
 func _card_rect() -> Rect2:
 	var v := view()
 	var w := 228.0
-	var y := maxf(v.position.y + v.size.y * 0.7, v.position.y + v.size.y * 0.56 + 42)
+	var y := maxf(v.position.y + v.size.y * 0.7, v.position.y + v.size.y * 0.62 + 42)
 	return Rect2(roundf(v.get_center().x - w / 2), roundf(y), w, 46)
 
 
@@ -256,9 +257,11 @@ func _fade() -> float:
 	return maxf(1.0 - clampf(_fade_in / 0.8, 0.0, 1.0), out)
 
 
-## Level pixels of a view pixel (SubViewport pixel minus PAD) this frame.
-func _to_level(sv: Vector2) -> Vector2:
-	return main.camera.top_left + sv - Vector2.ONE * Main.PAD
+## Where SubViewport pixel `sv` is, relative to the camera, at FRONT_Z (lifted by FRONT): the camera sits over the
+## middle of the rendered area, DISTANCE in front of the gameplay plane.
+func _on_camera(sv: Vector2) -> Vector3:
+	var half := get_viewport_rect().size / 2
+	return Vector3((sv.x - half.x) * Px.M, -(sv.y - half.y) * Px.M, -GameCamera.DISTANCE) + FRONT
 
 
 # --- Title: logo and hero ------------------------------------------------------
@@ -295,9 +298,11 @@ func _logo_top_left() -> Vector2:
 func _ensure_props() -> void:
 	if _props:
 		return
+	# They hang on the camera, so they move exactly with the view: placing them in the level from the camera's
+	# position each frame left them a fraction of a pixel off the view's rounding, and they jittered.
 	_props = Node3D.new()
 	_props.name = "TitleProps"
-	main.world.add_child(_props)
+	main.camera.add_child(_props)
 	# Logo: one 2 px glowing cube per dot.
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/particles.gdshader")
@@ -348,7 +353,7 @@ func _update_logo() -> void:
 		# Orange with a little glow, the passing wave light orange and brighter.
 		var c := Color("#F0A585") * 1.6 if wave else Color("#D97757") * 1.1
 		c.a = 0.3 + 0.7 * k
-		_logo.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, Px.to3(_to_level(p + Vector2.ONE)) + FRONT))
+		_logo.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, _on_camera(p + Vector2.ONE)))
 		_logo.multimesh.set_instance_color(i, c)
 
 
@@ -357,7 +362,7 @@ func _update_hero() -> void:
 	# The platform's top, centred, 4 px of hover bob; Clawd blinks now and then like on the 2D title.
 	var bob := roundf(sin(t * 2.0) * 2.0)
 	var top := Vector2(v.get_center().x, v.position.y + v.size.y * 0.62 + bob)
-	_hero.position = Px.to3(_to_level(top)) + FRONT
+	_hero.position = _on_camera(top)
 	var blink := sin(t * 0.7) > 0.95
 	var breathe := sin(t * 3) > 0.6
 	_hero_body.mesh = ClawdSprite.mesh({"arms": "mid", "legs": "stand", "eyes": "blink" if blink else "open", "look": Vector2i(1 if sin(t * 0.4) > 0.7 else 0, 0)})
@@ -434,10 +439,25 @@ func _draw_map() -> void:
 		var row := _indices_of(world)
 		var open := Progress.is_unlocked(ids, row[0])
 		var first := node_pos(row[0])
-		_text("WORLD %d" % world, first + Vector2(-12, -28), Hud.ORANGE if open else DIM)
-		_text(WORLD_NAMES[world], first + Vector2(26, -28), Hud.TEXT_DIM if open else Color("#444444"))
+		var last := node_pos(row[-1])
+		# The world's heading sits above its whole row, clear of Clawd hopping on any node (he reaches 32 px up),
+		# with a dotted rule out to the last node.
+		var top := first.y
+		for i in row:
+			top = minf(top, node_pos(i).y)
+		var hy := top - 42
+		var world_name: String = WORLD_NAMES[world]
+		_text("WORLD %d" % world, Vector2(first.x - 12, hy), Hud.ORANGE if open else DIM)
+		var nx := first.x - 12 + PixelFont.width("WORLD %d" % world) + 8
+		_text(world_name, Vector2(nx, hy), Hud.TEXT_DIM if open else Color("#444444"))
+		var rule_x := nx + PixelFont.width(world_name) + 8
 		if not open:
-			_text("— defeat the Hallucination to find a weapon —", Vector2(v.get_center().x, first.y + 24), Color("#5A5A5A"), true)
+			# A locked world says how to open it in its heading (the TS hint under the row).
+			var hint := "— defeat the Hallucination to find a weapon —"
+			_text(hint, Vector2(rule_x, hy), Color("#6A6A6A"))
+			rule_x += PixelFont.width(hint) + 8
+		for x in range(int(rule_x), int(last.x + 12), 3):
+			draw_rect(Rect2(x, hy + 3, 1, 1), Color(0.35, 0.35, 0.35) if open else Color(0.2, 0.2, 0.2))
 		# Dotted path, lifted in the middle; a light runs along the open stretches.
 		for n in row.size() - 1:
 			var p0 := node_pos(row[n])
