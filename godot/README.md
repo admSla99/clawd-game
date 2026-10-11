@@ -49,8 +49,12 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 `levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
-`?` → `Sign` (numbered in map order like `Spawn.index`). Other spawn characters are skipped. Only 1-1 has been
-re-converted since checkpoints, the exit and signs were added.
+`?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`. Other spawn characters
+are skipped. Only 1-1 has been
+re-converted since checkpoints, the exit, signs and moving platforms were added.
+
+`export_levels.mjs` merges `levels/overrides.json` (fields per level id) into `index.json`, for metadata where
+the port differs from the TS game: 1-1's sign texts, since the port has no variable jump height.
 The result is saved as `levels/<id>.tscn`.
 
 One tile is 1 m; tile `(x, y)` of the map fills `x..x+1` × `-(y+1)..-y`, so the level's top-left corner is the
@@ -64,8 +68,9 @@ The game starts in `scenes/level_select.tscn`: one button per entry in `levels/i
 `Main.start_level` and switches to `scenes/main.tscn`, which loads that level and puts the player on its
 `Start` marker. **N** loads the next level (wrapping after 2-B).
 
-Gameplay ported so far: run, variable jump, coyote time, jump buffer, hover, corner correction, spin,
-ground pound and drop-through from `src/entities/player.ts`; spikes knock Clawd back and cost a heart; bugs
+Gameplay ported so far: run, jump, coyote time, jump buffer, hover, corner correction, spin,
+ground pound and drop-through from `src/entities/player.ts`. Unlike the TS player every jump is a full jump
+(about 4.4 tiles): letting go of jump early does not cut it (`JUMP_CUT_MULT` is gone); spikes knock Clawd back and cost a heart; bugs
 patrol, turn at walls and ledges, hurt on contact and die when stomped, spun, pounded or hit by the hover jet;
 tokens are collected on touch.
 
@@ -84,6 +89,16 @@ it, since it stands on the gameplay plane. Touching its inner 16 x 40 px calls `
 Clawd stops (`Player.frozen`) and cheers, drifts to the middle, after 0.6 s stretches into a thin beam and
 vanishes; after 2 s the results panel (tokens collected / in the level, time) fades in over the level, and jump
 goes to the next level.
+
+Moving platforms (`scripts/moving_platform.gd`, `M` horizontal, `V` vertical): `MovingPlatform` from
+`src/entities/platforms.ts`, 48 x 6 px, swinging 3.5 tiles either way with a 4 s period; each platform in map
+order starts 1.3 s further in its swing. They update before the player (`process_physics_priority = -10`). The
+player handles them like the TS player: after moving, a falling Clawd whose feet were above a platform's
+previous top lands on it (`riding`); at the start of the next frame he is carried by its `dx` and kept on its top;
+jumping, getting hurt, bouncing or down + jump (drop-through) leave it. `Player.on_ground` (tile floor or a
+platform) replaces `is_on_floor()` for the camera and the poses. They are drawn like the level's one-way ledges:
+a white crust with orange LEDs at the ends and along the grey edge, a dark body tapering underneath, two small
+flickering orange jets and a GlowLight, snapped to whole pixels.
 
 Signs (`scripts/sign.gd`, `?`): a 14 x 10 px board with a grey rim, a dark face 1 px back and a glowing orange
 "?" (from `PixelFont`) on a ribbed post, 0.6 m behind the gameplay plane, with a small GlowLight. `Main` gives
@@ -119,9 +134,8 @@ cells and spawns with its `.txt` map, the player's jump height and gap/step limi
 air spin hop, ground pound through 1-1's corrupted blocks and drop-through, 1-1's checkpoints (activation,
 respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit (completion, results, next
 level), and that a running jump clears
-the last gap of 1-1
-(narrowed to 5 tiles in `src/world/levels/1-1.ts`; it was 26 tiles bridged by moving platforms, which the port
-does not have).
+crossing the 26-tile gap of 1-1 on its two moving platforms (a
+small controller jumps when the next platform comes close), and that a tapped jump is a full jump.
 
 ## Game clock and camera
 
@@ -294,6 +308,7 @@ without COOP/COEP headers.
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
+| `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
 | `scripts/px.gd`, `scripts/voxel.gd` | Pixel ↔ metre conversion; voxel meshes from text-grid sprites |
@@ -305,6 +320,7 @@ without COOP/COEP headers.
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
 | `tools/check.gd` | Headless checks, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |
+| `levels/overrides.json` | Port-specific level metadata merged into `index.json` (1-1's sign texts) |
 | `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |
 | `tools/export_levels.mjs`, `tools/convert_level.gd` | Level pipeline, see *Levels* |

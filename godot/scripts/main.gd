@@ -132,7 +132,7 @@ func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
 	# Target is the player's centre, like camera.update(dt, p.cx, p.y + p.h / 2, ...) in game.ts.
-	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.is_on_floor(), player.vel.y)
+	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.on_ground, player.vel.y)
 	scenery.update(camera.top_left)
 	_update_complete(dt)
 	_update_shadows()

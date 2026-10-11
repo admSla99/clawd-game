@@ -51,6 +51,7 @@ func _init() -> void:
 	await section("hazards and enemies in 1-1", check_hazards)
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
+	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -185,6 +186,16 @@ func check_physics() -> bool:
 		return ["jump"] if i >= 3 and (i == 3 or pl.vel.y < 0) else [])
 	var h: float = ground - top[0]
 	ok(h > TILE * 4.2 and h < TILE * 5, "full jump height %.1f tiles (TS: 4.2..5)" % (h / TILE))
+	cleanup(p)
+
+	# Unlike TS, a tap is a full jump too (the port has no jump cut); only the apex float differs a little.
+	var tap_top := [ground]
+	p = await simulate(flat, func(i, pl):
+		if i >= 63: return null
+		tap_top[0] = minf(tap_top[0], pl.pos.y)
+		return ["jump"] if i == 3 else [])
+	var tap: float = ground - tap_top[0]
+	ok(absf(tap - h) < 3, "a tapped jump is as high as a held one (%.1f vs %.1f px)" % [tap, h])
 	cleanup(p)
 
 	ok(await cross_gap(4, false), "clears a 4-tile gap with a running jump")
@@ -323,32 +334,6 @@ func check_hazards() -> bool:
 	p.pos = Px.of(tokens[0].position) + Vector2(0, 8)
 	await frames(5)
 	ok(not is_instance_valid(tokens[0]) or tokens[0].is_queued_for_deletion(), "touching a token collects it")
-
-	# The last gap of 1-1 (columns 263..267) was 26 tiles with moving platforms; now a running jump clears it.
-	m.load_level("1-1")
-	await frames(3)
-	p.pos = Vector2(256 * TILE, 15 * TILE)
-	p.vel = Vector2.ZERO
-	var jumped := false
-	var crossed := false
-	var airborne := false
-	Input.action_press("right")
-	for i in 240:
-		if not jumped and p.pos.x > 263 * TILE - 10:
-			Input.action_press("jump")
-			jumped = true
-		elif airborne and p.vel.y >= 0:
-			Input.action_release("jump")
-		await physics_frame
-		airborne = airborne or (jumped and not p.is_on_floor())
-		if airborne and p.is_on_floor() and p.pos.y <= 15 * TILE:
-			crossed = p.pos.x > 268 * TILE - 9
-			break
-		if p.pos.y > 16 * TILE:
-			break
-	Input.action_release("right")
-	Input.action_release("jump")
-	ok(crossed, "1-1: a running jump without hover clears the last gap")
 
 	p.hearts = 1
 	p.invuln = 0
@@ -504,4 +489,86 @@ func check_objects() -> bool:
 	Input.action_release("jump")
 	await frames(2)
 	ok(m.level_id == "1-2" and not p.frozen and p.visual.visible, "jump on the results panel goes to the next level")
+	return true
+
+
+func check_platforms() -> bool:
+	var m = current_scene
+	var p = m.player
+	m.load_level("1-1")
+	await frames(3)
+	var plats: Array = get_nodes_in_group("platforms")
+	plats.sort_custom(func(a, b): return a.phase < b.phase)
+	ok(plats.size() == 2 and plats[0].axis == "h" and is_equal_approx(plats[1].phase, 1.3), "1-1 has 2 horizontal platforms 'M', phases 0 and 1.3")
+	var x0: float = plats[0].x
+	await frames(30)
+	ok(absf(plats[0].x - x0) > 10, "platforms move")
+
+	# Dropped onto a platform, Clawd lands on it and rides along.
+	var pl = plats[0]
+	p.pos = Vector2(pl.x + 24, pl.y - 30)
+	p.vel = Vector2.ZERO
+	p.invuln = 5
+	for i in 40:
+		await physics_frame
+		if p.riding: break
+	var start: float = p.pos.x - pl.x
+	await frames(40)
+	ok(p.riding == pl and p.on_ground and absf(p.pos.y - pl.y) < 0.01, "Clawd lands on a platform from above and stands on it")
+	ok(absf(p.pos.x - pl.x - start) < 1.0, "the platform carries him along")
+	Input.action_press("down")
+	await frames(1)
+	Input.action_press("jump")
+	await frames(3)
+	Input.action_release("jump")
+	Input.action_release("down")
+	await frames(10)
+	ok(p.riding == null and p.pos.y > pl.y + 4, "down + jump drops through a platform")
+
+	# Cross the 26-tile gap (columns 251..276) on both platforms, jumping when the next one comes close.
+	m.load_level("1-1")
+	await frames(3)
+	plats = get_nodes_in_group("platforms")
+	plats.sort_custom(func(a, b): return a.x < b.x)
+	p.pos = Vector2(251 * TILE - 10, 15 * TILE)
+	p.vel = Vector2.ZERO
+	p.invuln = 5
+	await frames(5)
+	var stage := 0
+	var air := false
+	for i in 1500:
+		# Next landing spot's left edge, the edge Clawd jumps from, and whether the gap is closing.
+		var target: float = [plats[0].x, plats[1].x, 277 * TILE][stage]
+		var edge: float = [251 * TILE, plats[0].x + 48, plats[1].x + 48][stage]
+		var closing: bool = [plats[0].dx < 0, plats[1].dx < plats[0].dx, plats[1].dx > 0][stage]
+		var on_target: bool = (stage < 2 and p.riding == plats[stage]) or (stage == 2 and p.is_on_floor() and p.pos.x > 277 * TILE)
+		if air and on_target:
+			air = false
+			Input.action_release("right")
+			Input.action_release("jump")
+			stage += 1
+			if stage == 3: break
+		elif not air:
+			# Walk to the edge, then jump once the gap is small enough and closing.
+			if p.pos.x < edge - 10:
+				Input.action_press("right")
+			else:
+				Input.action_release("right")
+			if target - edge < [24, 52, 60][stage] and closing:
+				air = true
+				Input.action_press("jump")
+				Input.action_press("right")
+		else:
+			if p.vel.y > 0:
+				Input.action_release("jump")
+			# Stop pushing right once over the middle of the platform.
+			if stage < 2 and p.pos.x > plats[stage].x + 24:
+				Input.action_release("right")
+		if p.pos.y > 16 * TILE:
+			print("    fell at stage %d, x %.0f, platforms %.0f %.0f" % [stage, p.pos.x, plats[0].x, plats[1].x])
+			break
+		await physics_frame
+	Input.action_release("right")
+	Input.action_release("jump")
+	ok(stage == 3, "1-1: Clawd crosses the last gap on the two platforms (reached stage %d of 3)" % stage)
 	return true

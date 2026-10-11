@@ -25,7 +25,6 @@ const APEX_GRAVITY_MULT := 0.55
 const APEX_THRESHOLD := 70.0
 const MAX_FALL := 430.0
 const JUMP_VELOCITY := 470.0
-const JUMP_CUT_MULT := 0.45
 const COYOTE_TIME := 0.1
 const JUMP_BUFFER := 0.12
 const HOVER_DURATION := 0.85
@@ -90,6 +89,10 @@ var drop_timer := 0.0
 var on_one_way := false
 ## No input, only gravity and slowing down (the level is complete).
 var frozen := false
+## The moving platform Clawd stands on, or null.
+var riding: MovingPlatform = null
+## Standing on a tile floor or riding a platform (set after moving).
+var on_ground := false
 
 @onready var visual: Node3D = $Visual
 @onready var body: MeshInstance3D = $Visual/Body
@@ -143,6 +146,7 @@ func respawn() -> void:
 	hovering = false
 	state = &"normal"
 	frozen = false
+	riding = null
 	visual.scale = Vector3.ONE
 	visual.visible = true
 
@@ -165,6 +169,7 @@ func hurt(from_x: float) -> bool:
 	hurt_timer = HURT_STUN
 	invuln = HURT_INVULN
 	state = &"normal"
+	riding = null
 	vel = Vector2((-1.0 if pos.x < from_x else 1.0) * HURT_KNOCK_X, -HURT_KNOCK_Y)
 	jumping = false
 	hovering = false
@@ -189,7 +194,15 @@ func _physics_process(dt: float) -> void:
 	if Input.is_action_just_pressed("jump") and not frozen:
 		jump_buffer = JUMP_BUFFER
 
-	var grounded := is_on_floor()
+	# Ride the moving platform (they move before the player): carried sideways, kept on its top.
+	if riding:
+		var r := riding.rect()
+		if not riding.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
+			riding = null
+		else:
+			move_and_collide(Vector3(riding.dx, 0, 0) * Px.M)
+			pos = Vector2(pos.x, riding.y)
+	var grounded := is_on_floor() or riding != null
 	if grounded:
 		coyote = COYOTE_TIME
 		hover_left = HOVER_DURATION
@@ -234,21 +247,20 @@ func _physics_process(dt: float) -> void:
 			jump_buffer = 0.0
 			coyote = 0.0
 			grounded = false
+			riding = null
 			position.y -= Px.M
 			event.emit(&"drop_through", pos)
 		elif jump_buffer > 0 and (grounded or coyote > 0):
 			vel.y = -JUMP_VELOCITY
 			jumping = true
 			grounded = false
+			riding = null
 			coyote = 0.0
 			jump_buffer = 0.0
 			squash = Vector2(0.72, 1.3)
 			event.emit(&"jump", pos)
 
-	# Variable jump height.
-	if jumping and vel.y < 0 and not Input.is_action_pressed("jump"):
-		vel.y *= JUMP_CUT_MULT
-		jumping = false
+	# Every jump is a full jump: unlike the TS player, letting go of jump early does not cut it short.
 	if vel.y >= 0:
 		jumping = false
 
@@ -294,8 +306,22 @@ func _physics_process(dt: float) -> void:
 	vel = Vector2(velocity.x, -velocity.y) / Px.M
 	if is_on_ceiling():
 		jumping = false
-	on_one_way = is_on_floor() and _floor_is_one_way()
-	if not grounded and is_on_floor():
+	# Land on a moving platform from above (the platform loop in the TS player's update()).
+	var ride: MovingPlatform = null
+	if not is_on_floor() and vel.y >= 0 and drop_timer <= 0:
+		for p: MovingPlatform in get_tree().get_nodes_in_group("platforms"):
+			var r := p.rect()
+			if not p.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
+				continue
+			if prev_pos.y <= p.y - p.dy + 1.5 and pos.y >= p.y:
+				pos = Vector2(pos.x, p.y)
+				vel.y = 0.0
+				ride = p
+				break
+	riding = ride
+	on_ground = is_on_floor() or riding != null
+	on_one_way = riding != null or (is_on_floor() and _floor_is_one_way())
+	if not grounded and on_ground:
 		if state == &"pound":
 			state = &"pound_land"
 			state_timer = 0.16
@@ -423,6 +449,7 @@ func _bounce() -> void:
 	jumping = held
 	hover_left = HOVER_DURATION
 	air_spin_used = false
+	riding = null
 	if state == &"pound" or state == &"pound_windup":
 		state = &"normal"
 	squash = Vector2(0.8, 1.25)
@@ -460,13 +487,13 @@ func _update_visual() -> void:
 			turn = anim * 40
 	elif state == &"spin":
 		# The idle frame on the ground, the jump frame in the air, turning round and round.
-		if not is_on_floor():
+		if not on_ground:
 			o.arms = "up"
 			o.legs = "tuck"
 		turn = anim * 38
 	elif frozen:
 		o.arms = "high" # cheering at the exit
-	elif not is_on_floor():
+	elif not on_ground:
 		if hovering:
 			o.arms = "low"
 			o.legs = "dangle"
