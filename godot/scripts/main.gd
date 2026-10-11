@@ -52,6 +52,9 @@ var tokens_total := 0
 var complete_t := -1.0
 ## Sub-agents rescued in this run, one per `A` (SubAgent.index).
 var agents: Array[bool] = []
+## Sparks found in this run, one per `S` (Spark.index), and which were found on earlier runs.
+var sparks: Array[bool] = []
+var prev_sparks: Array[bool] = []
 ## Whether this run finished the level for the first time (the results say what it unlocked).
 var first_clear := false
 
@@ -180,8 +183,19 @@ func load_level(id: String) -> void:
 	for a: SubAgent in level.get_children().filter(func(c: Node) -> bool: return c is SubAgent):
 		a.ghost = a.index < saved.size() and saved[a.index]
 		agents.append(false)
+	# Sparks found on an earlier run are ghosts (`this.prevSparks`).
+	var found: Array = Progress.progress_for(id).sparks
+	sparks = []
+	prev_sparks = []
+	var spark_nodes := level.get_children().filter(func(c: Node) -> bool: return c is Spark)
+	for i in spark_nodes.size():
+		sparks.append(false)
+		prev_sparks.append(i < found.size() and found[i])
+	for sp: Spark in spark_nodes:
+		sp.ghost = prev_sparks[sp.index]
 	hud.reset(id, info.name)
 	hud.agents = agents
+	hud.sparks = sparks
 	hud.visible = true
 	Sound.play_music(info.get("music", ""))
 	# Every token placed in the map plus what every bug drops.
@@ -388,6 +402,18 @@ func _drift(dt: float) -> void:
 	_set_reveal(PackedVector4Array())
 
 
+## A spark was touched (collectSpark() in src/scenes/game.ts): a big burst, a short hitstop and SPARK n/total.
+func collect_spark(sp: Spark) -> void:
+	if sp.index < sparks.size():
+		sparks[sp.index] = true
+	Sound.play("spark")
+	Game.hitstop(0.05)
+	var at := sp.feet() + Vector2(0, -Spark.CENTRE_Y)
+	particles.emit(at, {count = 40, speed = 150, life = 0.8, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
+	overlay.popup("SPARK %d/%d" % [sparks.count(true), sparks.size()], at + Vector2(0, -10), Color("#F0A585"))
+	hud.flash_sparks()
+
+
 ## A sub-agent was touched (rescueAgent() in src/scenes/game.ts).
 func rescue_agent(a: SubAgent) -> void:
 	if a.index < agents.size():
@@ -430,7 +456,7 @@ func reach_goal(goal: Goal) -> void:
 	Sound.play_music("")
 	# recordRun(): the level counts as finished (and what it unlocks opens) as soon as Clawd is through.
 	first_clear = not Progress.progress_for(level_id).completed
-	Progress.record_run(level_id, agents, Game.time, tokens)
+	Progress.record_run(level_id, sparks, agents, Game.time, tokens)
 	particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 80, speed = 200, life = 1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
 	shake(0.2)
 	set_meta("goal", goal)
@@ -468,6 +494,8 @@ func _update_complete(dt: float) -> void:
 			"title": "LEVEL COMPLETE",
 			"subtitle": "%s · %s" % [level_id, info.name],
 			"agents": agents.duplicate(),
+			"sparks": sparks.duplicate(),
+			"prev_sparks": prev_sparks.duplicate(),
 			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", Progress.format_time(secs)]],
 			# The first clear names the level it opened (ResultsScene).
 			"note": "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",

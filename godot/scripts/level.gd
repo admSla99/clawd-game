@@ -28,12 +28,13 @@ const GOAL := "res://scripts/goal.gd"
 const SIGN := "res://scripts/sign.gd"
 const PLATFORM := "res://scripts/moving_platform.gd"
 const AGENT := "res://scripts/sub_agent.gd"
+const SPARK := "res://scripts/spark.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
-# 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent
-# (numbered like the signs). Positions are the tile's bottom-centre, like Spawn.x / Spawn.y in
+# 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
+# 'S' a spark (each numbered like the signs). Positions are the tile's bottom-centre, like Spawn.x / Spawn.y in
 # src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -238,6 +239,7 @@ static func build(rows: PackedStringArray) -> Level:
 		maps.append(map)
 	var signs := 0
 	var agents := 0
+	var sparks := 0
 	var platform_phase := 0.0
 	for y in rows.size():
 		for x in rows[y].length():
@@ -253,6 +255,9 @@ static func build(rows: PackedStringArray) -> Level:
 				elif SPAWNS[ch] == "agent":
 					node.set("index", agents)
 					agents += 1
+				elif SPAWNS[ch] == "spark":
+					node.set("index", sparks)
+					sparks += 1
 				elif SPAWNS[ch].begins_with("platform"):
 					node.set("phase", platform_phase)
 					platform_phase += 1.3
@@ -282,6 +287,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"agent":
 			node = load(AGENT).new()
 			node.name = "SubAgent"
+		"spark":
+			node = load(SPARK).new()
+			node.name = "Spark"
 		"platform_h", "platform_v":
 			node = load(PLATFORM).new()
 			node.name = "Platform"

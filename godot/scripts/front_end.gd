@@ -45,8 +45,9 @@ var t := 0.0
 ## Selected level index on the map, and where the map's Clawd is (view px).
 var sel := 0
 var clawd_pos := Vector2.ZERO
-## Sub-agents per level (`A` in its map).
+## Sub-agents and sparks per level (`A` and `S` in its map).
 var agents_total := {}
+var sparks_total := {}
 
 var _dots := []
 var _logo_w := 0
@@ -106,7 +107,9 @@ func _count_agents() -> void:
 	if not agents_total.is_empty():
 		return
 	for id in main.level_ids:
-		agents_total[id] = FileAccess.get_file_as_string("res://levels/%s.txt" % id).count("A")
+		var map := FileAccess.get_file_as_string("res://levels/%s.txt" % id)
+		agents_total[id] = map.count("A")
+		sparks_total[id] = map.count("S")
 
 
 # --- Input ---------------------------------------------------------------------
@@ -479,8 +482,14 @@ func _draw_map() -> void:
 	draw_texture(clawd, (clawd_pos + Vector2(-clawd.get_width() / 2.0, -10 - clawd.get_height() - hop)).round())
 
 	_draw_card()
+	# All sparks found, bottom left (SPARKS FOUND in TS), and the keys.
+	var all := 0
+	for id in main.level_ids:
+		all += sparks_total.get(id, 0)
+	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
+	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
 	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   ESC TITLE   H CONTROLS"
-	_text(help, Vector2(v.get_center().x, v.end.y - 10), Color(DIM), true)
+	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
 
 func _draw_node(i: int) -> void:
@@ -517,15 +526,22 @@ func _draw_card() -> void:
 	_big("%s · %s" % [def.id, String(def.name).to_upper()], Vector2(cx, r.position.y + 6), Hud.TEXT, true)
 	PixelFont.draw_centred(self, def.subtitle, cx, r.position.y + 22, Hud.TEXT_DIM)
 	var y := r.position.y + 33
+	var x := r.position.x + 10
+	var stotal: int = sparks_total.get(def.id, 0)
+	if stotal > 0:
+		var sgot := Progress.count(prog.sparks)
+		draw_texture(Spark.icon(sgot == 0), Vector2(x, y - 2))
+		PixelFont.draw(self, "%d / %d" % [sgot, stotal], Vector2(x + 13, y), Hud.TEXT)
+		x += 50
 	var total: int = agents_total.get(def.id, 0)
 	if total > 0:
 		var got := Progress.count(prog.agents)
-		draw_texture(ClawdSprite.texture(ClawdSprite.frame(), Color(0, 0, 0, 0) if got > 0 else Color("#6A6A6A")), Vector2(r.position.x + 10, y - 2))
-		PixelFont.draw(self, "%d / %d" % [got, total], Vector2(r.position.x + 27, y), Hud.TEXT)
+		draw_texture(ClawdSprite.texture(ClawdSprite.frame(), Color(0, 0, 0, 0) if got > 0 else Color("#6A6A6A")), Vector2(x, y - 2))
+		PixelFont.draw(self, "%d / %d" % [got, total], Vector2(x + 17, y), Hud.TEXT)
 	if def.world == 2:
-		PixelFont.draw(self, "ARMED", Vector2(r.position.x + 70, y), Hud.ORANGE)
+		PixelFont.draw(self, "ARMED", Vector2(x + 50, y), Hud.ORANGE)
 	if prog.completed:
-		PixelFont.draw_centred(self, "CLEARED", cx, y, Hud.ORANGE_LIGHT)
+		PixelFont.draw_centred(self, "CLEARED", cx + 16, y, Hud.ORANGE_LIGHT)
 	if prog.best_time != null:
 		var bt := Progress.format_time(prog.best_time)
 		PixelFont.draw(self, bt, Vector2(r.end.x - 10 - PixelFont.width(bt), y), Hud.TEXT_DIM)

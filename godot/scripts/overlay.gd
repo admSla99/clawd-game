@@ -49,7 +49,13 @@ func _physics_process(dt: float) -> void:
 			p.t += dt
 		popups = popups.filter(func(p: Dictionary) -> bool: return p.t < p.life)
 	if not results.is_empty():
+		# Each found spark ticks as it pops in (ResultsScene.update()).
+		var shown := floori((results.t - 0.5) / 0.25)
 		results.t += dt
+		var now := floori((results.t - 0.5) / 0.25)
+		var found: Array = results.get("sparks", [])
+		if now != shown and now >= 0 and now < found.size() and found[now]:
+			Sound.play("token")
 	queue_redraw()
 
 
@@ -115,22 +121,34 @@ func _draw_results() -> void:
 	PixelFont.draw_centred(self, results.subtitle, cx, y + 18, Color(TEXT_DIM, k))
 	var rows: Array = results.rows
 	var agents: Array = results.get("agents", [])
+	var sparks: Array = results.get("sparks", [])
+	var prev: Array = results.get("prev_sparks", [])
 	var w := 150.0
+	var sparks_h := 20 if not sparks.is_empty() else 0
 	var agents_h := 18 if not agents.is_empty() else 0
-	var h := rows.size() * 12 + 12 + agents_h
+	var h := rows.size() * 12 + 12 + sparks_h + agents_h
 	var top := y + 32
 	panel(Rect2(cx - w / 2, top, w, h), Color(0.29, 0.29, 0.29, k), Color(0.08, 0.08, 0.08, 0.95 * k))
+	# Sparks: one each, popping in every 0.25 s, grey when not found, NEW under one found for the first time.
+	if not sparks.is_empty():
+		PixelFont.draw(self, "SPARKS", Vector2(cx - w / 2 + 12, top + 8), Color(TEXT_DIM, k))
+		for i in sparks.size():
+			if t > 0.5 + i * 0.25:
+				var at := Vector2(cx - w / 2 + 70 + i * 14, top + 6)
+				draw_texture(Spark.icon(not sparks[i]), at, Color(1, 1, 1, k))
+				if sparks[i] and not (i < prev.size() and prev[i]):
+					PixelFont.draw_centred(self, "NEW", at.x + 4.5, at.y + 11, Color(ORANGE_LIGHT, k))
 	# Sub-agents: a small Clawd each, cheering when rescued, dark when not (ResultsScene).
 	if not agents.is_empty():
-		PixelFont.draw(self, "SUB-AGENTS", Vector2(cx - w / 2 + 12, top + 10), Color(TEXT_DIM, k))
+		PixelFont.draw(self, "SUB-AGENTS", Vector2(cx - w / 2 + 12, top + sparks_h + 10), Color(TEXT_DIM, k))
 		for i in agents.size():
 			var tex := ClawdSprite.texture(ClawdSprite.frame("high" if agents[i] else "mid"), Color(0, 0, 0, 0) if agents[i] else Color("#3A3A3A"))
 			# They pop in one after another, the rescued ones with a hop.
 			if t > 0.5 + i * 0.25:
 				var hop := roundf(absf(sin((t - i * 0.3) * 6)) * 2) if agents[i] else 0.0
-				draw_texture(tex, Vector2(cx - w / 2 + 70 + i * 20, top + 6 - hop), Color(1, 1, 1, k))
+				draw_texture(tex, Vector2(cx - w / 2 + 70 + i * 20, top + sparks_h + 6 - hop), Color(1, 1, 1, k))
 	for i in rows.size():
-		var ry := top + 8 + agents_h + i * 12
+		var ry := top + 8 + sparks_h + agents_h + i * 12
 		PixelFont.draw(self, rows[i][0], Vector2(cx - w / 2 + 12, ry), Color(TEXT_DIM, k))
 		PixelFont.draw(self, rows[i][1], Vector2(cx - w / 2 + 70, ry), Color(TEXT, k))
 	var note: String = results.get("note", "")

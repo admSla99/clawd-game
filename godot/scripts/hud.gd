@@ -100,6 +100,9 @@ var _hurt := 0.0
 var _bump := 0.0
 ## The run's rescued sub-agents (Main.agents, shared), and seconds since the last rescue.
 var agents: Array = []
+## The run's found sparks (Main.sparks, shared), and how long the SPARKS counter still flashes (flashSparks).
+var sparks: Array = []
+var _spark_flash := 0.0
 var _rescued := 0
 var _agent_t := 10.0
 ## While > 0 the hearts stay as shown (the last heart breaking before the refill on a respawn).
@@ -121,6 +124,7 @@ func reset(id: String, level_name: String) -> void:
 	_bump = 0.0
 	_rescued = 0
 	_agent_t = 10.0
+	_spark_flash = 0.0
 	_hold = 0.0
 	_stagger = 0.0
 
@@ -163,6 +167,7 @@ func _process(dt: float) -> void:
 	_hold = maxf(0.0, _hold - dt)
 	_stagger = maxf(0.0, _stagger - dt)
 	_agent_t += dt
+	_spark_flash = maxf(0.0, _spark_flash - dt)
 	var rescued := agents.count(true)
 	if rescued != _rescued:
 		_rescued = rescued
@@ -225,7 +230,21 @@ func _count_text() -> String:
 
 ## The counter coin's centre in view pixels (where the tokens fly to).
 func coin_centre() -> Vector2:
-	return ORIGIN + Vector2(_hearts_w() + 1 + 4 + 4, 8)
+	return ORIGIN + Vector2(_hearts_w() + _sparks_w() + 1 + 4 + 4, 8)
+
+
+## A spark was found: the SPARKS counter flashes for 1.4 s.
+func flash_sparks() -> void:
+	_spark_flash = 1.4
+
+
+func _sparks_text() -> String:
+	return "%d/%d" % [sparks.count(true), sparks.size()]
+
+
+## Width of the sparks section (none in a level without sparks): divider, icon, "x/y".
+func _sparks_w() -> int:
+	return 1 + 4 + 9 + 4 + _sparks_text().length() * 5 - 1 + 6 if not sparks.is_empty() else 0
 
 
 func _draw() -> void:
@@ -236,7 +255,8 @@ func _draw() -> void:
 	# Sub-agents (when the level has any): a small Clawd, grey until one is rescued, and "x/y".
 	var agents_text := "%d/%d" % [_rescued, agents.size()]
 	var aw := 4 + 13 + 4 + agents_text.length() * 5 - 1 + 6 if not agents.is_empty() else 0
-	var w := hw + tw + aw
+	var sw := _sparks_w()
+	var w := hw + sw + tw + aw
 	var hurt_k := clampf(_hurt / 0.3, 0.0, 1.0)
 	panel(self, Rect2(o, Vector2(w, H)), BORDER.lerp(RED, hurt_k), FILL, true)
 
@@ -263,12 +283,29 @@ func _draw() -> void:
 		c.a = 1.0 - s.t / 0.6
 		draw_rect(Rect2(s.p.round(), Vector2.ONE), c)
 
+	# Sparks: a small spark (grey until one is found) and "x/y" in light orange while it flashes, like the 2D
+	# SPARKS panel's orange border.
+	if sw > 0:
+		for y in range(3, H - 3, 2):
+			draw_rect(Rect2(o.x + hw, o.y + y, 1, 1), BORDER.lightened(0.15))
+		var found := sparks.count(true)
+		var flash := _spark_flash > 0 and fmod(_spark_flash, 0.2) < 0.12
+		var sx := o.x + hw + 1 + 4
+		draw_texture(Spark.icon(found == 0), Vector2(sx, o.y + 3 - (1 if flash else 0)))
+		var stext := _sparks_text()
+		var scol := ORANGE_LIGHT if _spark_flash > 0 else TEXT if found > 0 else ZERO_DIM
+		for k in stext.length():
+			var ch := stext[k]
+			var glyph: ImageTexture = _slash_tex if ch == "/" else _digit_tex[int(ch)]
+			draw_texture(glyph, Vector2(sx + 9 + 4 + k * 5, o.y + 5), SHADOW)
+			draw_texture(glyph, Vector2(sx + 9 + 4 + k * 5, o.y + 4), scol)
+
 	# Dotted divider.
 	for y in range(3, H - 3, 2):
-		draw_rect(Rect2(o.x + hw, o.y + y, 1, 1), BORDER.lightened(0.15))
+		draw_rect(Rect2(o.x + hw + sw, o.y + y, 1, 1), BORDER.lightened(0.15))
 
 	# The coin faces the front and turns once now and then; it glints white while the counter bumps.
-	var cx := o.x + hw + 1 + 4
+	var cx := o.x + hw + sw + 1 + 4
 	var spin := absf(cos(minf(fmod(_t, SPIN_EVERY) / SPIN_TIME, 1.0) * PI))
 	var cw := 8 if spin > 0.75 or _bump > 0 else 6 if spin > 0.45 else 4 if spin > 0.18 else 2
 	var tex: ImageTexture = _coin_tex[cw]
@@ -289,7 +326,7 @@ func _draw() -> void:
 		draw_texture(_digit_tex[d], Vector2(dx + k * 5, y), col)
 
 	if not agents.is_empty():
-		var ax := o.x + hw + tw
+		var ax := o.x + hw + sw + tw
 		for y in range(3, H - 3, 2):
 			draw_rect(Rect2(ax, o.y + y, 1, 1), BORDER.lightened(0.15))
 		var cheer := _agent_t < 0.8 and fmod(_agent_t, 0.2) < 0.1

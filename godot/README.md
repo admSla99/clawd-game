@@ -49,9 +49,9 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 `levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
-`?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`
-(numbered like the signs). Other spawn characters are skipped. Only 1-1 has been re-converted since
-checkpoints, the exit, signs, moving platforms and sub-agents were added.
+`?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`,
+`S` → `Spark` (both numbered like the signs). Other spawn characters are skipped. Only 1-1 has been
+re-converted since checkpoints, the exit, signs, moving platforms, sub-agents and sparks were added.
 
 `export_levels.mjs` merges `levels/overrides.json` (fields per level id) into `index.json`, for metadata where
 the port differs from the TS game: 1-1's sign texts, since the port has no variable jump height.
@@ -93,9 +93,19 @@ swirl on whole pixels (`shaders/portal.gdshader`, a quad on the gameplay plane),
 orange LEDs, a pulsing GlowLight, sparks drifting up and "EXIT" above (Overlay world text). Clawd walks into
 it, since it stands on the gameplay plane. Touching its inner 16 x 40 px calls `Main.reach_goal()`: a burst,
 Clawd stops (`Player.frozen`) and cheers, drifts to the middle, after 0.6 s stretches into a thin beam and
-vanishes; after 2 s the results panel (rescued sub-agents, tokens collected / in the level, time, and on a first
+vanishes; after 2 s the results panel (sparks, rescued sub-agents, tokens collected / in the level, time, and on a first
 clear the level it unlocked) fades in over the level, and jump goes back to the map on the next level. The run is
 recorded the moment the exit is touched (`Progress.record_run()`).
+
+Sparks (`scripts/spark.gd`, `S`): `Spark` from `src/entities/collectibles.ts`, the level's rare collectible
+(5 in 1-1). It is `drawSpark()` in voxels: glowing 1 px dots around a white-hot core, dotted arms in the four
+directions that flicker between 3 and 4 dots, four diagonal dots and, while the arms are long, four fainter
+ones further out (`Spark.rows()`, 19 x 19 px), bobbing 2 px, in front of a dithered dark orange halo
+(`shaders/halo.gdshader`, the 2D glow circle at about 12 %) that breathes, with a GlowLight. Touching it (14 x 14
+px box) calls `Main.collect_spark()`: the spark sound, 0.05 s hitstop, a 40-particle burst and "SPARK n/total";
+the HUD's spark counter flashes. One found on an earlier run is a ghost: every other dot, muted orange, no halo,
+still collectible. The results list the level's sparks one by one (a tick for each found one, NEW under the
+first finds), the map card shows found / total and the map's bottom left all sparks found.
 
 Sub-agents (`scripts/sub_agent.gd`, `A`): `SubAgent` from `src/entities/collectibles.ts`, a small Clawd, the 2D
 game's 13 x 10 frame at 1 px (`ClawdSprite.frame()`) as a voxel model 6 px deep on the gameplay plane, facing
@@ -158,7 +168,8 @@ to 5), and the menus (pause freezes the world, every pause item, the HUD buttons
 clearing, reset, saving to a separate settings file, glyphs for every key name), and the sound (every effect
 renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
 the game's events play their sounds, the jet hisses while hovering, M mutes, the exit and results switch the
-music).
+music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, results, saved progress, ghosts on the
+next run).
 
 ## Game clock and camera
 
@@ -213,7 +224,9 @@ over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the t
 dark panel with the 2D panel's open corners, a 1 px shadow under it, a faint highlight inside its top edge and a
 short orange tab on top; in it 9 x 8 px hearts lit from the top left (lost ones are dark sockets), a dotted
 divider, an 8 px token in `TokenSprite`'s palette that turns once every 3 s, and the count in 4 x 7 px digits
-with a 1 px shadow and dim leading zeros (`007`); in a level with sub-agents, past another divider, a small
+with a 1 px shadow and dim leading zeros (`007`). Between the hearts and the token, in a level with sparks, a
+small spark (grey until one is found) and "x/y", flashing light orange for 1.4 s after a find (the 2D SPARKS
+panel). In a level with sub-agents, past another divider, a small
 Clawd (grey until one is rescued, cheering for a moment after each rescue) and "x/y". Top right are a CONTROLS button, a pause button (two bars), a
 mute button (`drawSpeaker()`) and the level's label (`1-1 · token plains`, the id in light orange); the buttons light up under the mouse and
 stay orange while their menu is open, and the speaker shows a red cross while muted. Everything sits 6 px
@@ -286,8 +299,8 @@ moving platforms. The level's own world text, the HUD and the see-through window
   Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.
 
 `scripts/progress.gd` (autoload `Progress`) is the level part of `src/save.ts`, saved as JSON in
-`user://progress.json`: per level completed, rescued sub-agents (merged, never lost) and the best time, plus the
-wallet of banked tokens. A level is unlocked when it is the first or the one before it is completed
+`user://progress.json`: per level completed, found sparks and rescued sub-agents (merged, never lost) and the
+best time, plus the wallet of banked tokens. A level is unlocked when it is the first or the one before it is completed
 (`App.isUnlocked()`).
 
 ## Menus and key bindings
@@ -448,11 +461,12 @@ without COOP/COEP headers.
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
 | `scripts/sub_agent.gd`, `shaders/beam.gdshader` | Sub-agent (`A`), its HELP bubble and rescue beam |
+| `scripts/spark.gd`, `shaders/halo.gdshader` | Spark (`S`), its icon and its halo |
 | `scripts/front_end.gd` | Title screen and world map |
-| `scripts/progress.gd` | Saved progress: cleared levels, rescued sub-agents, best times, wallet |
+| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
-| `scripts/hud.gd` | HUD: hearts, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label |
+| `scripts/hud.gd` | HUD: hearts, found sparks, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label |
 | `scripts/game_menu.gd`, `scripts/settings.gd` | Pause, controls help and keybinding menus; saved bindings |
 | `scripts/sound.gd` | Synthesized sound effects, music loops and the hover jet (`src/core/audio.ts`) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |

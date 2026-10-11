@@ -62,6 +62,7 @@ func _init() -> void:
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
 	await section("sub-agents in 1-1 (src/entities/collectibles.ts)", check_agents)
+	await section("sparks in 1-1 (src/entities/collectibles.ts)", check_sparks)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.path = real_progress
 	progress.load_file()
@@ -286,7 +287,7 @@ func check_scenes() -> bool:
 	ok(front.sel == 0, "a new game starts on 1-1")
 	front.handle(key(KEY_RIGHT))
 	ok(front.sel == 0 and "denied" in snd.played, "1-2 is locked until 1-1 is cleared")
-	progress.record_run("1-1", [true, false], 61.25, 30)
+	progress.record_run("1-1", [], [true, false], 61.25, 30)
 	ok(progress.wallet == 30 and progress.progress_for("1-1").completed and progress.progress_for("1-1").best_time == 61.25,
 		"a cleared run is recorded (wallet, best time)")
 	front.handle(key(KEY_RIGHT))
@@ -1025,4 +1026,50 @@ func check_agents() -> bool:
 	agents = m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/sub_agent.gd"))
 	agents.sort_custom(func(a1, b1): return a1.index < b1.index)
 	ok(agents[1].ghost and not agents[0].ghost, "next time the rescued one is a ghost")
+	return true
+
+
+func check_sparks() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.load_file()
+	m.load_level("1-1")
+	await frames(3)
+	var spark_script = load("res://scripts/spark.gd")
+	var sparks: Array = m.level.get_children().filter(func(c): return c.get_script() == spark_script)
+	sparks.sort_custom(func(a, b): return a.index < b.index)
+	ok(sparks.map(func(sp): return int(sp.feet().x / TILE)) == [160, 51, 116, 268, 221],
+		"1-1 has 5 sparks ('S'), numbered in map order")
+	ok(m.sparks == [false, false, false, false, false] and m.hud.sparks.size() == 5 and m.hud._sparks_w() > 0, "the HUD counts them")
+	ok(m.hud.coin_centre().x > m.hud.ORIGIN.x + m.hud._hearts_w() + m.hud._sparks_w(), "the token counter moves right of the sparks")
+	ok(sparks.all(func(sp): return not sp.ghost), "none is a ghost in a new game")
+	var grid: Array = spark_script.rows(4)
+	ok(grid.size() == 19 and grid[9][9] == "W" and grid[9][18] == "O" and grid[0][9] == "O" and grid[14][14] == "h",
+		"the spark is drawSpark()'s dots: core, 4 dots per arm, diagonals")
+	ok(spark_script.rows(3)[9][18] == "." and spark_script.rows(3, true)[9].count("O") < spark_script.rows(3)[9].count("O"),
+		"the arms flicker between 3 and 4 dots; a ghost keeps every other dot")
+
+	snd.played.clear()
+	var sp = sparks[1]
+	p.pos = sp.feet()
+	await frames(2)
+	ok(m.sparks == [false, true, false, false, false] and "spark" in snd.played, "touching one collects it")
+	ok(m.overlay.popups.any(func(q): return q.text == "SPARK 1/5") and m.hud._spark_flash > 0, "SPARK 1/5 pops up and the HUD counter flashes")
+	ok(not is_instance_valid(sp) or sp.is_queued_for_deletion(), "the spark is gone")
+
+	p.pos = m.level.get_node("Goal").feet()
+	await frames(150)
+	ok(m.overlay.results.get("sparks") == [false, true, false, false, false] and m.overlay.results.get("prev_sparks") == [false, false, false, false, false],
+		"the results show the spark, new this time")
+	ok(progress.progress_for("1-1").sparks == [false, true, false, false, false] and progress.total_sparks() == 1, "the save remembers it")
+	progress.record_run("1-1", [true, false, false, false, false], [], 99.0, 0)
+	ok(progress.progress_for("1-1").sparks == [true, true, false, false, false], "found sparks are merged, never lost")
+	m.load_level("1-1")
+	await frames(3)
+	sparks = m.level.get_children().filter(func(c): return c.get_script() == spark_script)
+	sparks.sort_custom(func(a, b): return a.index < b.index)
+	ok(sparks[1].ghost and sparks[0].ghost and not sparks[2].ghost, "next time the found ones are ghosts")
 	return true
