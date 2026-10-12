@@ -88,8 +88,10 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 - Visuals (Clawd, bugs, tokens, decor) are voxel meshes built from text-grid sprites by `Voxel.mesh()`, ported from
   `src/render/sprites.ts` / `shapes.ts`.
 - `tools/check.gd` compares the noise ports, converted levels and player physics against values from the TS
-  sources, and plays through every ported feature in 1-1 (sections per feature); when porting more TS logic, add
-  a check there. It starts `Main` in `PLAY` mode and points `Settings.path` / `Progress.path` at their own files,
+  sources, and plays through every ported feature (sections per feature); when porting more TS logic, add a check
+  there. Per-level sections are separate files, `tools/checks/<id>.gd` (template `2-1.gd`), so levels can be
+  ported in parallel worktrees; theme motifs are found by file name (`Main.motif_shader_for()` /
+  `motif_script_for()`), and the rules for parallel work are in `godot/docs/port-plan.md`. It starts `Main` in `PLAY` mode and points `Settings.path` / `Progress.path` at their own files,
   so it never touches the player's saves.
 - **Main scene and modes**: `scenes/main.tscn` (`scripts/main.gd`, class `Main`) is the main scene. `Main.mode`
   is `TITLE`, `MAP`, `SHOP` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the player

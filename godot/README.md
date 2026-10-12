@@ -304,11 +304,39 @@ the Attention Beam marches 300 px from the muzzle in 3 px steps until a solid ti
 way, except through a shield; `BeamFx` (`scripts/beam_fx.gd`, a MultiMesh) shows each beam for 0.06 s as a
 jittering line of 2 px dots, cyan with white every 6 px.
 
+## World 2 levels
+
+One section per level, each filled in by the milestone that ports it (M8-M11 in `docs/port-plan.md`, which may
+run in parallel worktrees: each edits only its own section here). Every world-2 level is armed and uses the
+world-2 enemies (*Enemies*); 2-1's mesa motif is under *Look and feedback*.
+
+### 2-2 GPU Forge
+
+Not ported yet (M8): the forge motif.
+
+### 2-3 Prompt Injection Swamp
+
+Not ported yet (M9): the swamp motif.
+
+### 2-4 The Diff Towers
+
+Not ported yet (M10): the towers motif.
+
+### 2-B Codex
+
+Not ported yet (M11): the boss Codex (`src/entities/boss/codex.ts`), its arena and the codex motif.
+
 ## Checks
 
 ```bash
 godot --headless --script tools/check.gd     # exits non-zero on failure
 ```
+
+Per-level sections live in `tools/checks/<id>.gd`, one file per level, run in name order where the 2-1 section
+used to be (`level_sections()`): each has `const TITLE` and `func run(c) -> bool`, with `c` the check script
+(`c.ok()`, `await c.frames()`, `c.current_scene`, `c.enemies_of()`, `c.bugs()`, `await c.drive()`, ...);
+`tools/checks/2-1.gd` is the template. A run keeps its progress and settings in files named after its process id,
+so checks in several worktrees of the project (which share `user://`) can run at the same time.
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
 cells and spawns with its `.txt` map (each ported spawn character placed as often as in the map, one start, one
@@ -615,8 +643,9 @@ Back to front:
 
 - `shaders/haze.gdshader` (`Background/Haze`): the palette's dark top to its haze at the horizon in dithered
   steps, with slanted light rays that pulse slowly and drift with the camera.
-- Theme motif (`Background/Motif`, a ColorRect whose shader `Main.MOTIFS` picks per theme, hidden for themes
-  without one; ideas in `docs/scenery-themes.md`). Caves: `shaders/motif_caves.gdshader`, the loss landscape seen
+- Theme motif (`Background/Motif`, a ColorRect whose shader `Main.motif_shader_for()` finds by its name,
+  `shaders/motif_<theme>.gdshader`, so a new theme's motif needs no registration; hidden for themes without one;
+  ideas in `docs/scenery-themes.md`; the world-2 levels' own motifs are described under *World 2 levels*). Caves: `shaders/motif_caves.gdshader`, the loss landscape seen
   from the bottom of its valley: 1 px contour lines of a height field that rises above and below a meandering
   valley floor (every fourth an index line), faint away from the floor, and balls of light rolling along the
   floor (gradient descent), one per 420 px, each with a dithered halo that lights the contour lines within
@@ -631,7 +660,8 @@ Back to front:
   glowing crack) glow and pulse in the theme's ray colour and a spark runs along each seam. Opaque rock (the
   shader also gets the theme's `haze_color` and `mid_color`), fading into the haze lower down and fast below the
   mesas' foot, so pits keep their depth.
-- Window motif (`Main.MOTIFS_3D`: 3D motifs among the scenery, a node built per level): `scripts/window_motif.gd`
+- Window motif (3D motifs among the scenery, a node built per level from `scripts/<theme>_motif.gd`, found by
+  `Main.motif_script_for()`): `scripts/window_motif.gd`
   (`WindowMotif`) fills three layers (z = -21, -11, -8 m; parallax 0.2, 0.32, 0.42) with a window slot per
   cell, each running its own ~14 s life on `Game.time`: a text panel of 48-96 × 28-52 px
   (`shaders/motif_window.gdshader`) opens from its title bar down, types its lines of prompt / code in
@@ -769,7 +799,7 @@ without COOP/COEP headers.
 | `shaders/motif_mesa.gdshader` | Mesa motif: mesas of diff strata with glowing merge-conflict seams |
 | `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
-| `tools/check.gd` | Headless checks, see *Checks* |
+| `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |
 | `levels/overrides.json` | Port-specific level metadata merged into `index.json` (1-1's sign texts) |
 | `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |

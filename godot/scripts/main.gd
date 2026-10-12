@@ -26,11 +26,6 @@ const DARK_AMOUNT := 0.93
 const LAMP_RADIUS := 105.0
 const LAMP_Z := 1.0
 const DARK_SKY := 0.3
-## Far background motif per theme (docs/scenery-themes.md), drawn on Background/Motif between the haze and
-## the parallax ridges; themes without one leave it hidden.
-const MOTIFS := {"caves": preload("res://shaders/motif_caves.gdshader"), "mesa": preload("res://shaders/motif_mesa.gdshader")}
-## Motifs built from 3D objects among the scenery layers: a node class with setup(seed, bounds, view, palette).
-const MOTIFS_3D := {"window": preload("res://scripts/window_motif.gd")}
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
 ## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts.
@@ -293,8 +288,9 @@ func load_level(id: String) -> void:
 	if motif_3d:
 		motif_3d.free()
 		motif_3d = null
-	if MOTIFS_3D.has(info.theme):
-		motif_3d = MOTIFS_3D[info.theme].new()
+	var motif_script := motif_script_for(info.theme)
+	if motif_script:
+		motif_3d = motif_script.new()
 		motif_3d.name = "Motif3D"
 		world.add_child(motif_3d)
 		motif_3d.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette)
@@ -313,7 +309,7 @@ func load_level(id: String) -> void:
 	RenderingServer.global_shader_parameter_set("dark_amount", dark_amount)
 	haze.material.set_shader_parameter("dim", DARK_SKY if dark else 1.0)
 	parallax.modulate = Color(DARK_SKY, DARK_SKY, DARK_SKY) if dark else Color.WHITE
-	var motif_shader: Shader = MOTIFS.get(info.theme)
+	var motif_shader := motif_shader_for(info.theme)
 	motif.visible = motif_shader != null
 	if motif_shader:
 		var mat := ShaderMaterial.new()
@@ -510,6 +506,22 @@ func _on_pound_land() -> void:
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 		if not e.projectile and wave.intersects(e.rect()):
 			e.hit(&"pound", Enemy.POUND_WAVE_DAMAGE)
+
+
+## The theme's far background motif (docs/scenery-themes.md), drawn on Background/Motif between the haze and
+## the parallax ridges: `shaders/motif_<theme>.gdshader`, found by its name so a new theme's motif needs no change
+## here; null for themes without one (Background/Motif stays hidden). It gets the uniforms line_color,
+## haze_color, mid_color, strength (load_level()), scroll and game_time (every frame).
+static func motif_shader_for(theme: String) -> Shader:
+	var path := "res://shaders/motif_%s.gdshader" % theme
+	return load(path) if ResourceLoader.exists(path) else null
+
+
+## The theme's motif built from 3D objects among the scenery layers: `scripts/<theme>_motif.gd`, found by its
+## name, a Node3D class with setup(seed, bounds, view, palette); null for themes without one.
+static func motif_script_for(theme: String) -> GDScript:
+	var path := "res://scripts/%s_motif.gd" % theme
+	return load(path) if ResourceLoader.exists(path) else null
 
 
 ## Breaks the corrupted cluster at tile (tx, ty) with debris through the blocks' depth; true if it broke any.

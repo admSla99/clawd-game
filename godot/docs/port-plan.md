@@ -1,8 +1,8 @@
 # Port plan: all levels, shooting and weapons
 
 Goal: every level of the TS game (`src/world/levels/`, 1-1 … 2-B) playable in the Godot 2.5D port, with its
-enemies, level features, bosses, a scenery motif per theme, and world 2's shooting and weapons. 1-1 is done
-(see `../README.md`). Tick the boxes in the commit that finishes a task.
+enemies, level features, bosses, a scenery motif per theme, and world 2's shooting and weapons. World 1, shooting,
+the world-2 enemies and 2-1 are done (M0-M7, see `../README.md`). Tick the boxes in the commit that finishes a task.
 
 ## Decisions (interview, 2026-10-12)
 
@@ -15,7 +15,8 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - **Full jump only**: when a TS map does not work with it, use a Godot-only map override (like
   `levels/overrides.json` for texts). The TS maps and their reachability tests stay unchanged.
 - **Aiming**: as in TS. The mouse aims through a dotted crosshair on the gameplay plane (z = 0), X shoots and ↑ / ↓
-  tilt the aim without a mouse, and the right stick aims on a gamepad. World 2's sign texts stay.
+  tilt the aim without a mouse. (A gamepad was planned here; in M5 the user decided against it.) World 2's sign
+  texts stay.
 - **Weapons**: as in TS. Hallucination (1-B) drops the Token Blaster, world 2 is armed, and the shop's ARMORY
   (4 weapons + Bigger Model / Faster Inference / Longer Context) unlocks after 1-B.
 - **Token drops**: every enemy drops its TS amount × 5, like the bug (2 → 10). Shop prices stay as in TS.
@@ -29,17 +30,15 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 
 ## Spawns still to port
 
-| Level | Theme | Unported spawns | Feature |
+Every spawn is ported except the boss Codex (`B` in 2-B, M11): all levels are converted and their enemies work,
+so 2-2, 2-3 and 2-4 can already be played (without their motifs); 2-B has no boss yet, so it cannot be finished.
+
+| Level | Theme | Spawns (all ported) | Feature |
 |---|---|---|---|
-| 1-1 | plains | `F` ×1 | |
-| 1-2 | caves | `R` ×4, `F` ×3 | `dark` |
-| 1-3 | window | `F` ×3 | `risingVoid` (speed 22, delay 4) |
-| 1-B | boss | `B` Hallucination | blaster drop |
-| 2-1 | mesa | `F` ×2, `D` ×4, `T` ×2, `H` ×2 | armed |
 | 2-2 | forge | `Y` ×5, `D` ×3, `R` ×3, `H` ×2, `T` ×1 | armed |
 | 2-3 | swamp | `F` ×4, `D` ×1, `I` ×8, `T` ×1, `H` ×1 | armed |
 | 2-4 | towers | `H` ×3, `D` ×4, `T` ×4, `F` ×2 | armed |
-| 2-B | codex | `B` Codex | world 2 clear |
+| 2-B | codex | `B` Codex (**not ported**) | world 2 clear |
 
 ## Every level: definition of done
 
@@ -47,9 +46,29 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
    endings), then `convert_level.gd -- <id>`.
 2. All spawns of the level ported. Full-jump fit checked; a map override is added if needed.
 3. The theme's scenery motif.
-4. A `tools/check.gd` section: the level loads, its spawns match the map, and its features work.
+4. A check section in `tools/checks/<id>.gd` (template: `tools/checks/2-1.gd`): the level loads, its spawns
+   match the map, its motif is up, full jumps fit, and its features work.
 5. Screenshots of the real window (start, features, enemies, exit). Fix what they show.
 6. `godot/README.md` updated, commit + push, then **stop for the user's playtest**.
+
+## Parallel work (M8-M11)
+
+M8, M9, M10 and M11 touch different levels and can run at the same time in separate worktrees of `godot-2.5d`.
+M12 waits for all of them. Rules, so they never edit the same lines:
+
+- A motif is found by its file name: `shaders/motif_<theme>.gdshader` (a background ColorRect shader, uniforms as
+  in `motif_mesa.gdshader`) or `scripts/<theme>_motif.gd` (3D objects among the scenery, like
+  `window_motif.gd`). Don't register it anywhere: `main.gd` needs no change for a motif.
+- Checks go into `tools/checks/<id>.gd` only (with its `.uid`), not into `tools/check.gd`.
+- Docs: only your level's section under *World 2 levels* in `godot/README.md` (it may list your new files there;
+  don't add Layout rows or edit the *Checks* paragraph) and only your milestone's boxes in this file. Don't edit
+  `CLAUDE.md`, `docs/scenery-themes.md` or *Added beyond the plan*; M12 brings them up to date.
+- Shared scripts (`main.gd`, `enemy.gd`, `scenery.gd`, `hud.gd`, `overlay.gd`, ...): change them only when the
+  level really needs it, in small, separate hunks. M11 (Codex) is the one expected to change `main.gd`
+  (`_spawn_boss()`, `boss_defeated()`, the results) and `hud.gd` (the boss bar's name).
+- Capture scripts: `tools/_capture_<id>.gd`, with `user://progress_capture_<id>.json` and screenshots in
+  `%TEMP%/clawd_cap_<id>/`; delete the script and its `.uid` before committing.
+- Before pushing: `git fetch`, `git rebase origin/godot-2.5d`, run `tools/check.gd` again, then push. Never force.
 
 ## Tasks
 
@@ -131,13 +150,16 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [ ] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M11 2-B Codex
-- [ ] Arena; port `src/entities/boss/codex.ts` as a big voxel model; "WORLD 2 CLEAR!".
+- [ ] Arena; port `src/entities/boss/codex.ts` as a big voxel model; "CODEX HAS BEEN DEPRECATED", "WORLD 2
+      CLEAR!" and the last level's results text ("THANKS FOR PLAYING!", `results.ts`).
 - [ ] Codex motif: code monoliths with scrolling code.
 - [ ] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M12 Finish
-- [ ] Full playthrough title → 2-B; balance check of token income vs. ARMORY prices.
-- [ ] `CLAUDE.md` "Godot port status" and `godot/README.md` brought up to date.
+- [ ] Full playthrough title → 2-B; balance check of token income vs. ARMORY prices (with 5× tokens and 3× hp).
+- [ ] `CLAUDE.md` "Godot port status", `docs/scenery-themes.md` and `godot/README.md` (Layout rows, *Checks*)
+      brought up to date after the parallel milestones.
+- [ ] Small TS details still missing: Clawd holds his gun on the world map in world 2 (`levelSelect.ts`).
 
 ## Added beyond the plan
 
