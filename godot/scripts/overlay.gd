@@ -3,7 +3,8 @@ extends Node2D
 
 ## Text over the 3D view, drawn in the SubViewport at view resolution with PixelFont, so it is pixel art
 ## like the rest: floating popups ("STATE SAVED"), the text of nodes in the group "world_text" (sign
-## bubbles, the exit label; they implement `overlay_draw(overlay)`) and the level-complete panel.
+## bubbles, the exit label; they implement `overlay_draw(overlay)`) and the level-complete panel. Added in the
+## port: damage numbers over hit enemies and a health bar over each hurt one.
 ## Lives in a CanvasLayer above the colour grade. World positions are level pixels; to_view() maps them
 ## through the camera, including the oblique shift of points off the gameplay plane.
 
@@ -17,6 +18,14 @@ var camera: Camera3D
 var popups: Array[Dictionary] = []
 ## Level-complete panel, or empty: {title, subtitle, rows: [[label, value]], t}.
 var results := {}
+## Damage numbers: {id (the enemy's instance id), amount, at (level px), t, kill}.
+var numbers: Array[Dictionary] = []
+const NUMBER_LIFE := 0.8
+## A hit on the same enemy within this many seconds adds to its number (the beam, the stream, a spread's pellets;
+## the blaster's shots, 0.18 s apart, each get their own).
+const NUMBER_MERGE := 0.12
+const BAR_RED := Color("#E5534B")
+const BAR_LOST := Color("#F2E3D5")
 
 
 ## Shows `text` centred above `at` (level pixels, `z` metres off the gameplay plane), rising and fading
@@ -25,8 +34,30 @@ func popup(text: String, at: Vector2, color: Color, life := 1.2, z := 0.0, rise 
 	popups.append({"text": text, "at": at, "z": z, "t": 0.0, "life": life, "color": color, "rise": rise})
 
 
+## A hit of `amount` on enemy `e`: a number rising from over its head, light orange for the killing blow.
+## Quick hits on the same enemy add up in the number already there instead of piling up.
+func damage_number(e: Enemy, amount: float, kill: bool) -> void:
+	var r := e.rect()
+	var top := Vector2(r.get_center().x, r.position.y)
+	var id := e.get_instance_id()
+	for n in numbers:
+		if n.id == id and n.t < NUMBER_MERGE:
+			n.amount += amount
+			n.at = top
+			n.kill = n.kill or kill
+			n.t = minf(n.t, 0.05)
+			return
+	numbers.append({"id": id, "amount": amount, "at": top + Vector2(randi_range(-3, 3), 0), "t": 0.0, "kill": kill})
+
+
+## 2 -> "2", 2.5 -> "2.5".
+static func amount_text(v: float) -> String:
+	return str(roundi(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
+
+
 func clear() -> void:
 	popups.clear()
+	numbers.clear()
 	results = {}
 
 
@@ -48,6 +79,9 @@ func _physics_process(dt: float) -> void:
 		for p in popups:
 			p.t += dt
 		popups = popups.filter(func(p: Dictionary) -> bool: return p.t < p.life)
+		for n in numbers:
+			n.t += dt
+		numbers = numbers.filter(func(n: Dictionary) -> bool: return n.t < NUMBER_LIFE)
 	if not results.is_empty():
 		# Each found spark ticks as it pops in (ResultsScene.update()).
 		var shown := floori((results.t - 0.5) / 0.25)
@@ -67,6 +101,16 @@ func _draw() -> void:
 	if main == null or main.mode == Main.Mode.PLAY:
 		for n in get_tree().get_nodes_in_group("world_text"):
 			n.overlay_draw(self)
+		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+			if show_bar(e):
+				_draw_bar(e)
+		for n in numbers:
+			var v := to_view(n.at)
+			var a := clampf((NUMBER_LIFE - n.t) / 0.3, 0.0, 1.0)
+			var y := v.y - 12 - roundf(n.t * 20)
+			var s := amount_text(n.amount)
+			PixelFont.draw_centred(self, s, v.x + 1, y + 1, Color(0, 0, 0, 0.7 * a))
+			PixelFont.draw_centred(self, s, v.x, y, Color(ORANGE_LIGHT if n.kill else TEXT, a))
 	for p in popups:
 		var v := to_view(p.at, p.z)
 		var c: Color = p.color
@@ -74,6 +118,25 @@ func _draw() -> void:
 		PixelFont.draw_centred(self, p.text, v.x, v.y - p.t * p.rise, c)
 	if not results.is_empty():
 		_draw_results()
+
+
+## Whether `e` shows its health bar: hurt (or still draining the last hit), alive, not a projectile or a boss.
+static func show_bar(e: Enemy) -> bool:
+	return e.health_bar and not e.dead and not e.projectile and e.max_hp > 0 and e.visible \
+		and (e.hp < e.max_hp or e.shown_hp < e.max_hp)
+
+
+## A bar 12-24 px wide (the enemy's width) 4 px over its box: dark frame, red hit points, and in light the
+## ones just lost draining away.
+func _draw_bar(e: Enemy) -> void:
+	var r := e.rect()
+	var w := clampf(roundf(r.size.x), 12, 24)
+	var v := to_view(Vector2(r.get_center().x, r.position.y - 4))
+	var box := Rect2(v.x - roundf(w / 2) - 1, v.y - 2, w + 2, 4)
+	draw_rect(box, Color(0.04, 0.04, 0.05, 0.85))
+	var inner := box.position + Vector2.ONE
+	draw_rect(Rect2(inner, Vector2(roundf(w * clampf(e.shown_hp / e.max_hp, 0, 1)), 2)), BAR_LOST)
+	draw_rect(Rect2(inner, Vector2(ceilf(w * clampf(e.hp / e.max_hp, 0, 1)), 2)), BAR_RED)
 
 
 ## A panel like panel() in src/render/shapes.ts: a fill with a 1 px border that leaves the corners open.

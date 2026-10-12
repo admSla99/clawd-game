@@ -227,8 +227,8 @@ level pixels and metres; the player and bugs convert `vel` to `velocity` only ar
 ## Shooting (world 2)
 
 In world 2 Clawd is armed (`Main.load_level()`: `Gun.arm()` for every world-2 level in PLAY; a world-2 level
-started without a weapon gets the blaster, like the TS dev shortcut). `scripts/weapons.gd` (`Weapons`) is
-`src/weapons.ts`: the five weapons with their stats and shop prices (Token Blaster, Context Spreader, Stream
+started without a weapon gets the blaster, like the TS dev shortcut). World 2's bugs have 2 hp and its spam bots 3 (`tough` in `spawnEntities()`, set by
+`Main.load_level()`). `scripts/weapons.gd` (`Weapons`) is `src/weapons.ts`: the five weapons with their stats and shop prices (Token Blaster, Context Spreader, Stream
 Output, Attention Beam, Opus Cannon; slots 1-5 in `ORDER`), the gun mods the shop sells, and the gun part of
 `loadoutFromSave()` (+25 % damage and +15 % fire rate per level, 100 context + 40 per level).
 
@@ -300,7 +300,8 @@ aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed)
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, shooting down enemy shots and not the
 ones that can't be, next / prev / slot switching and saving, attack shoots instead of spinning, the orb's
-explosion breaking 1-1's corrupted blocks with splash damage), the controls help (shooting lines once a weapon
+explosion breaking 1-1's corrupted blocks with splash damage, damage numbers adding up and marking the kill, health
+bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), the controls help (shooting lines once a weapon
 is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map; with a weapon the ARMORY and
 GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects).
@@ -350,6 +351,18 @@ atlas with nearest filtering on whole view pixels, 8 px per line like the 2D gam
 over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the text of nodes in the group
 `world_text` (they implement `overlay_draw(overlay)`) and panels like `panel()` in `src/render/shapes.ts`.
 `Overlay.to_view()` maps a level position (and depth) through the camera and the oblique projection.
+
+Added in the port (not in TS), for every enemy:
+
+- **Damage numbers**: `Enemy.hit()` calls `Overlay.damage_number()` for every hit that lands on a non-projectile:
+  the damage (`2`, `2.5`) rises 20 px a second from over the enemy's box and fades in its last 0.3 s (0.8 s in
+  all), with a 1 px shadow; a hit on the same enemy within 0.12 s adds to its number instead of making a new one
+  (the beam's 20 hits a second, the stream, a spread's five pellets), and the killing blow's number is light
+  orange. The boss's own `hit()` shows none (it has its hits and the HUD bar).
+- **Health bars**: hidden at full health. Once hurt, a 4 px high frame 4 px over the enemy's box, as wide as the
+  enemy (12-24 px), with its hit points in red and the ones just lost in light, draining at 1.5 × max hp a
+  second after the hit flash (`Enemy.shown_hp`). `Enemy.max_hp` is taken from `hp` on the first hit (after the
+  level's world-2 toughness); `health_bar = false` hides it (the Hallucination).
 
 ## HUD
 

@@ -105,7 +105,8 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
       → **playtest**.
 
 ### M6 World-2 enemies (each with check section and voxel model)
-- [ ] World 2's "tough" HP (`spawnEntities()` in `src/scenes/game.ts`).
+- [x] World 2's "tough" HP (`spawnEntities()` in `src/scenes/game.ts`): bugs 2, spam bots 3. Done early, with
+      the health bars (see *Added beyond the plan*).
 - [ ] `T` Turret and `Y` ceiling turret (`src/entities/enemies2.ts`).
 - [ ] `D` Drone.
 - [ ] `H` ShieldBot (shield that blocks shots from the front).
@@ -135,6 +136,17 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 ### M12 Finish
 - [ ] Full playthrough title → 2-B; balance check of token income vs. ARMORY prices.
 - [ ] `CLAUDE.md` "Godot port status" and `godot/README.md` brought up to date.
+
+## Added beyond the plan
+
+Things the user asked for on top of the TS game and the tasks above, so we know they were extras:
+
+- [x] **Damage numbers** (after M5, 2026-10-12): every hit that lands on an enemy shows its damage over it,
+      rising and fading (`Overlay.damage_number()`); quick hits on the same enemy within 0.12 s add up in one
+      number (beam, stream, a spread's pellets), the killing blow's number is light orange.
+- [x] **Enemy health bars** (after M5, 2026-10-12): hidden at full health; once hurt, a bar over the enemy
+      (12-24 px, red hit points, the ones just lost in light draining away). Not on bosses (the HUD bar) or
+      projectiles (`Overlay.show_bar()`).
 
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.

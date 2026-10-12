@@ -276,6 +276,13 @@ func load_level(id: String) -> void:
 	if armed and Progress.weapons.is_empty():
 		Progress.grant_weapon("blaster")
 	gun.arm(armed, Progress.equipped)
+	# World 2's bugs and spam bots are tougher (`tough` in spawnEntities()).
+	if int(info.world) == 2:
+		for e in get_tree().get_nodes_in_group("enemies"):
+			if e is Bug:
+				e.hp = 2.0
+			elif e is SpamBot:
+				e.hp = 3.0
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)

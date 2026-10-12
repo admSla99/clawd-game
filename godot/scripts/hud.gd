@@ -474,7 +474,7 @@ func _draw_boss_bar() -> void:
 	var x := floorf(Main.PAD + view.x / 2 - w / 2)
 	var y := Main.PAD + view.y - 22
 	_text_shadowed(b.TITLE, Vector2(floorf(Main.PAD + view.x / 2 - PixelFont.width(b.TITLE) / 2.0), y - 10), TEXT)
-	var max_hp: int = b.max_hp
+	var max_hp := int(b.max_hp)
 	if max_hp <= 5:
 		var seg := w / max_hp
 		for i in max_hp:

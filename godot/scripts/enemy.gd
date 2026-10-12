@@ -19,6 +19,12 @@ const TOKEN_FACTOR := 5
 
 ## Hit points; a float, as gun damage grows by a quarter per Bigger Model level.
 var hp := 1.0
+## Full hit points: 0 until the first hit, which takes them from hp (after the subclass and the level set it).
+var max_hp := 0.0
+## Whether the Overlay draws a health bar over it while hurt (a port addition; bosses have the HUD's bar).
+var health_bar := true
+## The bar's light part: the hit points just lost, draining down to hp after the hit flash.
+var shown_hp := 0.0
 var size := Vector2(16, 16)
 var stompable := true
 ## Cannot be damaged at all (crushers).
@@ -56,6 +62,8 @@ func tick(dt: float) -> void:
 	prev_pos = pos
 	flash = maxf(0.0, flash - dt)
 	immune = maxf(0.0, immune - dt)
+	if flash <= 0:
+		shown_hp = move_toward(shown_hp, maxf(hp, 0.0), max_hp * 1.5 * dt)
 
 
 func rect() -> Rect2:
@@ -72,12 +80,19 @@ func stomp_line() -> float:
 	return prev_pos.y - size.y + maxf(8.0, size.y / 2)
 
 
-## Enemy.hit(): returns true if the hit was accepted. `kind` is stomp, pound, spin, beam or shot.
+## Enemy.hit(): returns true if the hit was accepted. `kind` is stomp, pound, spin, beam or shot. The damage
+## shows as a number over it (Overlay.damage_number(), a port addition).
 func hit(kind: StringName, damage := 1.0) -> bool:
 	if dead or invincible or immune > 0:
 		return false
+	if max_hp <= 0:
+		max_hp = hp
+		shown_hp = hp
 	hp -= damage
 	flash = 0.12
+	var main := get_tree().get_first_node_in_group("main")
+	if main and not projectile:
+		main.overlay.damage_number(self, damage, hp <= 0)
 	if hp <= 0:
 		die(kind)
 	elif kind != &"shot":

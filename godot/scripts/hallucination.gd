@@ -40,7 +40,6 @@ static var MARK_MESHES := [
 	Voxel.mesh(["...rr...", "...rr...", "...rr...", "........", "rrrrrrrr"], {"r": RED_DARK}, {"r": 4}, Px.M, MATERIAL),
 ]
 
-var max_hp := MAX_HP
 var mode := &"intro"
 var timer := 2.2
 var t := 0.0
@@ -82,6 +81,8 @@ static func create(parent: Level, centre: Vector2, floor_top: float, width: floa
 func _init() -> void:
 	size = SIZE
 	hp = MAX_HP
+	max_hp = MAX_HP
+	health_bar = false
 	invincible = true
 	stompable = false
 	tokens = 0

@@ -1071,8 +1071,24 @@ func check_gun() -> bool:
 	ok(near.hp == 8.0 and far.hp == 10.0 and gone(b1) and "hit" in snd.played, "a token hits the first enemy and stops (%s, %s)" % [near.hp, far.hp])
 	m.fire_beam(at, 0.0, 1.0)
 	ok(near.hp == 7.0 and far.hp == 9.0, "the Attention Beam hits both")
+
+	# Damage numbers and health bars (port additions).
+	var ov = m.overlay
+	var amounts := func(e) -> Array:
+		var id: int = e.get_instance_id()
+		return ov.numbers.filter(func(x): return x.id == id).map(func(x): return x.amount)
+	ok(amounts.call(near) == [2.0, 1.0], "each hit shows its damage over the enemy (%s)" % [amounts.call(near)])
+	for i in 3:
+		near.hit(&"shot", 1.0)
+	ok(amounts.call(near) == [2.0, 4.0], "quick hits add up in one number (%s)" % [amounts.call(near)])
+	ok(ov.amount_text(2.5) == "2.5" and ov.amount_text(2.0) == "2", "2.5 shows as 2.5, 2 as 2")
+	var fresh = target(m, at + Vector2(30, -40), 10)
+	ok(ov.show_bar(near) and near.max_hp == 10.0 and not ov.show_bar(fresh), "a hurt enemy shows its health bar, one at full health doesn't")
 	near.hit(&"shot", 100)
+	ok(ov.numbers.any(func(x): return x.id == near.get_instance_id() and x.kill), "the killing blow's number is marked")
+	ok(not ov.show_bar(near), "a dead enemy has no bar")
 	far.hit(&"shot", 100)
+	fresh.hit(&"shot", 100)
 	await frames(2)
 
 	# Enemy shots that can be shot down vanish with the bullet; the others let it pass.
@@ -1085,6 +1101,20 @@ func check_gun() -> bool:
 	await frames(15)
 	ok(not gone(hard) and (gone(b3) or b3.pos.x > at.x + 70), "but passes through one that can't be")
 	hard.remove()
+
+	# World 2 is tough (spawnEntities()): bugs have 2 hp, spam bots 3; a hurt one's bar drains to its hp.
+	m.load_level("2-1")
+	await frames(3)
+	var bugs2 := enemies_of("res://scripts/bug.gd")
+	var bots2 := enemies_of("res://scripts/spam_bot.gd")
+	ok(bugs2.size() == 7 and bugs2.all(func(e): return e.hp == 2.0) and bots2.size() == 2 and bots2.all(func(e): return e.hp == 3.0),
+		"2-1's bugs have 2 hp, its spam bots 3")
+	bots2[0].hit(&"shot", 1.0)
+	ok(m.overlay.show_bar(bots2[0]) and bots2[0].shown_hp == 3.0, "a hit spam bot shows its bar, the lost hp still light")
+	await frames(60)
+	ok(is_equal_approx(bots2[0].shown_hp, 2.0) and m.overlay.show_bar(bots2[0]), "then the light part drains to its hp")
+	p.invuln = 1000
+	g.mouse_moved = -1000000
 
 	# Switching: next / prev through the owned weapons (wrapping), 1-5 for a slot; saved as the equipped one.
 	g.set_weapon("blaster")
