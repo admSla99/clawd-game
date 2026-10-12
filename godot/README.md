@@ -163,7 +163,8 @@ bot) stops bullets and beams coming along `dir`: bullets ricochet, beams pass wi
   brows, "429", and a chain up to where it hangs. It has its own material so the see-through windows never thin
   it out.
 
-World 2's enemies (`src/entities/enemies2.ts`, the port drops 5× their tokens like every enemy):
+World 2's enemies (`src/entities/enemies2.ts`; the hp below are the TS ones, which the port triples like every
+enemy's (`Enemy.HP_FACTOR`), and it drops 5× their tokens):
 
 - `Turret` (`T` floor, `Y` ceiling, `scripts/turret.gd`): 6 hp, 20 tokens, floor ones stompable. Its barrel turns
   towards Clawd's middle at up to 3 rad/s, kept in the upper half-plane on the floor (the lower one on the
@@ -188,7 +189,7 @@ World 2's enemies (`src/entities/enemies2.ts`, the port drops 5× their tokens l
   shield of seven segments standing across 14 px of depth in front of it, and a glowing "403" above it.
 - `Injector` (`I`, `scripts/injector.gd`): 5 hp, 15 tokens. On the ground it waits (0.8–1.4 s, then 1–1.5 s) and,
   while Clawd is within 260 px, hops at him: 330 px/s up and 1.3 × the distance across, at most 110 px/s; a wall
-  bounces it back at half speed. Destroyed, it splits into two 1-hp bugs (`Bug.speed` 40 px/s) running left and
+  bounces it back at half speed. Destroyed, it splits into two 1-hp (× 3) bugs (`Bug.speed` 40 px/s) running left and
   right from its feet. A magenta blob with a dark rim, a pale top with a lit spot and a ">_" prompt blinking white
   and pink; like the 2D draw it squashes up to 1.24 × wide before a hop and stretches in the air, as whole-pixel
   sizes (`Injector.mesh(w, h, bright)` builds each).
@@ -265,7 +266,7 @@ level pixels and metres; the player and bugs convert `vel` to `velocity` only ar
 
 In world 2 Clawd is armed (`Main.load_level()`: `Gun.arm()` for every world-2 level in PLAY; a world-2 level
 started without a weapon gets the blaster, like the TS dev shortcut). World 2's bugs have 2 hp and its spam bots 3 (`tough` in `spawnEntities()`, set by
-`Main.load_level()`). `scripts/weapons.gd` (`Weapons`) is `src/weapons.ts`: the five weapons with their stats and shop prices (Token Blaster, Context Spreader, Stream
+`Main.load_level()`), and like every enemy in the port they get `Enemy.HP_FACTOR` (3) times that: 6 and 9. `scripts/weapons.gd` (`Weapons`) is `src/weapons.ts`: the five weapons with their stats and shop prices (Token Blaster, Context Spreader, Stream
 Output, Attention Beam, Opus Cannon; slots 1-5 in `ORDER`), the gun mods the shop sells, and the gun part of
 `loadoutFromSave()` (+25 % damage and +15 % fire rate per level, 100 context + 40 per level).
 
@@ -495,8 +496,9 @@ moving platforms. The level's own world text, the HUD and the see-through window
   game's 1 px Clawd as a 2D sprite); locked levels show a padlock, finished ones an orange corner, bosses a
   red-tinted node labelled BOSS. The banked tokens and the sparks not spent sit top right, next to the SHOP
   button (B), which opens once 1-1 is cleared. An
-  info card names the selected level with its subtitle, rescued sub-agents, CLEARED and the best time, and
-  doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
+  info card (264 px wide) names the selected level (at twice the size when the name fits, else at the normal
+  size, like 2-3's) with its subtitle, then left to right its sparks, rescued sub-agents, CLEARED and, in world 2,
+  ARMED, and the best time on the right; it doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
   Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.
 
 `scripts/progress.gd` (autoload `Progress`) is the level part of `src/save.ts`, saved as JSON in

@@ -253,7 +253,7 @@ func node_pos(i: int) -> Vector2:
 
 func _card_rect() -> Rect2:
 	var v := view()
-	var w := 228.0
+	var w := 264.0
 	var y := maxf(v.position.y + v.size.y * 0.7, v.position.y + v.size.y * 0.62 + 42)
 	return Rect2(roundf(v.get_center().x - w / 2), roundf(y), w, 46)
 
@@ -557,25 +557,39 @@ func _draw_card() -> void:
 	var hover := r.has_point(_mouse)
 	Hud.panel(self, r, Hud.ORANGE if hover else BORDER, Color(0.07, 0.07, 0.08, 0.94), true)
 	var cx := r.get_center().x
-	_big("%s · %s" % [def.id, String(def.name).to_upper()], Vector2(cx, r.position.y + 6), Hud.TEXT, true)
+	# The name at twice the size when it fits the card, else at the normal size (2-3's is too long).
+	var title := "%s · %s" % [def.id, String(def.name).to_upper()]
+	if PixelFont.width(title) * 2 <= r.size.x - 16:
+		_big(title, Vector2(cx, r.position.y + 6), Hud.TEXT, true)
+	else:
+		PixelFont.draw_centred(self, title, cx + 1, r.position.y + 11, Color(0, 0, 0, 0.65))
+		PixelFont.draw_centred(self, title, cx, r.position.y + 10, Hud.TEXT)
 	PixelFont.draw_centred(self, def.subtitle, cx, r.position.y + 22, Hud.TEXT_DIM)
+	# The bottom row left to right: sparks, sub-agents, CLEARED, ARMED; the best time (or PLAY) on the right.
 	var y := r.position.y + 33
 	var x := r.position.x + 10
 	var stotal: int = sparks_total.get(def.id, 0)
 	if stotal > 0:
 		var sgot := Progress.count(prog.sparks)
+		var s := "%d / %d" % [sgot, stotal]
 		draw_texture(Spark.icon(sgot == 0), Vector2(x, y - 2))
-		PixelFont.draw(self, "%d / %d" % [sgot, stotal], Vector2(x + 13, y), Hud.TEXT)
-		x += 50
+		PixelFont.draw(self, s, Vector2(x + 13, y), Hud.TEXT)
+		x += 13 + PixelFont.width(s) + 12
 	var total: int = agents_total.get(def.id, 0)
 	if total > 0:
 		var got := Progress.count(prog.agents)
+		var s := "%d / %d" % [got, total]
 		draw_texture(ClawdSprite.texture(ClawdSprite.frame(), Color(0, 0, 0, 0) if got > 0 else Color("#6A6A6A")), Vector2(x, y - 2))
-		PixelFont.draw(self, "%d / %d" % [got, total], Vector2(x + 17, y), Hud.TEXT)
-	if def.world == 2:
-		PixelFont.draw(self, "ARMED", Vector2(x + 50, y), Hud.ORANGE)
+		PixelFont.draw(self, s, Vector2(x + 17, y), Hud.TEXT)
+		x += 17 + PixelFont.width(s) + 12
+	var tags := []
 	if prog.completed:
-		PixelFont.draw_centred(self, "CLEARED", cx + 16, y, Hud.ORANGE_LIGHT)
+		tags.append(["CLEARED", Hud.ORANGE_LIGHT])
+	if def.world == 2:
+		tags.append(["ARMED", Hud.ORANGE])
+	for tag in tags:
+		PixelFont.draw(self, tag[0], Vector2(x, y), tag[1])
+		x += PixelFont.width(tag[0]) + 8
 	if prog.best_time != null:
 		var bt := Progress.format_time(prog.best_time)
 		PixelFont.draw(self, bt, Vector2(r.end.x - 10 - PixelFont.width(bt), y), Hud.TEXT_DIM)

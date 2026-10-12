@@ -626,7 +626,7 @@ func check_enemies() -> bool:
 	var bots := enemies_of("res://scripts/spam_bot.gd")
 	ok(bots.size() == 1, "1-1 has one spam bot 'F'")
 	var bot = bots[0]
-	ok(bot.hp == 1 and bot.tokens == 10 and bot.stompable, "it has 1 hp, drops 10 tokens and can be stomped")
+	ok(bot.hp == 3 and bot.tokens == 10 and bot.stompable, "it has 3 hp (TS 1 × HP_FACTOR), drops 10 tokens and can be stomped")
 	var at: Vector2 = bot.pos
 	await frames(30)
 	ok(bot.pos.distance_to(at) > 1 and absf(bot.pos.x - bot.home.x) <= 26 and absf(bot.pos.y - bot.home.y) <= 6,
@@ -781,10 +781,10 @@ func check_world2_enemies() -> bool:
 	await frames(3)
 	var tough := true
 	for b in enemies_of("res://scripts/bug.gd"):
-		tough = tough and b.hp == 2
+		tough = tough and b.hp == 6
 	for b in enemies_of("res://scripts/spam_bot.gd"):
-		tough = tough and b.hp == 3
-	ok(tough and not enemies_of("res://scripts/bug.gd").is_empty(), "2-1's bugs have 2 hp and its spam bots 3")
+		tough = tough and b.hp == 9
+	ok(tough and not enemies_of("res://scripts/bug.gd").is_empty(), "2-1's bugs have 2 hp and its spam bots 3, times HP_FACTOR (6, 9)")
 	var turrets := enemies_of("res://scripts/turret.gd")
 	var drones := enemies_of("res://scripts/drone.gd")
 	var bots := enemies_of("res://scripts/shield_bot.gd")
@@ -792,7 +792,7 @@ func check_world2_enemies() -> bool:
 
 	# A floor turret: 6 hp, 20 tokens, stompable, turns at 3 rad/s within the upper half-plane.
 	var tu = turrets[0]
-	ok(tu.hp == 6 and tu.tokens == 20 and tu.stompable and not tu.ceiling, "a turret has 6 hp, drops 20 tokens and can be stomped")
+	ok(tu.hp == 18 and tu.tokens == 20 and tu.stompable and not tu.ceiling, "a turret has 6 hp × 3, drops 20 tokens and can be stomped")
 	ok(tu.pivot() == tu.pos + Vector2(0, -5) and tu.rect().size == Vector2(16, 12), "it is 16 x 12 with its sensor 5 px above its feet")
 	tu.timer = 100
 	var a0: float = tu.angle
@@ -823,7 +823,7 @@ func check_world2_enemies() -> bool:
 
 	# A drone bobs at its post until Clawd comes within 230 px, circles, aims and dives at 270 px/s.
 	var dr = drones[0]
-	ok(dr.hp == 3 and dr.tokens == 15 and dr.stompable and dr.rect().size == Vector2(14, 10), "a drone has 3 hp and drops 15 tokens")
+	ok(dr.hp == 9 and dr.tokens == 15 and dr.stompable and dr.rect().size == Vector2(14, 10), "a drone has 3 hp × 3 and drops 15 tokens")
 	var far: Vector2 = dr.pos + Vector2(-400, -200)
 	# Lambdas capture locals by value: they write into `got`.
 	var got := {"bob": 0.0}
@@ -859,7 +859,7 @@ func check_world2_enemies() -> bool:
 
 	# A shield bot: 9 hp, 30 tokens; its shield stops shots from the front, not from behind or above.
 	var sb = bots[0]
-	ok(sb.hp == 9 and sb.tokens == 30 and sb.stompable and sb.facing == -1, "a shield bot has 9 hp, drops 30 tokens and faces left")
+	ok(sb.hp == 27 and sb.tokens == 30 and sb.stompable and sb.facing == -1, "a shield bot has 9 hp × 3, drops 30 tokens and faces left")
 	ok(sb.blocks_direction(Vector2(1, 0)) and sb.shield_flash > 0, "its shield stops a shot coming at its front (and flashes)")
 	ok(not sb.blocks_direction(Vector2(-1, 0)) and not sb.blocks_direction(Vector2(0.3, 1)), "but not one from behind or from above")
 	var level_y: float = sb.pos.y
@@ -924,7 +924,7 @@ func check_world2_enemies() -> bool:
 	for e in injs:
 		if e.pos.distance_to(start3) < inj.pos.distance_to(start3):
 			inj = e
-	ok(inj.hp == 5 and inj.tokens == 15 and inj.token_total() == 35, "an injector has 5 hp, drops 15 tokens and leaves 20 in bugs")
+	ok(inj.hp == 15 and inj.tokens == 15 and inj.token_total() == 35, "an injector has 5 hp × 3, drops 15 tokens and leaves 20 in bugs")
 	inj.hp = 1000
 	await hold(p, inj.pos + Vector2(100, 0), 30, func(_i): return inj.grounded)
 	inj.timer = 0.01
@@ -943,17 +943,17 @@ func check_world2_enemies() -> bool:
 	inj.hp = 5
 	inj.hit(&"shot", 99)
 	await frames(2)
-	var new_bugs := enemies_of("res://scripts/bug.gd").filter(func(b): return b.hp == 1)
+	var new_bugs := enemies_of("res://scripts/bug.gd").filter(func(b): return b.hp == 3)
 	var popped: int = m.level.get_children().filter(func(c): return c is Area3D and c.popped).size() - tokens_before
 	ok(gone(inj) and enemies_of("res://scripts/bug.gd").size() == bugs_before + 2 and new_bugs.size() == 2,
-		"destroyed, it splits into two 1-hp bugs")
+		"destroyed, it splits into two bugs of 1 hp × 3")
 	ok(new_bugs.all(func(b): return b.speed == 40 and absf(b.pos.x - at.x) < 10) and new_bugs[0].dir != new_bugs[1].dir,
 		"that run off left and right at 40 px/s")
 	ok(popped == 15, "and drops 15 tokens (got %d)" % popped)
 
 	m.load_level("1-1")
 	await frames(3)
-	ok(bugs().all(func(b): return b.hp == 1), "world 1's bugs keep 1 hp")
+	ok(bugs().all(func(b): return b.hp == 3), "world 1's bugs keep 1 hp (× 3)")
 	return true
 
 
@@ -1303,17 +1303,18 @@ func check_gun() -> bool:
 	ok(not gone(hard) and (gone(b3) or b3.pos.x > at.x + 70), "but passes through one that can't be")
 	hard.remove()
 
-	# World 2 is tough (spawnEntities()): bugs have 2 hp, spam bots 3; a hurt one's bar drains to its hp.
+	# World 2 is tough (spawnEntities()): bugs have 2 hp, spam bots 3, times HP_FACTOR (3) as everywhere in the
+	# port; a hurt one's bar drains to its hp.
 	m.load_level("2-1")
 	await frames(3)
 	var bugs2 := enemies_of("res://scripts/bug.gd")
 	var bots2 := enemies_of("res://scripts/spam_bot.gd")
-	ok(bugs2.size() == 7 and bugs2.all(func(e): return e.hp == 2.0) and bots2.size() == 2 and bots2.all(func(e): return e.hp == 3.0),
-		"2-1's bugs have 2 hp, its spam bots 3")
+	ok(bugs2.size() == 7 and bugs2.all(func(e): return e.hp == 6.0) and bots2.size() == 2 and bots2.all(func(e): return e.hp == 9.0),
+		"2-1's bugs have 6 hp, its spam bots 9")
 	bots2[0].hit(&"shot", 1.0)
-	ok(m.overlay.show_bar(bots2[0]) and bots2[0].shown_hp == 3.0, "a hit spam bot shows its bar, the lost hp still light")
+	ok(m.overlay.show_bar(bots2[0]) and bots2[0].shown_hp == 9.0, "a hit spam bot shows its bar, the lost hp still light")
 	await frames(60)
-	ok(is_equal_approx(bots2[0].shown_hp, 2.0) and m.overlay.show_bar(bots2[0]), "then the light part drains to its hp")
+	ok(is_equal_approx(bots2[0].shown_hp, 8.0) and m.overlay.show_bar(bots2[0]), "then the light part drains to its hp")
 	p.invuln = 1000
 	g.mouse_moved = -1000000
 

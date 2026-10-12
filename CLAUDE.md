@@ -119,7 +119,7 @@ bugs and spam bots are tougher). Shooting is ported (M5): world 2 is armed (`scr
 the mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
 crosshair, and the shop's ARMORY and GUN MODS once a weapon is found. No gamepad support (the user's call).
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
-`godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10); sparks are a solid glowing star; spikes are a bed across
+`godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10) and has 3× its TS hp (`Enemy.HP_FACTOR`, not bosses); sparks are a solid glowing star; spikes are a bed across
 the block depth; hit enemies show damage numbers and, once hurt, a health bar (`Overlay`); the shop opens after
 clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
 Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd finds a weapon.

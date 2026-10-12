@@ -16,6 +16,8 @@ const BEAM_DAMAGE := 1
 const POUND_WAVE_DAMAGE := 4
 ## Enemy.tokens is 2 in TS; the port drops five times as many from every enemy.
 const TOKEN_FACTOR := 5
+## Every enemy has three times its TS hit points in the port (Main.load_level(); not bosses or projectiles).
+const HP_FACTOR := 3.0
 
 ## Hit points; a float, as gun damage grows by a quarter per Bigger Model level.
 var hp := 1.0

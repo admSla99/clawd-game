@@ -77,7 +77,7 @@ func _physics_process(dt: float) -> void:
 	_update_visual()
 
 
-## Splits into two bugs (1 hp even in world 2) that run off to either side.
+## Splits into two bugs (1 hp even in world 2, times HP_FACTOR like every enemy) that run off to either side.
 func _die(_kind: StringName) -> void:
 	for s in [-1.0, 1.0]:
 		var bug: Bug = load(Level.BUG).instantiate()
@@ -85,6 +85,7 @@ func _die(_kind: StringName) -> void:
 		bug.position = Px.to3(pos + Vector2(s * 6, 0))
 		bug.dir = s
 		bug.speed = BUG_SPEED
+		bug.hp = HP_FACTOR
 		level.add_child(bug, true)
 	queue_free()
 

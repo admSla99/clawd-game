@@ -148,6 +148,13 @@ Things the user asked for on top of the TS game and the tasks above, so we know 
       (12-24 px, red hit points, the ones just lost in light draining away). Not on bosses (the HUD bar) or
       projectiles (`Overlay.show_bar()`).
 
+- [x] **Three times the hit points** (2026-10-12): every enemy has `Enemy.HP_FACTOR` (3) × its TS hp, set in
+      `Main.load_level()` (bosses and projectiles keep theirs). World 1: bugs and spam bots 3 (a stomp or a spin
+      still kills, the jet takes three hits); world 2: bugs 6, spam bots 9.
+- [x] **Map card fix** (2026-10-12): CLEARED and ARMED overlapped on world-2 cards, and 2-3's name ran out of
+      the card: the card is wider, its bottom row is laid out left to right, and a name too long for twice the
+      size is drawn at the normal size.
+
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.
 - Unlocking the shop after 1-1 (port) vs. after 1-B (TS) stays; only the ARMORY row waits for 1-B.
