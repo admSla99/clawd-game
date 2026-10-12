@@ -106,6 +106,9 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 
 ## Godot port status (branch `godot-2.5d`)
 
+**`godot/docs/port-plan.md` is the task list for the remaining levels, shooting and weapons**, with the user's
+decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
+
 Only **1-1** is converted with all current spawns and fully playable (title → map → level → results → map, shop).
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
 `godot/levels/overrides.json`); a bug drops 10 tokens; sparks are a solid glowing star; spikes are a bed across
