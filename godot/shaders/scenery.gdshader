@@ -10,13 +10,15 @@
 // With `silhouette` (the foreground layer) trunks are flat dark cutouts with a jagged broken top and cables
 // are dark. Every lit tone is the body mixed towards `light_color` (see Themes); every pixel fades into
 // the sky behind it with its depth (shaders/fog.gdshaderinc). Pixels are box-local (instance `box_size`), so patterns sit on the box wherever
-// it is; top faces are bands of view rows like the level blocks. Colours are sRGB, converted at the end.
+// it is; top faces are bands of view rows like the level blocks. In dark levels it darkens away from Clawd's
+// lamp (shaders/darkness.gdshaderinc) except where it glows. Colours are sRGB, converted at the end.
 shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
 #include "res://shaders/fog.gdshaderinc"
 #include "res://shaders/reveal.gdshaderinc"
+#include "res://shaders/darkness.gdshaderinc"
 
 instance uniform vec3 box_size = vec3(1.0);
 instance uniform float seed = 0.0;
@@ -31,6 +33,7 @@ varying vec3 lpos;
 varying vec3 lnormal;
 varying float along;
 varying float wz;
+varying vec3 wp;
 
 // hash2 from src/core/noise.ts (32-bit wrapping math).
 float hash2(int x, int y, int s) {
@@ -56,6 +59,7 @@ void vertex() {
 	lnormal = NORMAL;
 	along = UV.x;
 	wz = w.z;
+	wp = w.xyz;
 }
 
 void fragment() {
@@ -161,5 +165,9 @@ void fragment() {
 		col = int(floor((box_size.z * 0.5 - lpos.z) / row_z)) == 0 ? tone(0.1) : tone(0.04);
 	}
 	col = apply_fog(col, -wz, SCREEN_UV.y);
+	// Dark levels: only what is near Clawd's lamp shows; the glowing nodes and pulses keep shining.
+	if (boost <= 1.0) {
+		col = apply_darkness(col, wp, 0.0, p);
+	}
 	ALBEDO = pow(col, vec3(2.2)) * boost;
 }

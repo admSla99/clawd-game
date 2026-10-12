@@ -58,6 +58,7 @@ func _init() -> void:
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
+	await section("1-2 Gradient Caves: darkness and the caves motif (drawDarkness() in src/scenes/game.ts)", check_caves)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
@@ -748,6 +749,35 @@ func check_enemies() -> bool:
 		if rl.mode == &"idle": break
 	ok(rl.mode == &"idle" and rl.y == 12 * TILE, "and goes back up to where it hangs")
 	ok(not rl.hit(&"spin", 3) and not rl.dead, "a spin does not hurt it")
+	return true
+
+
+func check_caves() -> bool:
+	var m = current_scene
+	var p = m.player
+	m.load_level("1-2")
+	await frames(3)
+	ok(m.info.get("dark", false) == true and m.info.theme == "caves", "1-2 is dark and uses the caves theme")
+	ok(is_equal_approx(m.dark_amount, 0.93), "the darkness is as deep as the TS gradient's edge (0.93)")
+	ok(m.haze.material.get_shader_parameter("dim") < 1.0 and m.parallax.modulate.r < 1.0, "the sky and the ridges dim")
+	ok(m.motif.visible and m.motif.material.shader.resource_path.ends_with("motif_caves.gdshader"),
+		"the caves motif (contour lines and rolling balls) is behind the level")
+	p.pos = _start(m) + Vector2(40, 0)
+	await frames(2)
+	m._update_lamp()
+	var lamp: Vector4 = m.dark_lamp
+	var want: Vector3 = p.global_position + Vector3(0, 9.0 / 16, 1.0)
+	ok(Vector3(lamp.x, lamp.y, lamp.z).distance_to(want) < 0.01, "Clawd's lamp follows him, 1 m in front of him")
+	ok(lamp.w * 16 >= 102 - 0.01 and lamp.w * 16 <= 108 + 0.01, "its radius is 105 +- 3 px (%.1f)" % (lamp.w * 16))
+	var radii := []
+	for i in 40:
+		await physics_frame
+		radii.append(m.dark_lamp.w)
+	ok(radii.max() - radii.min() > 0.01, "and breathes")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.dark_amount == 0.0 and not m.motif.visible and m.haze.material.get_shader_parameter("dim") == 1.0
+		and m.parallax.modulate == Color.WHITE, "1-1 is lit and has no caves motif")
 	return true
 
 

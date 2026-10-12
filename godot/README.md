@@ -202,7 +202,8 @@ the game's events play their sounds, the jet hisses while hovering, M mutes, the
 music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, results, saved progress, ghosts on the
 next run), spam bots, shots and rate limiters (hovering, aimed fire and its range, a shot's hit / spin / wall,
 stomping a spam bot and its tokens; 1-2's crushers: trigger, fall, crush, hurt, riding the top up, rising home,
-no damage), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+no damage), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's lamp position and breathing
+radius, 1-1 lit again), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map).
 
 ## Game clock and camera
@@ -438,6 +439,12 @@ Back to front:
 
 - `shaders/haze.gdshader` (`Background/Haze`): the palette's dark top to its haze at the horizon in dithered
   steps, with slanted light rays that pulse slowly and drift with the camera.
+- Theme motif (`Background/Motif`, a ColorRect whose shader `Main.MOTIFS` picks per theme, hidden for themes
+  without one; ideas in `docs/scenery-themes.md`). Caves: `shaders/motif_caves.gdshader`, the loss landscape seen
+  from the bottom of its valley: 1 px contour lines of a height field that rises above and below a meandering
+  valley floor (every fourth an index line), faint away from the floor, and balls of light rolling along the
+  floor (gradient descent), one per 420 px, each with a dithered halo that lights the contour lines within
+  90 px. Additive, at a tenth of the camera's speed.
 - `Parallax` (see above), its baked grey layers tinted between the palette's haze and light colours and its
   stars, data rain and rings towards the light colour.
 - `scripts/scenery.gd` (`Scenery`): the neural forest, three layers deep, drawn by `shaders/scenery.gdshader`:
@@ -489,6 +496,17 @@ Back to front:
   behind the gameplay plane (`1 - e^(-depth * 0.06)`, thicker in the lower part of the view) into the sky
   colour of its view row (the haze gradient of the theme), so distant trunks dissolve into the sky behind
   them; motes dim with depth the same way.
+- Darkness (levels with `dark`: 1-2), the 3D take on `drawDarkness()`: `shaders/darkness.gdshaderinc`, used by
+  the terrain, the scenery, the voxel sprites and the motes, reads two global shader parameters
+  (`[shader_globals]` in `project.godot`) that `Main` sets: `dark_amount` (0.93 in dark levels, the TS gradient's
+  darkest alpha, else 0) and `dark_lamp`, Clawd's lamp: 1 m in front of his middle, radius 105 px breathing by
+  3 px. A pixel keeps its colour within 35 % of the lamp's radius, measured in 3D, and sinks towards
+  rgb(8, 8, 8) by the edge, in quarter steps with an ordered dither on a world-fixed grid; so the backs of
+  blocks, the far scenery and the foreground stay dark while the block fronts near Clawd are lit. The terrain
+  also takes light from the GlowLights (lanterns, sparks, checkpoints, the exit, motes), the sprites from the
+  one that rims them; glowing pixels skip the darkness (glow materials, the scenery's nodes and pulses, the
+  corrupted blocks and spike tips, so hazards read), circuit nodes do not. Motes away from the lamp dim to
+  40 %; the haze and the parallax ridges dim to 30 %, the light shafts and mist thin out.
 - Colour grade: `shaders/grade.gdshader` (`Grade`, the top canvas layer in the SubViewport) lifts the darks a
   little towards the theme's haze colour, warms the lights towards the lanterns' orange and adds a touch of
   saturation, pixel for pixel.
@@ -542,6 +560,8 @@ without COOP/COEP headers.
 | `scripts/scenery.gd`, `scripts/glow_light.gd` | Towers and floating blocks behind the level, foreground silhouettes; warm lights for the terrain shader |
 | `scripts/themes.gd`, `scripts/decor.gd` | Background palette per theme; lanterns and tufts on the level |
 | `shaders/terrain_pixels.gdshader` | Level blocks (crust, circuits, one-way, spikes, corrupted glitch, lights, Clawd's shadow) |
+| `shaders/darkness.gdshaderinc` | Darkness of dark levels around Clawd's lamp (global `dark_amount`, `dark_lamp`) |
+| `shaders/motif_caves.gdshader` | Caves motif: contour lines of the loss landscape, rolling balls of light |
 | `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
 | `tools/check.gd` | Headless checks, see *Checks* |

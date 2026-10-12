@@ -77,7 +77,8 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 - **Projection**: an orthographic camera looking down −z, with depth faked by the oblique projection in
   `shaders/oblique.gdshaderinc`, which **every 3D material must call from `vertex()`**. Nothing in front of z = 0
   shifts, so sprites stay pixel-exact; geometry crossing z = 0 needs vertices there. Fog (`fog.gdshaderinc`) and the
-  foreground see-through dither (`reveal.gdshaderinc`) are shared shader includes too. New `.gdshaderinc` files need
+  foreground see-through dither (`reveal.gdshaderinc`) are shared shader includes too, and so is the darkness of
+  dark levels (`darkness.gdshaderinc`, global shader parameters `dark_amount` / `dark_lamp` set by `Main`). New `.gdshaderinc` files need
   their `.uid` committed.
 - **Time**: `Game` autoload (`scripts/game.gd`) owns game time and hitstop; level objects skip updates while
   `Game.frozen()`, and shader animation runs on `Game.time` so hitstop/pause freeze it.
@@ -120,7 +121,7 @@ Tokens; world-2 weapons/mods are a locked ARMORY row.
 Not ported yet (the next goal is all levels plus shooting and weapons):
 - Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B`
   (`src/entities/boss/hallucination.ts` for 1-B, `codex.ts` for 2-B), world 2's tougher hp.
-- Level features `dark` (1-2 darkness around Clawd) and `risingVoid` (1-3), both in `src/scenes/game.ts`.
+- Level feature `risingVoid` (1-3, `src/scenes/game.ts`); `dark` (1-2) is done.
 - Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
   `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the
   shop's ARMORY and the `prev` / `next` / slot keys in `Settings`.

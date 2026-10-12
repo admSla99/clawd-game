@@ -18,6 +18,17 @@ const PAD := 16
 ## Blob shadow radii in metres (terrain_pixels.gdshader): Clawd is 18 px wide, a bug 16 px.
 const PLAYER_SHADOW := 0.5
 const ENEMY_SHADOW := 0.42
+## Dark levels (`dark` in levels/index.json): the darkest the TS darkness gets (rgba(8,8,8,0.93) at the edge
+## of drawDarkness()), Clawd's lamp radius in px (105, breathing by 3 px) and how far in front of him it
+## hangs in metres (so the block fronts at z = 1.5 m catch it like the gameplay plane), and how bright the
+## sky, the parallax ridges and the air light stay.
+const DARK_AMOUNT := 0.93
+const LAMP_RADIUS := 105.0
+const LAMP_Z := 1.0
+const DARK_SKY := 0.3
+## Far background motif per theme (docs/scenery-themes.md), drawn on Background/Motif between the haze and
+## the parallax ridges; themes without one leave it hidden.
+const MOTIFS := {"caves": preload("res://shaders/motif_caves.gdshader")}
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
 ## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts.
@@ -60,6 +71,9 @@ var prev_sparks: Array[bool] = []
 var first_clear := false
 ## A Double Tokens from the shop is active in this run (every token counts twice).
 var double_tokens := false
+## The darkness of the current level (`dark`): its amount and Clawd's lamp, as passed to the shaders' globals.
+var dark_amount := 0.0
+var dark_lamp := Vector4.ZERO
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -69,6 +83,7 @@ var double_tokens := false
 @onready var particles: Particles = $View/SubViewport/World/Particles
 @onready var parallax: Parallax = $View/SubViewport/World/Background/Parallax
 @onready var haze: ColorRect = $View/SubViewport/World/Background/Haze
+@onready var motif: ColorRect = $View/SubViewport/World/Background/Motif
 @onready var scenery: Scenery = $View/SubViewport/World/Scenery
 @onready var motes: Motes = $View/SubViewport/World/Motes
 @onready var light_fx: ColorRect = $View/SubViewport/World/Foreground/LightFx
@@ -244,7 +259,22 @@ func load_level(id: String) -> void:
 	motes.setup(info.terrainSeed, camera.bounds, palette, dark)
 	light_fx.material.set_shader_parameter("ray_color", Themes.vec(palette.ray))
 	light_fx.material.set_shader_parameter("mist_color", Themes.vec(palette.haze))
-	light_fx.material.set_shader_parameter("ray_strength", 0.1 if dark else 0.16)
+	light_fx.material.set_shader_parameter("ray_strength", 0.05 if dark else 0.16)
+	light_fx.material.set_shader_parameter("mist_strength", 0.14 if dark else 0.32)
+	# The darkness (shaders/darkness.gdshaderinc): the terrain, scenery and sprites read these globals.
+	dark_amount = DARK_AMOUNT if dark else 0.0
+	RenderingServer.global_shader_parameter_set("dark_amount", dark_amount)
+	haze.material.set_shader_parameter("dim", DARK_SKY if dark else 1.0)
+	parallax.modulate = Color(DARK_SKY, DARK_SKY, DARK_SKY) if dark else Color.WHITE
+	var motif_shader: Shader = MOTIFS.get(info.theme)
+	motif.visible = motif_shader != null
+	if motif_shader:
+		var mat := ShaderMaterial.new()
+		mat.shader = motif_shader
+		mat.set_shader_parameter("line_color", Themes.vec(palette.ray))
+		mat.set_shader_parameter("strength", 1.0)
+		motif.material = mat
+	_update_lamp()
 	grade.material.set_shader_parameter("shadow_tint", Themes.vec(palette.haze))
 	scenery.update(camera.top_left)
 
@@ -276,11 +306,24 @@ func _process(_dt: float) -> void:
 	crt.material.set_shader_parameter("view_scale", float(get_tree().root.size.y) / get_viewport().get_visible_rect().size.y)
 	haze.material.set_shader_parameter("scroll", camera.top_left.x)
 	haze.material.set_shader_parameter("game_time", Game.time)
+	if motif.visible:
+		motif.material.set_shader_parameter("scroll", camera.top_left)
+		motif.material.set_shader_parameter("game_time", Game.time)
 	light_fx.material.set_shader_parameter("scroll", camera.top_left.x)
 	light_fx.material.set_shader_parameter("game_time", Game.time)
 	# The level's bottom edge in SubViewport rows (the SubViewport starts PAD above the view).
 	light_fx.material.set_shader_parameter("mist_y", camera.bounds.y - camera.top_left.y + PAD)
 	_update_lights()
+	_update_lamp()
+
+
+## Clawd's lamp for the dark levels: on his middle, LAMP_Z in front of him, its radius breathing like
+## `105 + Math.sin(this.time * 2) * 3` in drawDarkness().
+func _update_lamp() -> void:
+	var at := player.global_position + Vector3(0, Player.SIZE.y / 2 * Px.M, LAMP_Z)
+	var radius := (LAMP_RADIUS + sin(Game.time * 2) * 3) * Px.M
+	dark_lamp = Vector4(at.x, at.y, at.z, radius)
+	RenderingServer.global_shader_parameter_set("dark_lamp", dark_lamp)
 
 
 ## Clawd's blob shadow and the enemies' nearest the view centre (Level.SHADOWS_MAX in all), as wide as they

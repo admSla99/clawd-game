@@ -68,11 +68,11 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [x] `R` RateLimiter: 2×2 "429" crusher that drops when Clawd is below and rises slowly; its top is walkable.
 
 ### M2 1-2 Gradient Caves
-- [ ] Convert; spawns `R` `F`.
-- [ ] `dark`: darkness in the terrain / scenery / decor shaders, Clawd's light, glowing sparks, checkpoints and
+- [x] Convert; spawns `R` `F`.
+- [x] `dark`: darkness in the terrain / scenery / decor shaders, Clawd's light, glowing sparks, checkpoints and
       lanterns; the cave fog colour (TS clears to `#111111`).
-- [ ] Caves motif: the inverted loss landscape.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Caves motif: the inverted loss landscape.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M3 1-3 Context Window
 - [ ] Convert; spawns `F` `V`.

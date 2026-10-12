@@ -11,6 +11,8 @@ uniform vec3 ray_color = vec3(0.29, 0.42, 0.62);
 uniform float horizon = 0.8;
 uniform float scroll = 0.0;
 uniform float game_time = 0.0;
+// Below 1 in dark levels: the sky behind the cave is only a faint glow.
+uniform float dim = 1.0;
 
 const float BAYER[16] = float[](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
 
@@ -33,5 +35,5 @@ void fragment() {
 	}
 	ray *= 1.0 - smoothstep(0.05, 0.85, v);
 	col = mix(col, ray_color, floor(ray * 3.0 + dither) / 3.0 * 0.3);
-	COLOR = vec4(col, 1.0);
+	COLOR = vec4(col * dim, 1.0);
 }
