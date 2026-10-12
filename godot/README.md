@@ -50,8 +50,9 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
 `?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`,
-`S` → `Spark` (both numbered like the signs). Other spawn characters are skipped. Only 1-1 has been
-re-converted since checkpoints, the exit, signs, moving platforms, sub-agents and sparks were added.
+`S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`. Every spawned node keeps
+its map character in the meta `spawn`. Other spawn characters are skipped (tools/check.gd lists them per level).
+All nine levels are converted with every spawn ported so far.
 
 `export_levels.mjs` merges `levels/overrides.json` (fields per level id) into `index.json`, for metadata where
 the port differs from the TS game: 1-1's sign texts, since the port has no variable jump height.
@@ -72,13 +73,41 @@ Gameplay ported so far: run, jump, coyote time, jump buffer, hover, corner corre
 ground pound and drop-through from `src/entities/player.ts`. Unlike the TS player every jump is a full jump
 (about 4.4 tiles): letting go of jump early does not cut it (`JUMP_CUT_MULT` is gone); spikes knock Clawd back and cost a heart; bugs
 patrol, turn at walls and ledges, hurt on contact and die when stomped, spun, pounded or hit by the hover jet;
-tokens are collected on touch. A defeated bug drops `Bug.TOKENS` = 10 tokens (2 in TS): `Token.pop()` makes
+tokens are collected on touch. A defeated enemy drops five times its TS tokens (`Enemy.TOKEN_FACTOR`; a bug or a
+spam bot 10 instead of 2): `Token.pop()` makes
 popped tokens that burst out of its middle with a random sideways speed, fall under gravity, and over 0.6 s turn
 into a 260 px/s flight to Clawd (`Token._home()`, after `Token.update()` for a free token); they can be picked
 up only after 0.3 s, so the burst is seen even when Clawd stomps from right above. The level's token total
-(results panel) counts the map's tokens plus 10 per bug. Like `Level.tile()` in TS, the columns left and right of
+(results panel) counts the map's tokens plus what every enemy drops. Like `Level.tile()` in TS, the columns left and right of
 the map are solid: `Level` adds two invisible walls (`SideWalls`, physics layer 1) at its edges, so Clawd and
 the bugs stop there instead of walking off the start, and `Level.tile()` returns solid outside the map.
+
+### Enemies
+
+Every enemy extends `Enemy` (`scripts/enemy.gd`, from `Enemy` in `src/entities/entity.ts`), a `CharacterBody3D` in
+the group `enemies` with its origin at its feet: `hp`, `size`, the flags `stompable`, `invincible`, `projectile`,
+`cancellable`, `consume_on_hit`, and `tokens`. `hit(kind, damage)` returns whether the hit landed: it takes hp,
+flashes white for 0.12 s (the `tint` instance uniform of `shaders/voxel.gdshader`) and gives 0.3 s of immunity
+after a melee hit that did not kill. `die()` pops the tokens, asks `Main.enemy_died()` for the burst, enemyDie,
+hitstop and shake, and calls `_die()` for what the subclass leaves behind. `Player` checks the enemies like
+`checkEnemies()` in `src/scenes/game.ts`: a stomp (6 damage while pounding, else 4) always bounces, a spin does
+3, the hover jet 1 (not projectiles), the pound shockwave 4 (`Main._on_pound_land()`); otherwise the hurtbox hurts
+Clawd and a projectile that touches him vanishes.
+
+- `Bug` (`E`, `scripts/bug.gd`): see above; a stomp or pound leaves the flattened shell.
+- `SpamBot` (`F`, `scripts/spam_bot.gd`): hovers ±26 × ±6 px around its post, faces Clawd and every 2.4 s fires a
+  `Shot` at him while he is within 210 px, flickering red for the last 0.4 s. A 20 × 16 px voxel drone at 1 px
+  (from `SPAMBOT`): grey body with a rounded rim, blinking antenna, red eyes with glints, a grille and struts.
+- `Shot` (`scripts/shot.gd`): enemy projectile, 85 px/s from spam bots, 4 s life, stops on solid tiles, destroyed
+  by a spin, vanishes when it hits Clawd; a glowing 5 × 5 voxel cross with a white core and a spark trail.
+- `RateLimiter` (`R`, `scripts/rate_limiter.gd`): 2 × 2-tile crusher hanging from its map cell. When Clawd's top
+  is below it and less than 9 tiles under its top (within 10 px of its sides), or he stands on it, it shakes
+  0.3 s (0.6 s), falls (1800 px/s², at most 520 px/s) onto the first solid or one-way tile, rests 0.9 s (crush,
+  dust, a shake near Clawd) and rises back at 55 px/s. It cannot be hurt; its sides and bottom hurt, its top is a
+  platform in the group `platforms` like `MovingPlatform` (Clawd rides it; carried up, a ceiling stops him). A
+  1.5 m deep block: dark body with studs (bright round the edge), a face plate whose eyes turn red and angry with
+  brows, "429", and a chain up to where it hangs. It has its own material so the see-through windows never thin
+  it out.
 
 Checkpoints (`scripts/checkpoint.gd`, `C` in the map): a voxel terminal on a ribbed post, standing 0.6 m
 behind the gameplay plane so Clawd walks in front of it. Its 18 x 12 px screen has dark glass 1 px back in the
@@ -155,7 +184,8 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 ```
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
-cells and spawns with its `.txt` map, the player's jump height and gap/step limits with the level-design rules in
+cells and spawns with its `.txt` map (each ported spawn character placed as often as in the map, one start, one
+exit except in boss levels; spawns not ported yet are listed), the player's jump height and gap/step limits with the level-design rules in
 `tests/player.test.ts`, the title (logo, drift, Space) and the world map (locking, unlocking, keys, mouse,
 playing, QUIT TO MAP, back from the results) and level switching, spikes, bugs, stomps and tokens in 1-1 (the 10
 tokens a bug drops fly to Clawd; the map's left edge stops him), spin,
@@ -170,7 +200,9 @@ clearing, reset, saving to a separate settings file, glyphs for every key name),
 renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
 the game's events play their sounds, the jet hisses while hovering, M mutes, the exit and results switch the
 music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, results, saved progress, ghosts on the
-next run), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+next run), spam bots, shots and rate limiters (hovering, aimed fire and its range, a shot's hit / spin / wall,
+stomping a spam bot and its tokens; 1-2's crushers: trigger, fall, crush, hurt, riding the top up, rising home,
+no damage), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map).
 
 ## Game clock and camera
@@ -486,7 +518,10 @@ without COOP/COEP headers.
 | `project.godot` | 480×270 base view (integer-scaled by `ViewScale`), 60 Hz physics, input actions named as in `src/core/input.ts`, 3D physics layers `world`, `player`, `enemies`, `oneway` |
 | `scenes/main.tscn`, `scripts/main.gd` | Main scene (title, map, shop and game modes): `View/SubViewport/World` holds the environment (glow), `Background/Haze` and `Background/Parallax`, `Scenery`, `Level` (current level), `Camera3D`, particles and the player; `ScreenFx/Crt` on top. `load_level(id)`, `next_level()` |
 | `scenes/player.tscn`, `scripts/player.gd` | Clawd: movement, spin, ground pound, drop-through, spikes, enemy contact and stomps, voxel frames, spin ring, hover jets |
-| `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (group `enemies`) |
+| `scripts/enemy.gd` | `Enemy`: base of the enemies (hp, hits, flash, death burst, tokens; group `enemies`) |
+| `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (`E`) |
+| `scripts/spam_bot.gd`, `scripts/shot.gd` | Spam bot (`F`) and the enemy projectile it fires |
+| `scripts/rate_limiter.gd` | "429" crusher (`R`), also a platform |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |

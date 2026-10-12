@@ -101,7 +101,7 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 - **UI** is pixel art drawn in the SubViewport's `Ui` CanvasLayer with `PixelFont` (`Hud`, `Overlay`, `FrontEnd`,
   `Shop`, `Menu`). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
   offset by PAD. Screen-fixed 3D props hang on the camera; anything in front of z = 0 is drawn shifted down by z/3.
-- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S` so far);
+- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S F R` so far);
   numbered spawns (signs, sub-agents, sparks) get `index` in map order like `Spawn.index` in TS.
 
 ## Godot port status (branch `godot-2.5d`)
@@ -109,17 +109,17 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 **`godot/docs/port-plan.md` is the task list for the remaining levels, shooting and weapons**, with the user's
 decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
 
-Only **1-1** is converted with all current spawns and fully playable (title → map → level → results → map, shop).
+All levels are converted with every spawn ported so far; **1-1** is fully playable (title → map → level →
+results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
+shot, rate limiter.
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
-`godot/levels/overrides.json`); a bug drops 10 tokens; sparks are a solid glowing star; spikes are a bed across
+`godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10); sparks are a solid glowing star; spikes are a bed across
 the block depth; the shop opens after clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
 Tokens; world-2 weapons/mods are a locked ARMORY row.
 
 Not ported yet (the next goal is all levels plus shooting and weapons):
-- Enemies `F` SpamBot, `R` RateLimiter (`src/entities/enemies.ts`), `T` Turret, `Y` ceiling turret, `D` Drone,
-  `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B` (`src/entities/boss/hallucination.ts` for 1-B,
-  `codex.ts` for 2-B). The port's enemies are 1-hp bugs (`scripts/bug.gd`); TS enemies share `Enemy`
-  (`src/entities/entity.ts`: hp, `hit()`, tokens, death burst), which the port needs as a base first.
+- Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B`
+  (`src/entities/boss/hallucination.ts` for 1-B, `codex.ts` for 2-B), world 2's tougher hp.
 - Level features `dark` (1-2 darkness around Clawd) and `risingVoid` (1-3), both in `src/scenes/game.ts`.
 - Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
   `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the

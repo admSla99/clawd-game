@@ -55,16 +55,17 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 
 ### M0 Groundwork
 - [x] This plan, linked from `CLAUDE.md`.
-- [ ] Godot-only map overrides in `export_levels.mjs` (only once a level needs one).
-- [ ] Generic per-level check in `tools/check.gd`: every converted level loads, has a start and a goal, and its
+- [ ] Godot-only map overrides in `export_levels.mjs` (only once a level needs one; none so far).
+- [x] Generic per-level check in `tools/check.gd`: every converted level loads, has a start and a goal, and its
       spawn counts match its `.txt`.
+- [x] All nine levels re-converted with every spawn ported so far.
 
 ### M1 Enemy base and world-1 enemies
-- [ ] `enemy.gd`: port `Enemy` (`src/entities/entity.ts`): hp, `hit(damage)`, stomp / spin / pound handling,
+- [x] `enemy.gd`: port `Enemy` (`src/entities/entity.ts`): hp, `hit(damage)`, stomp / spin / pound handling,
       token drop × 5, death burst. Move `bug.gd` onto it.
-- [ ] `Shot` (enemy projectile) and `F` SpamBot (`src/entities/enemies.ts`), voxel model, sounds; re-convert
+- [x] `Shot` (enemy projectile) and `F` SpamBot (`src/entities/enemies.ts`), voxel model, sounds; re-convert
       1-1 (its `F`).
-- [ ] `R` RateLimiter: 2×2 "429" crusher that drops when Clawd is below and rises slowly; its top is walkable.
+- [x] `R` RateLimiter: 2×2 "429" crusher that drops when Clawd is below and rises slowly; its top is walkable.
 
 ### M2 1-2 Gradient Caves
 - [ ] Convert; spawns `R` `F`.

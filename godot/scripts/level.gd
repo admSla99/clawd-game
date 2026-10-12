@@ -29,12 +29,15 @@ const SIGN := "res://scripts/sign.gd"
 const PLATFORM := "res://scripts/moving_platform.gd"
 const AGENT := "res://scripts/sub_agent.gd"
 const SPARK := "res://scripts/spark.gd"
+const SPAMBOT := "res://scripts/spam_bot.gd"
+const RATELIMITER := "res://scripts/rate_limiter.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
 # 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
-# 'S' a spark (each numbered like the signs). Positions are the tile's bottom-centre, like Spawn.x / Spawn.y in
-# src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark"}
+# 'S' a spark (each numbered like the signs); 'F' a spam bot and 'R' a rate limiter. Positions are the tile's
+# bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
+# the meta "spawn".
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -43,12 +46,15 @@ var _cells_tex: ImageTexture
 
 @onready var terrain: GridMap = $Terrain
 @onready var oneway: GridMap = $OneWay
-## Level width in tiles (Level.w in TS), fixed when the level enters the tree.
+## Level width in tiles (Level.w in TS) and size in pixels (Level.pixelW / pixelH), fixed when the level
+## enters the tree.
 var width := 0
+var pixel_size := Vector2.ZERO
 
 
 func _ready() -> void:
-	width = int(size().x / 16)
+	pixel_size = size()
+	width = int(pixel_size.x / 16)
 	_add_side_walls()
 
 
@@ -249,6 +255,7 @@ static func build(rows: PackedStringArray) -> Level:
 				maps[int(item == ONEWAY)].set_cell_item(Vector3i(x, -y - 1, 0), item)
 			elif SPAWNS.has(ch):
 				var node := _add_spawn(level, SPAWNS[ch], Vector2(x * 16 + 8, (y + 1) * 16))
+				node.set_meta("spawn", ch)
 				if SPAWNS[ch] == "sign":
 					node.set("index", signs)
 					signs += 1
@@ -290,6 +297,12 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"spark":
 			node = load(SPARK).new()
 			node.name = "Spark"
+		"spambot":
+			node = load(SPAMBOT).new()
+			node.name = "SpamBot"
+		"ratelimiter":
+			node = load(RATELIMITER).new()
+			node.name = "RateLimiter"
 		"platform_h", "platform_v":
 			node = load(PLATFORM).new()
 			node.name = "Platform"

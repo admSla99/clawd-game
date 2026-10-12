@@ -1,5 +1,6 @@
 // Voxel sprites (Voxel.mesh): unshaded linear vertex colours times `albedo`; `albedo` above 1.0 makes the
-// WorldEnvironment glow pick them up. `flash` draws everything white (Clawd's hit flash).
+// WorldEnvironment glow pick them up. `flash` draws everything white (Clawd's hit flash); per instance,
+// `tint` (linear rgb, alpha = amount) recolours a sprite like drawSprite()'s `tint` (an enemy's hit flash).
 // Rim light: `rim_light` (world position, reach) and `rim_energy` (GlowLight.rim_for(), set per instance)
 // warm the side of the sprite facing that light: a 1 px rim on the silhouette edges of the front face
 // (UV.x holds each pixel's edges from Voxel.mesh(): 1 right, 2 left, 4 top, 8 bottom) and the side faces
@@ -19,6 +20,7 @@ instance uniform vec4 rim_light = vec4(0.0);
 instance uniform float rim_energy = 0.0;
 instance uniform vec4 sway = vec4(0.0);
 instance uniform float bend = 0.0;
+instance uniform vec4 tint = vec4(0.0);
 
 // The lanterns' warm light, linear.
 const vec3 RIM_COLOR = vec3(0.87, 0.38, 0.24);
@@ -68,5 +70,5 @@ void fragment() {
 			}
 		}
 	}
-	ALBEDO = flash ? vec3(1.0) : col;
+	ALBEDO = flash ? vec3(1.0) : mix(col, tint.rgb, tint.a);
 }

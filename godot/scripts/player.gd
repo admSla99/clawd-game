@@ -9,8 +9,7 @@ extends CharacterBody3D
 ## continue_pound()). Hurt is `hurt_timer`. Down + jump on a one-way platform drops through it.
 
 ## Moments the game reacts to with particles and camera shake (events in the TS player):
-## jump, land, hard_land, hurt, stomp, defeat (an enemy killed by spin or the hover jet), spin,
-## pound_start, pound_land, drop_through. `at` is where it happened, in level pixels.
+## jump, land, hard_land, hurt, stomp, spin, pound_start, pound_land, drop_through. `at` is where it happened, in level pixels.
 signal event(kind: StringName, at: Vector2)
 
 const RUN_SPEED := 150.0
@@ -95,8 +94,9 @@ var drop_timer := 0.0
 var on_one_way := false
 ## No input, only gravity and slowing down (the level is complete).
 var frozen := false
-## The moving platform Clawd stands on, or null.
-var riding: MovingPlatform = null
+## The platform Clawd stands on (a MovingPlatform or a RateLimiter: anything in the group "platforms" with
+## x, y, dx, dy, active and rect()), or null.
+var riding = null
 ## Standing on a tile floor or riding a platform (set after moving).
 var on_ground := false
 
@@ -221,12 +221,20 @@ func _physics_process(dt: float) -> void:
 
 	# Ride the moving platform (they move before the player): carried sideways, kept on its top.
 	if riding:
-		var r := riding.rect()
+		var r: Rect2 = riding.rect()
 		if not riding.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
 			riding = null
 		else:
 			move_and_collide(Vector3(riding.dx, 0, 0) * Px.M)
-			pos = Vector2(pos.x, riding.y)
+			# Carried up, a ceiling stops Clawd (moveY() in TS, which one-way tiles do not block); carried
+			# down, he just follows.
+			if riding.y < pos.y:
+				var one_way := get_collision_mask_value(4)
+				set_collision_mask_value(4, false)
+				move_and_collide(Vector3(0, pos.y - riding.y, 0) * Px.M)
+				set_collision_mask_value(4, one_way)
+			else:
+				pos = Vector2(pos.x, riding.y)
 	var grounded := is_on_floor() or riding != null
 	if grounded:
 		coyote = COYOTE_TIME
@@ -332,10 +340,10 @@ func _physics_process(dt: float) -> void:
 	if is_on_ceiling():
 		jumping = false
 	# Land on a moving platform from above (the platform loop in the TS player's update()).
-	var ride: MovingPlatform = null
+	var ride = null
 	if not is_on_floor() and vel.y >= 0 and drop_timer <= 0:
-		for p: MovingPlatform in get_tree().get_nodes_in_group("platforms"):
-			var r := p.rect()
+		for p in get_tree().get_nodes_in_group("platforms"):
+			var r: Rect2 = p.rect()
 			if not p.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
 				continue
 			if prev_pos.y <= p.y - p.dy + 1.5 and pos.y >= p.y:
@@ -452,21 +460,29 @@ func _check_hazards() -> void:
 	var hb := Rect2(pos + HITBOX.position, HITBOX.size)
 	var attack := attack_box()
 	var beam := hover_beam()
-	for e in get_tree().get_nodes_in_group("enemies"):
-		var er: Rect2 = e.rect()
-		# Stomp: falling (or pounding) onto the top part of an enemy.
-		if (vel.y > 0 or state == &"pound") and hb.intersects(er) and prev_pos.y <= e.stomp_line():
+	# checkEnemies() in src/scenes/game.ts.
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if e.dead:
+			continue
+		var er := e.rect()
+		# Stomp: falling (or pounding) onto the top part of an enemy. Stomping always bounces, even if
+		# the enemy is briefly immune.
+		if e.stompable and not e.invincible and (vel.y > 0 or state == &"pound") and hb.intersects(er) \
+				and prev_pos.y <= e.stomp_line():
+			var pound := state == &"pound"
+			e.hit(&"pound" if pound else &"stomp", Enemy.POUND_STOMP_DAMAGE if pound else Enemy.STOMP_DAMAGE)
 			event.emit(&"stomp", e.pos)
-			e.hit(&"pound" if state == &"pound" else &"stomp")
 			_bounce()
-		elif attack.has_area() and attack.intersects(er):
-			event.emit(&"defeat", e.pos)
-			e.hit(&"spin")
-		elif beam.has_area() and beam.intersects(er):
-			event.emit(&"defeat", e.pos)
-			e.hit(&"beam")
-		elif hb.intersects(e.hurtbox()):
-			hurt(e.pos.x)
+			continue
+		if attack.has_area() and attack.intersects(er) and e.hit(&"spin", Enemy.SPIN_DAMAGE):
+			continue
+		if beam.has_area() and not e.projectile and beam.intersects(er) and e.hit(&"beam", Enemy.BEAM_DAMAGE):
+			continue
+		var hurt_box := e.hurtbox()
+		if hurt_box.has_area() and hb.intersects(hurt_box):
+			if e.projectile and e.consume_on_hit:
+				e.remove()
+			hurt(er.get_center().x)
 
 
 ## Bounce off an enemy's head (bounce() in the TS player).

@@ -58,6 +58,7 @@ func _init() -> void:
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
+	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -86,19 +87,23 @@ func check_noise() -> bool:
 func check_levels() -> bool:
 	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
 	ok(index.size() == 9, "9 levels in index.json")
+	var spawns: Dictionary = level_script.SPAWNS
 	for l in index:
-		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).trim_suffix("\n").split("\n")
+		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).replace("\r", "").trim_suffix("\n").split("\n")
 		var level: Node3D = load("res://levels/%s.tscn" % l.id).instantiate()
 		var terrain: GridMap = level.get_node("Terrain")
 		var oneway: GridMap = level.get_node("OneWay")
 		var want_tiles := 0
-		var want := {"@": 0, "E": 0, "o": 0}
+		var want := {}
+		var unported := {}
 		var bad := 0
 		for y in rows.size():
 			for x in rows[y].length():
 				var ch := rows[y][x]
-				if ch in want:
-					want[ch] += 1
+				if spawns.has(ch):
+					want[ch] = want.get(ch, 0) + 1
+				elif ch != "." and ch != " " and not TILE_CHARS.contains(ch):
+					unported[ch] = unported.get(ch, 0) + 1
 				var c := Vector3i(x, -y - 1, 0)
 				var item := oneway.get_cell_item(c) if ch == "=" else terrain.get_cell_item(c)
 				if TILE_CHARS.contains(ch):
@@ -106,12 +111,17 @@ func check_levels() -> bool:
 					bad += int(item != TILE_CHARS.find(ch))
 				else:
 					bad += int(terrain.get_cell_item(c) != -1 or oneway.get_cell_item(c) != -1)
-		var spawns := level.get_children()
-		var bugs := spawns.filter(func(n): return n.is_in_group("enemies")).size()
-		var tokens := spawns.filter(func(n): return n is Area3D).size()
-		ok(bad == 0 and terrain.get_used_cells().size() + oneway.get_used_cells().size() == want_tiles and want["@"] == 1
-			and level.has_node("Start") and bugs == want["E"] and tokens == want["o"],
-			"%s: %d tiles, 0 misplaced, 1 start, %d bugs, %d tokens" % [l.id, want_tiles, bugs, tokens])
+		var got := {}
+		for n in level.get_children():
+			if n.has_meta("spawn"):
+				got[n.get_meta("spawn")] = got.get(n.get_meta("spawn"), 0) + 1
+		var boss: bool = l.has("boss")
+		ok(bad == 0 and terrain.get_used_cells().size() + oneway.get_used_cells().size() == want_tiles,
+			"%s: %d tiles, 0 misplaced" % [l.id, want_tiles])
+		ok(got == want and want.get("@", 0) == 1 and level.has_node("Start") and (boss or want.get("G", 0) == 1),
+			"%s: one start, %s, every ported spawn placed %s" % [l.id, "no exit (boss)" if boss else "one exit", want])
+		if not unported.is_empty():
+			print("       %s: not ported yet: %s" % [l.id, unported])
 		level.free()
 	return true
 
@@ -366,7 +376,7 @@ func check_hazards() -> bool:
 
 	m.load_level("1-1")
 	await frames(3)
-	var bug = get_nodes_in_group("enemies")[0]
+	var bug = bugs()[0]
 	var bug_x: float = bug.pos.x
 	p.pos = bug.pos + Vector2(-40, 0)
 	p.invuln = 0
@@ -378,23 +388,24 @@ func check_hazards() -> bool:
 
 	m.load_level("1-1")
 	await frames(3)
-	var n := get_nodes_in_group("enemies").size()
-	bug = get_nodes_in_group("enemies")[0]
+	var n := bugs().size()
+	var droppers: int = get_nodes_in_group("enemies").filter(func(e): return e.tokens > 0).size()
+	bug = bugs()[0]
 	p.pos = bug.pos + Vector2(0, -40)
 	p.vel = Vector2.ZERO
 	p.invuln = 0
 	var bounced := false
 	for i in 60:
 		await physics_frame
-		if get_nodes_in_group("enemies").size() < n:
+		if bugs().size() < n:
 			bounced = p.vel.y < 0
 			break
 	ok(bounced, "stomping a bug kills it and bounces")
 	ok(m.particles.list.size() > 0, "stomp emits particles")
 	var popped: Array = m.level.get_children().filter(func(c): return c is Area3D and c.popped)
 	ok(popped.size() == 10, "a defeated bug drops 10 tokens (got %d)" % popped.size())
-	ok(m.tokens_total == m.level.get_children().filter(func(c): return c is Area3D and not c.popped).size() + n * 10,
-		"the level's token total counts what the bugs drop")
+	ok(m.tokens_total == m.level.get_children().filter(func(c): return c is Area3D and not c.popped).size() + droppers * 10,
+		"the level's token total counts what the enemies drop (%d of them)" % droppers)
 	var had: int = m.tokens
 	for i in 180:
 		await physics_frame
@@ -428,6 +439,12 @@ func check_hazards() -> bool:
 	return true
 
 
+## The bugs of the current level (the group "enemies" also holds spam bots, crushers and shots).
+func bugs() -> Array:
+	var script := load("res://scripts/bug.gd")
+	return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == script)
+
+
 func _start(m: Node) -> Vector2:
 	return Px.of(m.level.get_node("Start").position)
 
@@ -441,8 +458,8 @@ func check_moves() -> bool:
 	# Spin next to a bug kills it.
 	m.load_level("1-1")
 	await frames(3)
-	var n := get_nodes_in_group("enemies").size()
-	var bug = get_nodes_in_group("enemies")[0]
+	var n := bugs().size()
+	var bug = bugs()[0]
 	p.pos = bug.pos + Vector2(-20, 0)
 	p.vel = Vector2.ZERO
 	p.invuln = 5
@@ -452,7 +469,7 @@ func check_moves() -> bool:
 	Input.action_release("spin")
 	ok(p.state == &"spin" and &"spin" in events, "spin starts the spin state")
 	await frames(10)
-	ok(get_nodes_in_group("enemies").size() == n - 1 and p.hearts == p.MAX_HEARTS, "spin defeats a bug next to Clawd")
+	ok(bugs().size() == n - 1 and p.hearts == p.MAX_HEARTS, "spin defeats a bug next to Clawd")
 
 	# A spin in the air hops once.
 	p.pos = Vector2(10 * TILE, 10 * TILE)
@@ -577,6 +594,160 @@ func check_objects() -> bool:
 	m.play("1-2")
 	await frames(2)
 	ok(m.level_id == "1-2" and not p.frozen and p.visual.visible and p.collision_layer == 2 and p.can_process(), "playing again brings Clawd back")
+	return true
+
+
+## Whether an enemy is defeated or removed (its node may be freed already).
+func gone(e) -> bool:
+	return not is_instance_valid(e) or e.dead
+
+
+## The level's enemies whose script is `path`, in map order.
+func enemies_of(path: String) -> Array:
+	var script := load(path)
+	return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == script)
+
+
+func check_enemies() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var shot_script := load("res://scripts/shot.gd")
+
+	# The spam bot in 1-1 hovers around its post and fires at Clawd within 210 px.
+	m.load_level("1-1")
+	await frames(3)
+	var bots := enemies_of("res://scripts/spam_bot.gd")
+	ok(bots.size() == 1, "1-1 has one spam bot 'F'")
+	var bot = bots[0]
+	ok(bot.hp == 1 and bot.tokens == 10 and bot.stompable, "it has 1 hp, drops 10 tokens and can be stomped")
+	var at: Vector2 = bot.pos
+	await frames(30)
+	ok(bot.pos.distance_to(at) > 1 and absf(bot.pos.x - bot.home.x) <= 26 and absf(bot.pos.y - bot.home.y) <= 6,
+		"it hovers around its post (26 x 6 px)")
+	p.pos = bot.home + Vector2(-150, 0)
+	p.vel = Vector2.ZERO
+	p.invuln = 10
+	bot.fire_timer = 0.05
+	snd.played.clear()
+	var shot = null
+	for i in 10:
+		await physics_frame
+		var shots := get_nodes_in_group("enemies").filter(func(e): return e.get_script() == shot_script)
+		if not shots.is_empty():
+			shot = shots[0]
+			break
+	ok(shot != null and "shoot" in snd.played, "it fires a shot and plays shoot")
+	if shot:
+		var aim: Vector2 = p.pos + Vector2(0, -9) - (bot.pos + Vector2(0, -7))
+		ok(absf(shot.vel.length() - 85) < 0.01 and shot.vel.normalized().dot(aim.normalized()) > 0.95,
+			"the shot flies at Clawd at 85 px/s")
+		ok(shot.projectile and not shot.stompable and shot.tokens == 0, "a shot is a projectile without tokens")
+	bot.fire_timer = 100
+	p.pos = bot.home + Vector2(-260, 0)
+	bot.fire_timer = 0.0
+	await frames(5)
+	ok(bot.fire_timer <= 0, "it holds fire while Clawd is out of range")
+	bot.fire_timer = 100
+
+	# A shot hurts Clawd and vanishes; a spin destroys it; a wall stops it.
+	m.load_level("1-1")
+	await frames(3)
+	for b in enemies_of("res://scripts/spam_bot.gd"):
+		b.fire_timer = 100
+	var start := _start(m)
+	p.pos = start
+	p.vel = Vector2.ZERO
+	p.invuln = 0
+	await frames(2)
+	var hearts: int = p.hearts
+	shot = shot_script.fire(m.level, p.pos + Vector2(-30, -9), Vector2(85, 0))
+	for i in 60:
+		await physics_frame
+		if p.hearts < hearts: break
+	ok(p.hearts == hearts - 1 and gone(shot), "a shot hurts Clawd and vanishes")
+	await frames(90)
+	p.invuln = 0
+	p.pos = start
+	p.vel = Vector2.ZERO
+	await frames(2)
+	hearts = p.hearts
+	Input.action_press("spin")
+	await frames(2)
+	Input.action_release("spin")
+	shot = shot_script.fire(m.level, p.pos + Vector2(-26, -9), Vector2(85, 0))
+	for i in 20:
+		await physics_frame
+		if gone(shot): break
+	ok(gone(shot) and p.hearts == hearts, "a spin destroys a shot without a hit")
+	var wall_shot = shot_script.fire(m.level, start + Vector2(0, -4), Vector2(0, 200))
+	await frames(10)
+	ok(gone(wall_shot), "a shot dies on a solid tile")
+
+	# Stomping the spam bot defeats it.
+	m.load_level("1-1")
+	await frames(3)
+	bot = enemies_of("res://scripts/spam_bot.gd")[0]
+	bot.fire_timer = 100
+	p.invuln = 5
+	var bounced := false
+	for i in 90:
+		p.pos = Vector2(bot.pos.x, p.pos.y) if i > 0 else bot.pos + Vector2(0, -30)
+		if i == 0:
+			p.vel = Vector2.ZERO
+		await physics_frame
+		if gone(bot):
+			bounced = p.vel.y < 0
+			break
+	ok(bounced, "stomping a spam bot defeats it and bounces")
+	var popped: Array = m.level.get_children().filter(func(c): return c is Area3D and c.popped)
+	ok(popped.size() == 10, "it drops 10 tokens (got %d)" % popped.size())
+
+	# The rate limiters of 1-2: the first hangs at tiles (36, 12) above a floor at row 18.
+	m.load_level("1-2")
+	await frames(3)
+	var rls := enemies_of("res://scripts/rate_limiter.gd")
+	ok(rls.size() == 4, "1-2 has 4 rate limiters 'R'")
+	var rl = rls[0]
+	ok(rl.x == 36 * TILE and rl.y == 12 * TILE and rl.is_in_group("platforms"), "a rate limiter hangs from its cell's top-left, 2 x 2 tiles")
+	ok(rl.invincible and rl.tokens == 0 and not rl.stompable, "it cannot be hurt and drops nothing")
+	p.pos = Vector2(rl.x + 32 + 24, 18 * TILE)
+	p.vel = Vector2.ZERO
+	await frames(30)
+	ok(rl.mode == &"idle", "it waits while Clawd is beside it")
+	p.pos = Vector2(rl.pos.x, 18 * TILE)
+	p.vel = Vector2.ZERO
+	p.invuln = 0
+	hearts = p.hearts
+	snd.played.clear()
+	var modes := []
+	for i in 120:
+		await physics_frame
+		if modes.is_empty() or modes.back() != rl.mode:
+			modes.append(rl.mode)
+		if rl.mode == &"rest": break
+	ok(modes == [&"shake", &"fall", &"rest"] or modes == [&"idle", &"shake", &"fall", &"rest"], "under it, it shakes, drops and rests (%s)" % [modes])
+	ok(rl.y == 18 * TILE - 32 and "crush" in snd.played, "it lands on the floor and plays crush")
+	ok(p.hearts == hearts - 1, "it hurts Clawd beneath it")
+	# Standing on it while it rests, Clawd rides it up without getting hurt.
+	p.invuln = 0
+	p.pos = Vector2(rl.pos.x, rl.y - 2)
+	p.vel = Vector2.ZERO
+	hearts = p.hearts
+	await frames(20)
+	ok(p.riding == rl and p.on_ground, "Clawd can stand on its top")
+	for i in 120:
+		await physics_frame
+		if rl.mode == &"rise" and rl.y < 18 * TILE - 32 - 20: break
+	ok(rl.mode == &"rise" and p.riding == rl and absf(p.pos.y - rl.y) < 0.01 and p.hearts == hearts,
+		"it rises and carries Clawd up, its top does not hurt")
+	p.pos = Vector2(rl.x - 60, 18 * TILE)
+	p.vel = Vector2.ZERO
+	for i in 120:
+		await physics_frame
+		if rl.mode == &"idle": break
+	ok(rl.mode == &"idle" and rl.y == 12 * TILE, "and goes back up to where it hangs")
+	ok(not rl.hit(&"spin", 3) and not rl.dead, "a spin does not hurt it")
 	return true
 
 
@@ -952,7 +1123,7 @@ func check_sound() -> bool:
 	ok("land" in snd.played, "landing plays land")
 
 	snd.played.clear()
-	var bug = get_nodes_in_group("enemies")[0]
+	var bug = bugs()[0]
 	p.pos = bug.pos + Vector2(0, -40)
 	p.vel = Vector2.ZERO
 	p.invuln = 1

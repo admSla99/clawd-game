@@ -215,11 +215,14 @@ func load_level(id: String) -> void:
 	hud.sparks = sparks
 	hud.visible = true
 	Sound.play_music(info.get("music", ""))
-	# Every token placed in the map plus what every bug drops (twice that with Double Tokens).
+	# Every token placed in the map plus what every enemy drops (twice that with Double Tokens).
 	double_tokens = Progress.in_stock("double") > 0
 	hud.double_tokens = double_tokens
-	tokens_total = (level.get_children().filter(func(c: Node) -> bool: return c is Token).size() \
-		+ get_tree().get_nodes_in_group("enemies").size() * Bug.TOKENS) * (2 if double_tokens else 1)
+	var dropped := 0
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		dropped += e.tokens
+	tokens_total = (level.get_children().filter(func(c: Node) -> bool: return c is Token).size() + dropped) \
+		* (2 if double_tokens else 1)
 	complete_t = -1.0
 	var texts: Array = info.get("signs", [])
 	for s in level.get_children().filter(func(c: Node) -> bool: return c is Sign):
@@ -280,15 +283,16 @@ func _process(_dt: float) -> void:
 	_update_lights()
 
 
-## Clawd's blob shadow and the enemies' nearest the view centre (Level.SHADOWS_MAX in all).
+## Clawd's blob shadow and the enemies' nearest the view centre (Level.SHADOWS_MAX in all), as wide as they
+## are; projectiles cast none.
 func _update_shadows() -> void:
 	var centre := camera.top_left + camera.view_size() / 2
-	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	var enemies: Array = get_tree().get_nodes_in_group("enemies").filter(func(e: Enemy) -> bool: return not e.projectile)
 	enemies.sort_custom(func(a: Node, b: Node) -> bool:
 		return a.pos.distance_squared_to(centre) < b.pos.distance_squared_to(centre))
 	var shadows := PackedVector4Array([level.shadow_at(player.pos, PLAYER_SHADOW)])
 	for e in enemies.slice(0, Level.SHADOWS_MAX - 1):
-		shadows.append(level.shadow_at(e.pos, ENEMY_SHADOW))
+		shadows.append(level.shadow_at(e.pos, ENEMY_SHADOW * e.size.x / 16))
 	level.set_shadows(shadows)
 
 
@@ -357,12 +361,15 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			Game.hitstop(0.06)
 			Progress.use_stock("firewall")
 			overlay.popup("FIREWALL", at + Vector2(0, -30), Color("#F0A585"))
-		&"stomp", &"defeat":
-			# Enemy death in src/entities/entity.ts: two bursts, hitstop and shake.
-			particles.emit(at + Vector2(0, -5), {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
-			particles.emit(at + Vector2(0, -5), {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
-			shake(0.18)
-			Game.hitstop(0.05)
+
+
+## Enemy.die() in src/entities/entity.ts: two bursts from the enemy's middle, enemyDie, hitstop and shake.
+func enemy_died(_e: Enemy, at: Vector2) -> void:
+	particles.emit(at, {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
+	particles.emit(at, {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
+	Sound.play("enemyDie")
+	shake(0.18)
+	Game.hitstop(0.05)
 
 
 ## The sound of a player event (handlePlayerEvents(), hurtPlayer(), die() and the stomp in src/scenes/game.ts;
@@ -387,13 +394,10 @@ func _sound(kind: StringName) -> void:
 			Sound.play("die")
 		&"stomp":
 			Sound.play("stomp")
-			Sound.play("enemyDie")
-		&"defeat":
-			Sound.play("enemyDie")
 
 
 ## Ground pound landing (onPoundLand() in src/scenes/game.ts): dust and shake, breaks the corrupted
-## blocks under Clawd's feet (and keeps falling through them), and the shockwave defeats bugs nearby.
+## blocks under Clawd's feet (and keeps falling through them), and the shockwave hits the enemies nearby.
 func _on_pound_land() -> void:
 	var p := player.pos
 	shake(0.3)
@@ -410,10 +414,9 @@ func _on_pound_land() -> void:
 		Game.hitstop(0.06)
 		player.continue_pound()
 	var wave := Rect2(p.x - 30, p.y - 14, 60, 16)
-	for e in get_tree().get_nodes_in_group("enemies"):
-		if wave.intersects(e.rect()):
-			_on_player_event(&"defeat", e.pos)
-			e.hit(&"pound")
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if not e.projectile and wave.intersects(e.rect()):
+			e.hit(&"pound", Enemy.POUND_WAVE_DAMAGE)
 
 
 ## Behind the title and the map the camera drifts right through the level at about the height of its start,
