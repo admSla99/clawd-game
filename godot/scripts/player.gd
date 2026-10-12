@@ -170,6 +170,21 @@ func respawn() -> void:
 	visual.visible = true
 
 
+## In a level, not parked behind the title or the map (park()). Not `visible`: that blinks while invulnerable.
+func in_play() -> bool:
+	return process_mode != Node.PROCESS_MODE_DISABLED
+
+
+## fellOut() in TS (out of the level's bottom, or caught by the rising void): a heart less, and back to the
+## checkpoint ("die" when it was the last one, which refills them).
+func fall_out() -> void:
+	hearts -= 1
+	event.emit(&"die" if hearts <= 0 else &"fell", pos)
+	if hearts <= 0:
+		hearts = max_hearts
+	respawn()
+
+
 ## Clawd's hurt and pick-up box in level pixels (hitbox in the TS player).
 func hitbox() -> Rect2:
 	return Rect2(pos + HITBOX.position, HITBOX.size)
@@ -446,12 +461,7 @@ func _check_hazards() -> void:
 	if frozen:
 		return
 	if pos.y > kill_y:
-		hearts -= 1
-		# fellOut() in TS: a heart less, and back to the checkpoint ("die" when it was the last one).
-		event.emit(&"die" if hearts <= 0 else &"fell", pos)
-		if hearts <= 0:
-			hearts = max_hearts
-		respawn()
+		fall_out()
 		return
 	if invuln <= 0 and _touches_tile(Level.SPIKE, SPIKE_PROBE):
 		if hurt(pos.x + 10.0 * signf(vel.x)):

@@ -29,6 +29,8 @@ const DARK_SKY := 0.3
 ## Far background motif per theme (docs/scenery-themes.md), drawn on Background/Motif between the haze and
 ## the parallax ridges; themes without one leave it hidden.
 const MOTIFS := {"caves": preload("res://shaders/motif_caves.gdshader")}
+## Motifs built from 3D objects among the scenery layers: a node class with setup(seed, bounds, view, palette).
+const MOTIFS_3D := {"window": preload("res://scripts/window_motif.gd")}
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
 ## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts.
@@ -74,6 +76,10 @@ var double_tokens := false
 ## The darkness of the current level (`dark`): its amount and Clawd's lamp, as passed to the shaders' globals.
 var dark_amount := 0.0
 var dark_lamp := Vector4.ZERO
+## The rising null of the current level (`risingVoid`: 1-3), or null.
+var rising_void: RisingVoid = null
+## The theme's 3D motif among the scenery (MOTIFS_3D), or null.
+var motif_3d: Node3D = null
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -200,6 +206,7 @@ func load_level(id: String) -> void:
 	level_id = id
 	info = levels[level_ids.find(id)]
 	level.bake_cells(info.terrainSeed)
+	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
 	level.set_param("row_z", GameCamera.ROW_Z)
 	level.set_param("ambient", Themes.vec(Themes.palette(info.theme).light))
 	for key in ["top", "mid", "haze"]:
@@ -251,6 +258,14 @@ func load_level(id: String) -> void:
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
+	if motif_3d:
+		motif_3d.free()
+		motif_3d = null
+	if MOTIFS_3D.has(info.theme):
+		motif_3d = MOTIFS_3D[info.theme].new()
+		motif_3d.name = "Motif3D"
+		world.add_child(motif_3d)
+		motif_3d.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette)
 	Decor.populate(level, info.terrainSeed, palette, info.get("dark", false) == true)
 	parallax.setup(info.theme, camera, palette)
 	for key in ["top", "mid", "haze", "ray"]:
@@ -397,6 +412,10 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			Game.hitstop(0.08)
 		&"pound_land":
 			_on_pound_land()
+		&"die", &"fell":
+			# respawn() in TS puts the rising void back below the checkpoint.
+			if rising_void:
+				rising_void.reset(player.spawn_point.y)
 		&"shield":
 			# The Firewall broke instead of a heart: a white and orange ring and it leaves the stock.
 			particles.emit(at + Vector2(0, -9), {count = 24, speed = 120, life = 0.45, color = [Color.WHITE, Color("#F0A585")], drag = 3})

@@ -94,7 +94,7 @@ func _physics_process(dt: float) -> void:
 	_move()
 	var player: Player = get_tree().get_first_node_in_group("player")
 	fire_timer -= dt
-	if player and player.visible:
+	if player and player.in_play():
 		# From the bot's eyes to Clawd's middle, like dx / dy in SpamBot.update().
 		var d := player.pos + Vector2(0, -9) - (pos + Vector2(0, -7))
 		if fire_timer <= 0 and d.length() < RANGE:

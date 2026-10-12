@@ -82,6 +82,20 @@ up only after 0.3 s, so the burst is seen even when Clawd stomps from right abov
 the map are solid: `Level` adds two invisible walls (`SideWalls`, physics layer 1) at its edges, so Clawd and
 the bugs stop there instead of walking off the start, and `Level.tile()` returns solid outside the map.
 
+### The rising void
+
+Levels with `risingVoid` (1-3: speed 22, delay 4) get a `RisingVoid` (`scripts/rising_void.gd`, from
+`updateVoid()` / `drawVoid()` in `src/scenes/game.ts`), made by `Main.load_level()` as a child of the level. Its
+top starts 40 px below the level and after the delay rises at `speed` px/s, never more than 14 tiles below
+Clawd; it waits while the world is frozen, once the level is complete and while Clawd is parked. When his
+feet are 4 px into it he falls out (`Player.fall_out()`, shared with falling off the level's bottom: a heart,
+back to the checkpoint), and on every respawn (`die` / `fell` events) `Main` puts it 10 tiles below the
+checkpoint with a 2 s grace. It is a slab across the level, 4 m deep so it swallows the 3 m blocks, drawn by
+`shaders/void.gdshader`: near-black, its front's top edge waving by 3 px with red / purple / grey 2 px bits
+every 4 px (re-rolled 15 times a second) and grey specks below, its top face a band of dark null with
+flickering bits; bits fizz up from its surface around the view, and "NULL ▲ RISING" blinks in red 16 px
+below its edge (kept in the view, drawn by `Overlay`).
+
 ### Enemies
 
 Every enemy extends `Enemy` (`scripts/enemy.gd`, from `Enemy` in `src/entities/entity.ts`), a `CharacterBody3D` in
@@ -203,7 +217,8 @@ music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, resul
 next run), spam bots, shots and rate limiters (hovering, aimed fire and its range, a shot's hit / spin / wall,
 stomping a spam bot and its tokens; 1-2's crushers: trigger, fall, crush, hurt, riding the top up, rising home,
 no damage), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's lamp position and breathing
-radius, 1-1 lit again), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+radius, 1-1 lit again), 1-3's rising void (start, delay, speed, never too far behind, paused, catching
+Clawd, reset below the checkpoint, the ▲ glyph) and windows, and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map).
 
 ## Game clock and camera
@@ -445,6 +460,12 @@ Back to front:
   valley floor (every fourth an index line), faint away from the floor, and balls of light rolling along the
   floor (gradient descent), one per 420 px, each with a dithered halo that lights the contour lines within
   90 px. Additive, at a tenth of the camera's speed.
+- Window motif (`Main.MOTIFS_3D`: 3D motifs among the scenery, a node built per level): `scripts/window_motif.gd`
+  (`WindowMotif`) fills three layers (z = -21, -11, -8 m; parallax 0.2, 0.32, 0.42) with a window slot per
+  cell, each running its own ~14 s life on `Game.time`: a text panel of 48-96 × 28-52 px
+  (`shaders/motif_window.gdshader`) opens from its title bar down, types its lines of prompt / code in
+  (2 px letters in words, some orange) with a blinking cursor, drifts 3 m back into the depth fog and from
+  80 % of its life crumbles into pixels from the top, then reappears elsewhere in its cell with new text.
 - `Parallax` (see above), its baked grey layers tinted between the palette's haze and light colours and its
   stars, data rain and rings towards the light colour.
 - `scripts/scenery.gd` (`Scenery`): the neural forest, three layers deep, drawn by `shaders/scenery.gdshader`:
@@ -540,6 +561,8 @@ without COOP/COEP headers.
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (`E`) |
 | `scripts/spam_bot.gd`, `scripts/shot.gd` | Spam bot (`F`) and the enemy projectile it fires |
 | `scripts/rate_limiter.gd` | "429" crusher (`R`), also a platform |
+| `scripts/rising_void.gd`, `shaders/void.gdshader` | The rising null of `risingVoid` levels (1-3) |
+| `scripts/window_motif.gd`, `shaders/motif_window.gdshader` | Window motif: floating text windows that type in and crumble |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |

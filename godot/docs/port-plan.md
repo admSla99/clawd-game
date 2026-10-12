@@ -75,11 +75,11 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M3 1-3 Context Window
-- [ ] Convert; spawns `F` `V`.
-- [ ] `risingVoid`: the rising null (delay, speed, kill, reset at checkpoints, the camera), drawn in 2.5D across
+- [x] Convert; spawns `F` `V`.
+- [x] `risingVoid`: the rising null (delay, speed, kill, reset at checkpoints, the camera), drawn in 2.5D across
       the block depth.
-- [ ] Window motif: floating text windows that crumble into pixels.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Window motif: floating text windows that crumble into pixels.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M4 1-B The Hallucination
 - [ ] Arena; port `src/entities/boss/hallucination.ts` (attacks, phases, HP, teleports) as a big voxel model.

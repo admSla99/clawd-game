@@ -59,6 +59,7 @@ func _init() -> void:
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
 	await section("1-2 Gradient Caves: darkness and the caves motif (drawDarkness() in src/scenes/game.ts)", check_caves)
+	await section("1-3 Context Window: the rising void and floating windows (updateVoid() in src/scenes/game.ts)", check_window)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
@@ -778,6 +779,62 @@ func check_caves() -> bool:
 	await frames(3)
 	ok(m.dark_amount == 0.0 and not m.motif.visible and m.haze.material.get_shader_parameter("dim") == 1.0
 		and m.parallax.modulate == Color.WHITE, "1-1 is lit and has no caves motif")
+	return true
+
+
+func check_window() -> bool:
+	var m = current_scene
+	var p = m.player
+	var game = root.get_node("Game")
+	var events := []
+	p.event.connect(func(k, _a): events.append(k))
+	m.load_level("1-3")
+	await frames(3)
+	var v = m.rising_void
+	ok(v != null and v.speed == 22 and is_equal_approx(v.delay, 4.0 - 3.0 / 60) or v.delay <= 4.0,
+		"1-3 has a rising void (22 px/s after 4 s)")
+	ok(absf(v.y - (m.level.pixel_size.y + 40)) < 0.01, "it starts 40 px below the level")
+	ok(m.motif_3d != null and m.motif_3d.get_script() == load("res://scripts/window_motif.gd") and m.motif_3d._windows.size() > 6,
+		"floating windows drift behind the level (%d)" % m.motif_3d._windows.size())
+	var start: Vector2 = _start(m)
+	var hold := func() -> void:
+		p.pos = start
+		p.vel = Vector2.ZERO
+	var y0: float = v.y
+	for i in 120:
+		await physics_frame
+		hold.call()
+	ok(v.y == y0 and v.delay > 0, "it waits out its delay")
+	v.delay = 0.0
+	y0 = v.y
+	for i in 60:
+		await physics_frame
+		hold.call()
+	ok(absf((y0 - v.y) - 22.0) < 1.0, "then rises 22 px a second (%.1f)" % (y0 - v.y))
+	# Never more than 14 tiles below Clawd.
+	y0 = v.y
+	p.pos = start + Vector2(0, -400)
+	await physics_frame
+	ok(v.y <= p.pos.y + 16 * 14 and v.y < y0 - 100, "it never falls more than 14 tiles behind Clawd (%.1f below him)" % (v.y - p.pos.y))
+	hold.call()
+	game.paused = true
+	y0 = v.y
+	await frames(30)
+	ok(v.y == y0, "a paused world holds it")
+	game.paused = false
+	# Caught: a heart less, back to the checkpoint, the void 10 tiles below it with a 2 s grace.
+	var hearts: int = p.hearts
+	events.clear()
+	v.y = start.y - 5.0
+	await frames(2)
+	ok(p.hearts == hearts - 1 and &"fell" in events, "sinking 4 px into it costs a heart and drops Clawd out")
+	ok(p.pos.distance_to(p.spawn_point) < 2.0, "he is back at the checkpoint")
+	ok(absf(v.y - (p.spawn_point.y + 160)) < 1.0 and v.delay > 1.9, "and the void is 10 tiles below it, 2 s behind")
+	var font = load("res://scripts/pixel_font.gd")
+	ok(font.GLYPHS.has("▲"), "the font has the ▲ of NULL ▲ RISING")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.rising_void == null and m.motif_3d == null, "1-1 has neither")
 	return true
 
 

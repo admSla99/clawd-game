@@ -110,7 +110,8 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 **`godot/docs/port-plan.md` is the task list for the remaining levels, shooting and weapons**, with the user's
 decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
 
-All levels are converted with every spawn ported so far; **1-1** is fully playable (title → map → level →
+All levels are converted with every spawn ported so far; 1-1, 1-2 (darkness) and 1-3 (rising void) are
+playable; **1-1** is fully playable (title → map → level →
 results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
 shot, rate limiter.
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
@@ -121,7 +122,6 @@ Tokens; world-2 weapons/mods are a locked ARMORY row.
 Not ported yet (the next goal is all levels plus shooting and weapons):
 - Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B`
   (`src/entities/boss/hallucination.ts` for 1-B, `codex.ts` for 2-B), world 2's tougher hp.
-- Level feature `risingVoid` (1-3, `src/scenes/game.ts`); `dark` (1-2) is done.
 - Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
   `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the
   shop's ARMORY and the `prev` / `next` / slot keys in `Settings`.
