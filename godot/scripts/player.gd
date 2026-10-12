@@ -78,6 +78,10 @@ var jumping := false
 var hover_left := HOVER_DURATION
 var hovering := false
 var facing := 1
+## Holding a weapon (world 2): the attack button shoots instead of spinning, and the aim (radians, 0 = right,
+## y down like the TS angle, set by Gun every frame) decides which way Clawd faces.
+var armed := false
+var aim := 0.0
 var anim := 0.0
 var prev_pos: Vector2
 ## Scale of $Visual for squash & stretch; eases back to 1. The collision shape keeps its size.
@@ -275,7 +279,7 @@ func _physics_process(dt: float) -> void:
 		else:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
 		vel.x = move_toward(vel.x, dir * RUN_SPEED, accel * dt)
-		if dir != 0:
+		if dir != 0 and not armed:
 			if int(dir) != facing and grounded:
 				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
 			facing = int(dir)
@@ -283,8 +287,10 @@ func _physics_process(dt: float) -> void:
 	# Actions: down in the air pounds, spin (or attack, unarmed) spins; down + jump on a one-way drops.
 	var can_act := (state == &"normal" or state == &"spin") and hurt_timer <= 0 and not frozen
 	if can_act:
-		var spin_pressed := Input.is_action_just_pressed("spin") or Input.is_action_just_pressed("attack")
-		if not grounded and (Input.is_action_just_pressed("down") or (Input.is_action_pressed("down") and spin_pressed)):
+		var spin_pressed := Input.is_action_just_pressed("spin") or (not armed and Input.is_action_just_pressed("attack"))
+		# Armed, down with the trigger held aims down instead of pounding.
+		var down_pressed := Input.is_action_just_pressed("down") and not (armed and Input.is_action_pressed("attack"))
+		if not grounded and (down_pressed or (Input.is_action_pressed("down") and spin_pressed)):
 			_start_pound()
 			can_act = false
 		elif spin_pressed and spin_cooldown <= 0 and state != &"spin":

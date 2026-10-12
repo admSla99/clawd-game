@@ -194,7 +194,7 @@ func _physics_process(dt: float) -> void:
 
 ## 0, 1, 2: faster as it is hurt.
 func phase() -> int:
-	return MAX_HP - hp
+	return MAX_HP - ceili(hp)
 
 
 ## Still fighting (the HUD shows its bar until it starts dying).
@@ -209,7 +209,7 @@ func hurtbox() -> Rect2:
 
 
 ## Hallucination.hit(): only while dazed, one hit point per hit whatever it was.
-func hit(_kind: StringName, _damage := 1) -> bool:
+func hit(_kind: StringName, _damage := 1.0) -> bool:
 	if mode != &"vulnerable":
 		return false
 	hp -= 1

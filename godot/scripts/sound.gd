@@ -48,7 +48,8 @@ const TRACKS := {
 ## The effects the port uses, rendered at start-up (play() renders any other one on first use).
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
-	"bossHit", "bossTeleport", "weaponGet"]
+	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
+	"explode", "hit"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -361,6 +362,27 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 			tone(buf, "triangle", 2400, 1800, 0.08, 0.08)
 		"shoot":
 			tone(buf, "square", 1400, 500, 0.1, 0.05)
+		"gunToken":
+			tone(buf, "square", 980, 420, 0.06, 0.06)
+		"gunPellet":
+			noise(buf, 0.14, 0.35, 2200, 300, 0, 0.7)
+			tone(buf, "square", 220, 80, 0.1, 0.1)
+		"gunGlyph":
+			# TS picks 1500-2100 Hz at random; the pre-rendered effect uses the middle.
+			tone(buf, "square", 1800, 900, 0.03, 0.035)
+		"gunBeam":
+			tone(buf, "sawtooth", 1800, 1700, 0.08, 0.025)
+		"gunOrb":
+			tone(buf, "sine", 300, 90, 0.35, 0.3)
+			tone(buf, "square", 600, 150, 0.2, 0.06)
+		"overheat":
+			tone(buf, "sawtooth", 700, 120, 0.5, 0.1)
+			noise(buf, 0.5, 0.2, 4000, 500, 0, 2)
+		"explode":
+			tone(buf, "sine", 160, 30, 0.45, 0.5)
+			noise(buf, 0.45, 0.5, 1500, 60, 0, 0.6)
+		"hit":
+			tone(buf, "square", 420, 300, 0.04, 0.05)
 		"bossHit":
 			tone(buf, "sawtooth", 300, 60, 0.4, 0.2)
 			noise(buf, 0.4, 0.4, 4000, 200, 0, 0.8)
@@ -395,6 +417,13 @@ static func _sfx_length(id: String) -> float:
 		"deflect": return 0.08
 		"shoot": return 0.1
 		"bossHit": return 0.4
+		"gunToken": return 0.06
+		"gunPellet": return 0.14
+		"gunGlyph": return 0.03
+		"gunBeam": return 0.08
+		"gunOrb": return 0.35
+		"overheat", "explode": return 0.5
+		"hit": return 0.04
 		"bossTeleport": return 0.3
 		"weaponGet": return 6 * 0.08 + 0.25
 		"crush": return 0.35

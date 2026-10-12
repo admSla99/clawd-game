@@ -24,14 +24,15 @@ const DEPTH := {"G": 4, "g": 2, "O": 4, "o": 4, "C": 4}
 static var _cache := {}
 
 
-static func mesh(id: String, cell := 2.0) -> ArrayMesh:
-	var key := "%s@%s" % [id, cell]
+## `mat`: a gun in Clawd's hands reaches past the see-through windows' REVEAL_FRONT and needs a material of its own.
+static func mesh(id: String, cell := 2.0, mat: Material = Voxel.MATERIAL) -> ArrayMesh:
+	var key := "%s@%s@%d" % [id, cell, mat.get_instance_id()]
 	if not _cache.has(key):
 		var rows: Array = SPRITES.get(id, SPRITES.blaster)
 		var depth := {}
 		for k in DEPTH:
 			depth[k] = DEPTH[k]
-		_cache[key] = Voxel.mesh(rows, PALETTE, depth, cell * Px.M)
+		_cache[key] = Voxel.mesh(rows, PALETTE, depth, cell * Px.M, mat)
 	return _cache[key]
 
 

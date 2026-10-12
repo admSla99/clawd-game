@@ -83,6 +83,9 @@ var motif_3d: Node3D = null
 ## The level's boss while it lives (1-B), or null; and whether this run found a weapon.
 var boss: Enemy = null
 var weapon_found_run := false
+## Clawd's weapon (armed in world 2) and the Attention Beam's flashes.
+var gun: Gun
+var beams: BeamFx
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -112,6 +115,13 @@ func _ready() -> void:
 	player = PLAYER.instantiate()
 	world.add_child(player)
 	player.event.connect(_on_player_event)
+	gun = Gun.new()
+	gun.name = "GunControl"
+	world.add_child(gun)
+	gun.setup(self, player)
+	beams = BeamFx.new()
+	beams.name = "Beams"
+	world.add_child(beams)
 	hud.bind(player)
 	menu.main = self
 	crt.visible = Settings.crt
@@ -260,6 +270,12 @@ func load_level(id: String) -> void:
 	var start := Px.of(level.get_node("Start").position)
 	_apply_loadout()
 	player.enter_level(level, start, camera.bounds.y)
+	beams.clear()
+	# World 2 is armed; a level started there without a weapon gets the blaster (the TS dev shortcut).
+	var armed: bool = mode == Mode.PLAY and int(info.world) == 2
+	if armed and Progress.weapons.is_empty():
+		Progress.grant_weapon("blaster")
+	gun.arm(armed, Progress.equipped)
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
@@ -473,10 +489,7 @@ func _on_pound_land() -> void:
 	var ty := floori((p.y + 1) / 16)
 	var broke := false
 	for tx in range(floori((p.x - Player.SIZE.x / 2) / 16), floori((p.x + Player.SIZE.x / 2 - 0.01) / 16) + 1):
-		for t in level.break_corrupt(tx, ty):
-			broke = true
-			# The blocks are 3 m deep: spread the debris through their depth.
-			particles.emit(Vector2(t) * 16 + Vector2(8, 8), {count = 10, speed = 90, life = 0.6, color = [Color8(200, 200, 200), Color("#C25BD6"), ORANGE], gravity = 400, size = 1.5, depth = 24})
+		broke = _break_corrupt(tx, ty) or broke
 	if broke:
 		Sound.play("break")
 		Game.hitstop(0.06)
@@ -485,6 +498,72 @@ func _on_pound_land() -> void:
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 		if not e.projectile and wave.intersects(e.rect()):
 			e.hit(&"pound", Enemy.POUND_WAVE_DAMAGE)
+
+
+## Breaks the corrupted cluster at tile (tx, ty) with debris through the blocks' depth; true if it broke any.
+func _break_corrupt(tx: int, ty: int) -> bool:
+	var broken := level.break_corrupt(tx, ty)
+	for t in broken:
+		particles.emit(Vector2(t) * 16 + Vector2(8, 8), {count = 10, speed = 90, life = 0.6, color = [Color8(200, 200, 200), Color("#C25BD6"), ORANGE], gravity = 400, size = 1.5, depth = 24})
+	return not broken.is_empty()
+
+
+## explode() in src/scenes/game.ts (the Opus Cannon's orb): a blast that hurts every enemy whose box comes
+## within `radius`, shoots down enemy shots and breaks the corrupted data it reaches.
+func explode(at: Vector2, radius: float, damage: float) -> void:
+	Sound.play("explode")
+	shake(0.3)
+	particles.emit(at, {count = 40, speed = 160, life = 0.5, color = [ORANGE, Color("#F0A585"), Color.WHITE, Color8(160, 160, 160)], drag = 3, size = 1.5, depth = 12})
+	for i in 24:
+		var a := float(i) / 24 * TAU
+		particles.emit(at + Vector2(cos(a), sin(a)) * radius * 0.8, {count = 1, speed = 20, life = 0.3, color = [Color("#F0A585")]})
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if e.dead:
+			continue
+		var r := e.rect()
+		var near := Vector2(clampf(at.x, r.position.x, r.end.x), clampf(at.y, r.position.y, r.end.y))
+		if near.distance_to(at) > radius:
+			continue
+		if e.projectile:
+			if e.cancellable:
+				e.remove()
+		else:
+			e.hit(&"shot", damage)
+	var broke := false
+	for ty in range(floori((at.y - radius) / 16), floori((at.y + radius) / 16) + 1):
+		for tx in range(floori((at.x - radius) / 16), floori((at.x + radius) / 16) + 1):
+			if level.tile(Vector2(tx * 16 + 8, ty * 16 + 8)) == Level.CORRUPT and Vector2(tx * 16 + 8, ty * 16 + 8).distance_to(at) <= radius + 8:
+				broke = _break_corrupt(tx, ty) or broke
+	if broke:
+		Sound.play("break")
+
+
+## fireBeam(): the Attention Beam hits everything along 300 px from the muzzle until a solid tile; shields
+## block it, enemy shots it can shoot down vanish.
+func fire_beam(from: Vector2, angle: float, damage: float) -> void:
+	var dir := Vector2(cos(angle), sin(angle))
+	var hit := []
+	var end := from
+	var d := 0.0
+	while d < 300:
+		end = from + dir * d
+		if level.tile(end) in [Level.SOLID, Level.CORRUPT]:
+			break
+		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+			if not e.dead and not hit.has(e) and e.rect().has_point(end):
+				hit.append(e)
+		d += 3
+	for e: Enemy in hit:
+		if e.projectile:
+			if e.cancellable:
+				e.remove()
+			continue
+		if e.has_method("blocks_direction") and e.blocks_direction(dir):
+			continue
+		if e.hit(&"shot", damage) and randf() < 0.3:
+			particles.emit(e.rect().get_center(), {count = 2, speed = 60, life = 0.2, color = [BeamFx.CYAN, Color.WHITE]})
+	beams.add(from, end)
+	particles.emit(end, {count = 1, speed = 40, life = 0.2, color = [BeamFx.CYAN, Color.WHITE]})
 
 
 ## Behind the title and the map the camera drifts right through the level at about the height of its start,

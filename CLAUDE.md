@@ -113,18 +113,18 @@ decisions from the planning interview. Work through it in order and tick tasks o
 All levels are converted with every spawn ported so far; world 1 (1-1, 1-2 darkness, 1-3 rising void, 1-B the
 Hallucination, which drops the Token Blaster) is playable; **1-1** is fully playable (title → map → level →
 results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
-shot, rate limiter, Hallucination.
+shot, rate limiter, Hallucination. Shooting is ported (M5): world 2 is armed (`scripts/gun.gd`, `bullet.gd`,
+`weapons.gd`, `beam_fx.gd`), aiming with the mouse (polled from the window: the SubViewport's container ignores
+the mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
+crosshair, and the shop's ARMORY and GUN MODS once a weapon is found. No gamepad support (the user's call).
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
 `godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10); sparks are a solid glowing star; spikes are a bed across
 the block depth; the shop opens after clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
-Tokens; world-2 weapons/mods are a locked ARMORY row.
+Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd finds a weapon.
 
-Not ported yet (the next goal is all levels plus shooting and weapons):
+Not ported yet (the next goal is world 2):
 - Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), the boss
-  Codex (`src/entities/boss/codex.ts`, 2-B), world 2's tougher hp.
-- Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
-  `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the
-  shop's ARMORY and the `prev` / `next` / slot keys in `Settings`.
+  Codex (`src/entities/boss/codex.ts`, 2-B), world 2's tougher hp; the world-2 levels' motifs.
 
 To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
 change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays

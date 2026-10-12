@@ -90,18 +90,18 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M5 Shooting and weapons
-- [ ] `weapons.gd`: port `src/weapons.ts` (5 weapons, gun upgrades, loadout from `Progress`).
-- [ ] `gun.gd`: port `src/entities/gun.ts` (fire rate, spread, pellets, context heat and overheat).
-- [ ] `bullet.gd`: port `src/entities/bullets.ts` (5 kinds, pierce, splash, hits on terrain, enemies and `X`
+- [x] `weapons.gd`: port `src/weapons.ts` (5 weapons, gun upgrades, loadout from `Progress`).
+- [x] `gun.gd`: port `src/entities/gun.ts` (fire rate, spread, pellets, context heat and overheat).
+- [x] `bullet.gd`: port `src/entities/bullets.ts` (5 kinds, pierce, splash, hits on terrain, enemies and `X`
       blocks) as glowing voxels with lights.
-- [ ] Aiming: mouse onto the z = 0 plane through the oblique camera, ↑ / ↓ keys, right stick; a dotted crosshair
-      instead of the cursor; Clawd faces the aim.
-- [ ] Armed Clawd: voxel gun, muzzle flash (`drawArmedExtras`).
-- [ ] HUD: context heat bar and weapon label. Weapon switching: `prev` / `next` / slot keys in `Settings` and
+- [x] Aiming: mouse onto the z = 0 plane through the oblique camera, ↑ / ↓ keys; a dotted crosshair instead of
+      the cursor; Clawd faces the aim. (No right stick: the user decided against gamepad support.)
+- [x] Armed Clawd: voxel gun, muzzle flash (`drawArmedExtras`).
+- [x] HUD: context heat bar and weapon label. Weapon switching: `prev` / `next` / slot keys in `Settings` and
       the keybind menu.
-- [ ] Sounds `shoot`, `gunToken`, `gunPellet`, `gunGlyph`, … in `Sound.PRELOAD`.
-- [ ] Shop: unlock the ARMORY after 1-B (weapons, Bigger Model, Faster Inference, Longer Context, equip).
-- [ ] Check sections (fire rate, heat, damage, pierce, splash, aim), screenshots in 1-1, README, commit + push
+- [x] Sounds `shoot`, `gunToken`, `gunPellet`, `gunGlyph`, … in `Sound.PRELOAD`.
+- [x] Shop: unlock the ARMORY after 1-B (weapons, Bigger Model, Faster Inference, Longer Context, equip).
+- [x] Check sections (fire rate, heat, damage, pierce, splash, aim), screenshots in 2-1, README, commit + push
       → **playtest**.
 
 ### M6 World-2 enemies (each with check section and voxel model)
@@ -137,6 +137,5 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [ ] `CLAUDE.md` "Godot port status" and `godot/README.md` brought up to date.
 
 ## Open points (decide when we get there)
-- The port reads no gamepad yet (no joypad events in `project.godot` or `scripts/`). Right-stick aiming needs
-  basic gamepad input first (move, jump, spin, shoot, menus); decide in M5 whether to add it there or later.
+- Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.
 - Unlocking the shop after 1-1 (port) vs. after 1-B (TS) stays; only the ARMORY row waits for 1-B.

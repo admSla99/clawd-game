@@ -61,6 +61,8 @@ func _init() -> void:
 	await section("1-2 Gradient Caves: darkness and the caves motif (drawDarkness() in src/scenes/game.ts)", check_caves)
 	await section("1-3 Context Window: the rising void and floating windows (updateVoid() in src/scenes/game.ts)", check_window)
 	await section("1-B The Hallucination (src/entities/boss/hallucination.ts, pickups.ts)", check_boss)
+	await section("aiming with the mouse (computeAim() in src/scenes/game.ts)", check_mouse_aim)
+	await section("shooting (src/entities/gun.ts, bullets.ts, src/weapons.ts)", check_gun)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
@@ -942,6 +944,196 @@ func check_boss() -> bool:
 	return true
 
 
+func check_mouse_aim() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	if progress.weapons.is_empty():
+		progress.grant_weapon("blaster")
+	m.load_level("2-1")
+	await frames(3)
+	var g = m.gun
+	ok(g.armed and p.armed, "world 2 is armed")
+	# The gun lives in the SubViewport, whose container ignores the mouse: it must still see the mouse move.
+	for target in [Vector2(100, 40), Vector2(400, 200)]:
+		var e := InputEventMouseMotion.new()
+		e.position = target
+		e.global_position = target
+		Input.parse_input_event(e)
+		# Mouse motion is accumulated until the next event; let it through now.
+		Input.flush_buffered_events()
+		await frames(3)
+		var want: Vector2 = m.camera.top_left + target - g.pivot()
+		ok(g.mouse_view == target and g.mouse_aiming() and absf(angle_difference(p.aim, want.angle())) < 0.05,
+			"moving the mouse to %s aims there (%.1f deg, want %.1f, mouse %s)" % [target, rad_to_deg(p.aim), rad_to_deg(want.angle()), g.mouse_view])
+	ok(m.overlay.to_view(g.mouse_world()) == g.mouse_view + Vector2.ONE * m.PAD, "the mouse's level point is where the window shows it")
+	g.mouse_moved = -1000000
+	await frames(2)
+	ok(not g.mouse_aiming() and absf(p.aim) < 0.01 or absf(absf(p.aim) - PI) < 0.01, "without the mouse Clawd aims ahead with the keys")
+	m.load_level("1-1")
+	await frames(3)
+	ok(not g.armed and not p.armed, "world 1 is not armed")
+	return true
+
+
+## A bug that stands still at `at` (its middle) with `hp` hit points, a target for the gun.
+func target(m, at: Vector2, hp: float):
+	var bug = load(level_script.BUG).instantiate()
+	m.level.add_child(bug)
+	bug.set_physics_process(false)
+	bug.pos = at + Vector2(0, bug.size.y / 2)
+	bug.hp = hp
+	return bug
+
+
+func check_gun() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	var weapons = load("res://scripts/weapons.gd")
+	var bullet_script = load("res://scripts/bullet.gd")
+	var shot_script = load("res://scripts/shot.gd")
+	progress.weapons = ["blaster", "spreader", "stream", "beam", "cannon"]
+	progress.equipped = "blaster"
+	for u in ["damage", "rate", "context"]:
+		progress.upgrades.erase(u)
+	m.load_level("2-1")
+	await frames(3)
+	var g = m.gun
+	g.mouse_moved = -1000000
+	p.invuln = 1000
+	ok(g.weapon.id == "blaster" and g._hand.visible, "Clawd holds his equipped weapon, the Token Blaster")
+
+	# Fire rate and damage: 6 shots a second of 2 damage; Bigger Model and Faster Inference add 25 % and 15 %.
+	var count_shots := func(seconds: float) -> int:
+		var n := 0
+		for i in roundi(seconds * 60):
+			if g.fire(1.0 / 60, true):
+				n += 1
+		return n
+	for b in get_nodes_in_group("bullets"):
+		b._remove()
+	g.cooldown = 0.0
+	g.heat = 0.0
+	var n: int = count_shots.call(2.0)
+	var bullets := get_nodes_in_group("bullets")
+	# A cooldown of 1/6 s counted down in 1/60 s steps runs out on the 11th frame, as in TS: 11 shots in 2 s.
+	ok(n == 11 and bullets.size() == 11 and bullets.all(func(b): return b.damage == 2.0 and b.kind == "token"),
+		"the blaster fires 6 tokens a second (every 11th frame), 2 damage each (%d shots)" % n)
+	for b in bullets:
+		b._remove()
+	progress.upgrades["damage"] = 1
+	progress.upgrades["rate"] = 1
+	g.cooldown = 0.0
+	g.heat = 0.0
+	n = count_shots.call(2.0)
+	bullets = get_nodes_in_group("bullets")
+	ok(n == 14 and bullets.all(func(b): return b.damage == 2.5), "Bigger Model and Faster Inference: 2.5 damage, 14 shots in 2 s (%d)" % n)
+	for b in bullets:
+		b._remove()
+	progress.upgrades.erase("damage")
+	progress.upgrades.erase("rate")
+
+	# Context heat: the stream fills the 100 context in under 3 s and overflows; no shots for 1.3 s, then cool.
+	g.set_weapon("stream")
+	g.cooldown = 0.0
+	g.heat = 0.0
+	snd.played.clear()
+	var t := 0.0
+	while g.overheated <= 0 and t < 10:
+		g.fire(1.0 / 60, true)
+		t += 1.0 / 60
+	# 4.5 context a shot every 5th frame, less 32 a second: full after 4.4 s.
+	ok(t > 4.3 and t < 4.5 and "overheat" in snd.played, "Stream Output overflows the context after %.2f s" % t)
+	n = count_shots.call(1.25)
+	ok(n == 0 and g.overheated > 0, "an overflowed gun does not fire")
+	count_shots.call(0.1)
+	ok(g.overheated <= 0 and g.heat < 10, "after 1.3 s it has cooled down (heat %.1f)" % g.heat)
+	ok(count_shots.call(0.1) > 0, "and fires again")
+	progress.upgrades["context"] = 1
+	ok(g.heat_cap() == 140.0, "Longer Context: 140 context")
+	progress.upgrades.erase("context")
+	for b in get_nodes_in_group("bullets"):
+		b._remove()
+
+	# A token hits the first enemy in its way and stops; the beam pierces every enemy in its line.
+	var at: Vector2 = g.pivot()
+	var clear := true
+	for x in range(0, 140, 4):
+		clear = clear and m.level.tile(at + Vector2(x, 0)) not in [level_script.SOLID, level_script.CORRUPT]
+	ok(clear, "the 140 px ahead of Clawd at the start of 2-1 are open")
+	var near = target(m, at + Vector2(50, 0), 10)
+	var far = target(m, at + Vector2(100, 0), 10)
+	var b1 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	snd.played.clear()
+	await frames(25)
+	ok(near.hp == 8.0 and far.hp == 10.0 and gone(b1) and "hit" in snd.played, "a token hits the first enemy and stops (%s, %s)" % [near.hp, far.hp])
+	m.fire_beam(at, 0.0, 1.0)
+	ok(near.hp == 7.0 and far.hp == 9.0, "the Attention Beam hits both")
+	near.hit(&"shot", 100)
+	far.hit(&"shot", 100)
+	await frames(2)
+
+	# Enemy shots that can be shot down vanish with the bullet; the others let it pass.
+	var shot = shot_script.fire(m.level, at + Vector2(80, 0), Vector2(-40, 0), Color.RED, true, 4.0)
+	var b2 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	await frames(15)
+	ok(gone(shot) and gone(b2), "a token shoots down an enemy shot")
+	var hard = shot_script.fire(m.level, at + Vector2(60, 0), Vector2.ZERO, Color.RED, false, 4.0)
+	var b3 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	await frames(15)
+	ok(not gone(hard) and (gone(b3) or b3.pos.x > at.x + 70), "but passes through one that can't be")
+	hard.remove()
+
+	# Switching: next / prev through the owned weapons (wrapping), 1-5 for a slot; saved as the equipped one.
+	g.set_weapon("blaster")
+	var press := func(action: String) -> void:
+		Input.action_press(action)
+		await frames(1)
+		Input.action_release(action)
+		await frames(1)
+	snd.played.clear()
+	await press.call("next")
+	ok(g.weapon.id == "spreader" and progress.equipped == "spreader" and g.label_t > 1 and "select" in snd.played, "next: the Context Spreader")
+	await press.call("prev")
+	await press.call("prev")
+	ok(g.weapon.id == "cannon", "prev twice wraps around to the Opus Cannon")
+	await press.call("slot3")
+	ok(g.weapon.id == "stream" and progress.equipped == "stream", "3: Stream Output")
+	progress.weapons = ["blaster", "spreader"]
+	await press.call("slot4")
+	ok(g.weapon.id == "stream", "a slot without a weapon does nothing")
+	progress.weapons = ["blaster", "spreader", "stream", "beam", "cannon"]
+
+	# Armed, attack shoots instead of spinning; spin still spins.
+	g.set_weapon("blaster")
+	g.cooldown = 0.0
+	var before: int = g.shot_count
+	Input.action_press("attack")
+	await frames(4)
+	ok(g.shot_count > before and p.state != &"spin", "armed, attack shoots and doesn't spin")
+	Input.action_release("attack")
+	await frames(2)
+
+	# The Opus Cannon's orb explodes where it stops: splash damage, and it breaks corrupted blocks (1-1's at
+	# columns 220..223, row 15).
+	m.load_level("1-1")
+	await frames(3)
+	var block := Vector2(221 * 16 + 8, 15 * 16 + 8)
+	var victim = target(m, block + Vector2(24, -30), 20)
+	snd.played.clear()
+	var orb = bullet_script.fire(m.level, block + Vector2(0, -40), PI / 2, 230, weapons.get_def("cannon"), 14.0)
+	await frames(20)
+	ok(gone(orb) and "explode" in snd.played, "the orb explodes on the blocks")
+	ok(m.level.tile(block) != level_script.CORRUPT, "and breaks the corrupted cluster")
+	ok(victim.hp == 12.0, "an enemy in the blast takes its 8 splash damage (hp %s)" % victim.hp)
+	victim.hit(&"shot", 100)
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
 func check_platforms() -> bool:
 	var m = current_scene
 	var p = m.player
@@ -1171,6 +1363,15 @@ func check_menus() -> bool:
 	ok(menu.state == menu.CONTROLS, "clicking CONTROLS shows the controls help")
 	var lines: Array = menu.control_lines()
 	ok(lines[1][0] == "SPACE W K" and lines[0][0] == "← A → D", "the help lists the bound keys (%s, %s)" % [lines[0][0], lines[1][0]])
+	var progress = root.get_node("Progress")
+	var had: Array = progress.weapons
+	progress.weapons = []
+	var plain: int = menu.control_lines().size()
+	progress.weapons = ["blaster"]
+	var armed_lines: Array = menu.control_lines().map(func(l): return l[1])
+	progress.weapons = had
+	ok(plain == 8 and armed_lines.size() == 12 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
+		"with a weapon found it adds shooting, aiming and switching")
 
 	# Keybindings: rebind jump's second slot.
 	menu.handle(key(KEY_ENTER))
@@ -1181,7 +1382,7 @@ func check_menus() -> bool:
 	menu.handle(key(KEY_ENTER))
 	ok(menu.listening and settings.BINDABLE[menu.key_row] == &"jump" and menu.key_slot == 1, "Enter on a slot listens for a key")
 	menu.handle(key(KEY_X))
-	ok(menu.listening and menu.error == "X ALREADY BOUND TO ATTACK (SPIN)", "a key of another action is refused (%s)" % menu.error)
+	ok(menu.listening and menu.error == "X ALREADY BOUND TO ATTACK (SPIN / SHOOT)", "a key of another action is refused (%s)" % menu.error)
 	menu.handle(key(KEY_U))
 	ok(not menu.listening and settings.bindings[&"jump"] == [KEY_SPACE, KEY_U, KEY_K], "a free key is bound")
 	ok(InputMap.event_is_action(key(KEY_U), "jump") and not InputMap.event_is_action(key(KEY_W), "jump"), "the InputMap follows")
@@ -1547,6 +1748,51 @@ func check_shop() -> bool:
 	m.player.pos = Px.of(tokens[0].position) + Vector2(-50, 9)
 	await frames(2)
 	ok(tokens[0].popped, "Token Magnet: a token 50 px away comes loose and flies to Clawd")
+
+	# The ARMORY opens once Clawd has a weapon (the blaster 1-B drops).
+	var weapons = load("res://scripts/weapons.gd")
+	progress.grant_weapon("blaster")
+	progress.wallet = 1000
+	progress.sparks_spent = 0
+	m.show_map(0)
+	await frames(3)
+	m.front.handle(key(KEY_B))
+	await frames(3)
+	var ids: Array = shop.items.map(func(it): return it.id)
+	ok(ids == ["hearts", "hover", "magnet", "radar", "fortune", "firewall", "double", "blaster", "spreader", "stream", "beam", "cannon",
+		"damage", "rate", "context"], "then the ARMORY's weapons and the GUN MODS take the locked row's place")
+	ok(not shop._shown(shop._rows()[-1]), "the list is taller than the screen")
+	shop.sel = ids.size() - 1
+	# The list follows the selection in _process(), which can lag behind the physics frames.
+	await process_frame
+	await process_frame
+	ok(shop._shown(shop._rows()[-1]) and not shop._shown(shop._rows()[0]), "choosing the last row scrolls it into view")
+	shop.handle(key(KEY_DOWN))
+	await process_frame
+	await process_frame
+	ok(shop.sel == 0 and shop._scroll == 0.0, "down from there wraps to the top")
+	shop.sel = ids.find("spreader")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.weapons == ["blaster", "spreader"] and progress.equipped == "spreader" and progress.wallet == 880,
+		"Context Spreader: 120 tokens, held at once")
+	shop.sel = ids.find("stream")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.weapons.has("stream") and progress.wallet == 660 and progress.sparks_available() == 0, "Stream Output: 220 tokens and 3 sparks")
+	shop.sel = ids.find("beam")
+	shop.handle(key(KEY_ENTER))
+	ok(not progress.weapons.has("beam") and shop.haiku == shop.DENIED[0], "the Attention Beam needs 8 sparks: refused")
+	snd.played.clear()
+	shop.sel = ids.find("blaster")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.equipped == "blaster" and progress.wallet == 660 and "select" in snd.played, "an owned weapon is equipped for free")
+	for u in ["damage", "rate", "context"]:
+		shop.sel = ids.find(u)
+		shop.handle(key(KEY_ENTER))
+	ok(progress.wallet == 390 and weapons.damage_mult() == 1.25 and weapons.rate_mult() == 1.15 and weapons.heat_cap() == 140.0,
+		"Bigger Model 100, Faster Inference 90, Longer Context 80")
+	cfg = JSON.parse_string(FileAccess.get_file_as_string(progress.path))
+	ok(cfg.weapons == ["blaster", "spreader", "stream"] and cfg.equipped == "blaster" and cfg.upgrades.damage == 1, "and saved")
+	shop.handle(key(KEY_ESCAPE))
 	m.load_level("1-1")
 	await frames(3)
 	return true

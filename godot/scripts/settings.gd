@@ -9,17 +9,18 @@ extends Node
 ## Where they are saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://settings.cfg"
 const SLOTS := 3
-## Actions the player can rebind, in the order the keybinding menu lists them. The TS list also has prev and
-## next (weapon switching), which the port does not have yet.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"shop", &"mute", &"controls"]
+## Actions the player can rebind, in the order the keybinding menu lists them.
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
 	&"up": "UP",
 	&"down": "DOWN / POUND",
 	&"jump": "JUMP",
-	&"attack": "ATTACK (SPIN)",
+	&"attack": "ATTACK (SPIN / SHOOT)",
 	&"spin": "SPIN",
+	&"prev": "PREV WEAPON",
+	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
 	&"shop": "SHOP (MAP)",
 	&"mute": "MUTE",
@@ -33,17 +34,32 @@ const DEFAULTS := {
 	&"jump": [KEY_SPACE, KEY_W, KEY_K],
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
+	&"prev": [KEY_Q],
+	&"next": [KEY_E],
 	&"pause": [KEY_P],
 	&"shop": [KEY_B],
 	&"mute": [KEY_M],
 	&"controls": [KEY_H],
 }
 ## Keys that cannot be rebound (FIXED_KEYS in TS): Escape pauses and goes back, Enter and Space confirm,
-## Backspace goes back.
+## Backspace goes back, 1-5 pick a weapon slot.
 const FIXED := {
 	&"pause": [KEY_ESCAPE],
 	&"confirm": [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE],
 	&"back": [KEY_ESCAPE, KEY_BACKSPACE],
+	&"slot1": [KEY_1],
+	&"slot2": [KEY_2],
+	&"slot3": [KEY_3],
+	&"slot4": [KEY_4],
+	&"slot5": [KEY_5],
+}
+## The mouse (attachMouse() in src/core/input.ts): the left button attacks (shoots when armed), the right one
+## spins, the wheel switches weapons (down = next).
+const MOUSE := {
+	&"attack": [MOUSE_BUTTON_LEFT],
+	&"spin": [MOUSE_BUTTON_RIGHT],
+	&"next": [MOUSE_BUTTON_WHEEL_DOWN],
+	&"prev": [MOUSE_BUTTON_WHEEL_UP],
 }
 ## Short names for keys whose own name is too long for a key slot.
 const SHORT := {
@@ -89,6 +105,10 @@ func apply() -> void:
 			var e := InputEventKey.new()
 			e.physical_keycode = code
 			InputMap.action_add_event(a, e)
+		for button in MOUSE.get(a, []):
+			var m := InputEventMouseButton.new()
+			m.button_index = button
+			InputMap.action_add_event(a, m)
 
 
 func save() -> void:

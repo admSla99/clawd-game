@@ -314,20 +314,37 @@ func _view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
 
 
-## The controls help as [keys, what they do] (controlLines() in src/render/hud.ts, for the moves the port has).
+## The controls help as [keys, what they do] (controlLines() in src/render/hud.ts, without the gamepad line).
+## Shooting, aiming and switching weapons are listed once Clawd has found a weapon.
 func control_lines() -> Array:
 	var k := func(actions: Array) -> String: return Settings.keys_text(actions)
 	var first := func(a: StringName) -> String: return Settings.key_label(Settings.bindings[a][0])
-	return [
+	var armed := not Progress.weapons.is_empty()
+	var lines := [
 		[k.call([&"left", &"right"]), "Move"],
 		[k.call([&"jump"]), "Jump"],
 		["HOLD " + first.call(&"jump") + " (AIR)", "Hover — the jet hurts enemies"],
-		[k.call([&"attack", &"spin"]), "Spin attack"],
+	]
+	if armed:
+		lines.append([k.call([&"attack"]), "World 1: spin · World 2: shoot"])
+		lines.append([k.call([&"spin"]) + " / RMB", "Spin attack"])
+	else:
+		lines.append([k.call([&"attack", &"spin"]), "Spin attack"])
+	lines.append_array([
 		[k.call([&"down"]) + " (AIR)", "Ground pound — breaks corrupted data"],
 		[first.call(&"down") + " + " + first.call(&"jump"), "Drop through platforms"],
+	])
+	if armed:
+		lines.append_array([
+			["MOUSE + LMB", "World 2: aim and shoot"],
+			[first.call(&"up") + " " + first.call(&"down") + " + " + first.call(&"attack"), "Aim up / down without a mouse"],
+			["1-5 · " + k.call([&"prev", &"next"]) + " · WHEEL", "Switch weapon"],
+		])
+	lines.append_array([
 		[k.call([&"shop"]) + " (MAP)", "Shop"],
 		[k.call([&"pause"]) + " / ESC · " + k.call([&"mute"]) + " · " + k.call([&"controls"]), "Pause · mute · this help"],
-	]
+	])
+	return lines
 
 
 ## Rects of everything clickable in the open menu, in SubViewport pixels: `panel`, and per menu `rows`

@@ -17,7 +17,8 @@ const POUND_WAVE_DAMAGE := 4
 ## Enemy.tokens is 2 in TS; the port drops five times as many from every enemy.
 const TOKEN_FACTOR := 5
 
-var hp := 1
+## Hit points; a float, as gun damage grows by a quarter per Bigger Model level.
+var hp := 1.0
 var size := Vector2(16, 16)
 var stompable := true
 ## Cannot be damaged at all (crushers).
@@ -72,7 +73,7 @@ func stomp_line() -> float:
 
 
 ## Enemy.hit(): returns true if the hit was accepted. `kind` is stomp, pound, spin, beam or shot.
-func hit(kind: StringName, damage := 1) -> bool:
+func hit(kind: StringName, damage := 1.0) -> bool:
 	if dead or invincible or immune > 0:
 		return false
 	hp -= damage

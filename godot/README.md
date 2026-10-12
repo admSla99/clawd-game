@@ -132,7 +132,7 @@ UNLOCKED".
 ### Enemies
 
 Every enemy extends `Enemy` (`scripts/enemy.gd`, from `Enemy` in `src/entities/entity.ts`), a `CharacterBody3D` in
-the group `enemies` with its origin at its feet: `hp`, `size`, the flags `stompable`, `invincible`, `projectile`,
+the group `enemies` with its origin at its feet: `hp` (a float, as gun damage grows by quarters), `size`, the flags `stompable`, `invincible`, `projectile`,
 `cancellable`, `consume_on_hit`, and `tokens`. `hit(kind, damage)` returns whether the hit landed: it takes hp,
 flashes white for 0.12 s (the `tint` instance uniform of `shaders/voxel.gdshader`) and gives 0.3 s of immunity
 after a melee hit that did not kill. `die()` pops the tokens, asks `Main.enemy_died()` for the burst, enemyDie,
@@ -224,6 +224,48 @@ Game logic keeps the TS units: positions and speeds in pixels with y down (`pos`
 16 px per tile), so the constants are the ones from `src/config.ts`. `scripts/px.gd` (`Px`) converts between
 level pixels and metres; the player and bugs convert `vel` to `velocity` only around `move_and_slide()`.
 
+## Shooting (world 2)
+
+In world 2 Clawd is armed (`Main.load_level()`: `Gun.arm()` for every world-2 level in PLAY; a world-2 level
+started without a weapon gets the blaster, like the TS dev shortcut). `scripts/weapons.gd` (`Weapons`) is
+`src/weapons.ts`: the five weapons with their stats and shop prices (Token Blaster, Context Spreader, Stream
+Output, Attention Beam, Opus Cannon; slots 1-5 in `ORDER`), the gun mods the shop sells, and the gun part of
+`loadoutFromSave()` (+25 % damage and +15 % fire rate per level, 100 context + 40 per level).
+
+`scripts/gun.gd` (`Gun`, a node under `World` made by Main, running after the player) is `Gun` from
+`src/entities/gun.ts` plus `updateWeapon()` / `computeAim()` from `src/scenes/game.ts`:
+
+- **Firing**: while attack is held (and Clawd is not spinning, hurt or done), a shot every 1 / fire rate
+  seconds; the cooldown counts down in 1/60 s steps as in TS, so the blaster's 6 a second is a shot every 11th
+  frame. Each shot adds its context heat; heat drains 32 a second. Reaching the cap overflows the gun for 1.3 s
+  (overheat sound; heat drains three quarters of the cap a second, no shots), then it is cool again.
+- **Aim**: with the mouse while it moved in the last 4 s or a mouse button is held: the angle from the gun's
+  pivot (5 px ahead of Clawd's middle, 9 px above his feet) to the mouse's point on the gameplay plane
+  (`camera.top_left + mouse`; nothing at z = 0 shifts, so the screen point is the level point). Without the
+  mouse: up / down (down only in the air) with or without a side, else straight ahead. Clawd faces the aim. The
+  gun lives in the SubViewport, whose container ignores the mouse, so it **polls** the window's mouse position
+  every frame (`poll_mouse()`) instead of waiting for mouse events, which never reach it.
+- **Switching**: `next` / `prev` (E / Q, the wheel) cycle through the owned weapons, `slot1`-`slot5` (1-5)
+  pick a slot; the choice is saved as `Progress.equipped` and the weapon's name shows over Clawd for 1.5 s.
+- **Armed Clawd**: attack shoots instead of spinning (spin stays on its own key and the right mouse button),
+  and down with attack held does not pound. The voxel gun (`GunSprite`, own material so the see-through windows
+  don't dither it) turns about its grip to the aim, upside down when aiming left like the 2D sprite, 6 px in front
+  of Clawd (lifted by a third of that against the oblique shift), kicks back on each shot, with a 2-voxel-deep
+  muzzle flash.
+
+`scripts/bullet.gd` (`Bullet`, group `bullets`) is `Bullet` from `src/entities/bullets.ts` with the bullet half
+of `checkBullets()`: it flies straight and stops on a solid or corrupted tile; it hits each enemy once (sound
+"hit"), stops unless it still pierces, shoots down enemy shots that can be shot down, and ricochets off a shield
+turned towards it (`blocks_direction()`, for the ShieldBot). Kinds, as glowing voxels (their own material at
+1.7× glow): a spinning coin with a trail dot (token), a hot 3 px square (pellet, five in a fan), a code character
+from the pixel font (glyph), and the orb: an orange core with ten dots circling it in depth, a GlowLight and
+sparks, which explodes where it stops or when its life runs out. `Main.explode()` (`explode()`): 40 px of
+splash damage to every enemy box in reach, enemy shots shot down, corrupted clusters in reach broken (like the
+pound, with debris through the blocks' depth), shake, the explode sound. `Main.fire_beam()` (`fireBeam()`):
+the Attention Beam marches 300 px from the muzzle in 3 px steps until a solid tile and hits everything on the
+way, except through a shield; `BeamFx` (`scripts/beam_fx.gd`, a MultiMesh) shows each beam for 0.06 s as a
+jittering line of 2 px dots, cyan with white every 6 px.
+
 ## Checks
 
 ```bash
@@ -253,8 +295,15 @@ no damage), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's 
 radius, 1-1 lit again), 1-3's rising void (start, delay, speed, never too far behind, paused, catching
 Clawd, reset below the checkpoint, the ▲ glyph) and windows, the Hallucination (placement, glitch motif,
 intro, bursts, dazed, stomp, immunity, teleport, rain and warnings, fake platforms, death, the blaster, the
-exit, WORLD 1 CLEAR, world 2 unlocked), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
-effect in a level, refusals, fortunes read from the map, saving, back to the map).
+exit, WORLD 1 CLEAR, world 2 unlocked), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
+aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
+with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
+cooling, Longer Context, a token stops at the first enemy, the beam pierces, shooting down enemy shots and not the
+ones that can't be, next / prev / slot switching and saving, attack shoots instead of spinning, the orb's
+explosion breaking 1-1's corrupted blocks with splash damage), the controls help (shooting lines once a weapon
+is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+effect in a level, refusals, fortunes read from the map, saving, back to the map; with a weapon the ARMORY and
+GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects).
 
 ## Game clock and camera
 
@@ -332,6 +381,12 @@ so through hitstop:
 Like `collectToken()` in TS, every 100th token gives a heart, up to 5 (the HUD grows a slot, "+1 HEART"
 pops up), and a checkpoint refills to 3 without taking those away.
 
+Armed (world 2), `_draw_weapon()` is `drawWeaponHud()` and `drawCrosshair()`: bottom left a panel with the
+weapon's name, slots 1-5 (the held one orange, owned ones grey, the rest dark) and the CONTEXT bar of 26 cells
+(orange, red over three quarters; blinking red with OVERFLOW while overflowed); the weapon's name over Clawd
+after a switch; and while aiming with the mouse a dotted crosshair at the mouse (orange, red while overflowed),
+which hides the system cursor (`Input.MOUSE_MODE_HIDDEN`, not in headless runs).
+
 ## Sound and music
 
 `scripts/sound.gd` (autoload `Sound`) is `src/core/audio.ts`. Like the TS game it ships no audio files: it
@@ -353,7 +408,9 @@ WebAudio nodes:
 The TS bus gains are baked into the samples (effects 0.55, music 0.22); the Master bus is at 0.8 and is muted by
 the `mute` key (M) or the HUD's speaker button (saved in `Settings`). Sounds follow the TS call sites: player
 events (jump, land, spin, pound, pound landing, break, hurt, die / fell, stomp + enemyDie, defeat), tokens,
-+1 heart, checkpoints, the exit (complete), and the menus (select, confirm, denied).
++1 heart, checkpoints, the exit (complete), the menus (select, confirm, denied), and the gun: one shot sound
+per bullet kind (gunToken, gunPellet, gunGlyph at a fixed 1800 Hz where TS randomises it, gunBeam every 4th
+beam, gunOrb), overheat, explode and hit.
 
 ## Title and world map
 
@@ -407,7 +464,15 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
   per level, 100 / 250 tokens + 4 sparks), Jet Tuning (+30 % hover per level, 60 / 160), Token Magnet (tokens
   within 72 px come loose and fly to Clawd, 120). Main applies them when a level loads (`_apply_loadout()`:
   `Player.max_hearts`, `hover_duration`).
-- The weapons and gun mods of world 2 are one locked ARMORY row until the port has shooting.
+- The weapons and gun mods of world 2 are one locked ARMORY row until Clawd finds a weapon (the blaster from
+  1-B). Then `Shop.items()` puts two sections in its place: **ARMORY**, the five weapons at the TS prices
+  (a gun icon from `GunSprite`; bought once, held at once, then EQUIPPED / OWNED; Space on an owned one equips
+  it; the card shows the gun at four times the size and the 2D stat bars DAMAGE, FIRE RATE, RANGE, HEAT, plus a
+  line for the cannon's splash and the beam's pierce) and **GUN MODS**: Bigger Model (100 / 220 + 2 sparks /
+  400 + 6), Faster Inference (90 / 200 / 350), Longer Context (80 / 200), whose cards show the effect now and
+  after the next level (`DAMAGE x1.25 → x1.50`). The list is then taller than the screen: it scrolls just
+  enough to keep the selected row (and its section heading) in view, with ▲ / ▼ in the left margin; the wheel
+  moves the selection too. HAIKU adds the TS's weapon haiku to its small talk.
 - Added in the port: the **Spark Radar** (60 tokens + 3 sparks; the HUD chevron), the **Fortune Haiku** (25
   tokens, repeatable: HAIKU names a spark or sub-agent still missing in a playable level, the stretch between
   checkpoints it is in and how high it is, read from the level map; each fortune tells about a new one), and two
@@ -417,14 +482,14 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
 
 ## Menus and key bindings
 
-## Menus and key bindings
-
 `scripts/game_menu.gd` (`GameMenu`, `Ui/Menu`, drawn over everything) holds the in-level menus of
 `src/scenes/game.ts` and `src/scenes/keybinds.ts`, in the HUD's panel look (orange tab, titles at twice the
 size, the selected row as a faint orange bar with a bright left edge and a `>` prompt):
 
 - **Controls help** (`controls` key, H; or the HUD's CONTROLS button): what every key does, built from the
-  current bindings like `controlLines()`; Enter (or its button) opens the keybindings.
+  current bindings like `controlLines()` (without its gamepad line: the port has no gamepad support); once a
+  weapon is found it adds attack as spin / shoot, spin on the right mouse button, aiming with the mouse or the
+  keys, and switching weapons. Enter (or its button) opens the keybindings.
 - **Pause** (`pause` key, P, or Escape; or the HUD's pause button): RESUME, RESTART FROM CHECKPOINT, RESTART
   LEVEL, CRT FILTER: ON/OFF, KEYBINDINGS, QUIT TO MAP (the world map, on the current level).
 - **Keybindings**: every bindable action with 3 key slots drawn as keycaps. Enter (or a click) on a slot
@@ -439,9 +504,11 @@ resumes two physics frames later, so the Space that picked RESUME is not also a 
 
 `scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
 positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
-the InputMap actions of the same names (`left right up down jump attack spin pause shop mute controls`; the TS
-menu also has weapon keys, which the port does not have yet). Fixed keys like `FIXED_KEYS` in TS:
-Escape pauses and goes back, Enter / Space confirm, Backspace goes back. `Settings.key_label()` is `keyLabel()`
+the InputMap actions of the same names (`left right up down jump attack spin prev next pause shop mute controls`;
+prev / next weapon are Q / E). Fixed keys like `FIXED_KEYS` in TS: Escape pauses and goes back, Enter / Space
+confirm, Backspace goes back, 1-5 pick a weapon slot (`slot1`-`slot5`). The mouse buttons are added to the
+actions too (`MOUSE`, like `mouseButton()` in `src/core/input.ts`): left = attack, right = spin, wheel down /
+up = next / previous weapon. `Settings.key_label()` is `keyLabel()`
 (arrows, letters and symbols as themselves, short names like SHIFT or BKSP).
 
 ## Voxel models
@@ -601,6 +668,9 @@ without COOP/COEP headers.
 | `scripts/rate_limiter.gd` | "429" crusher (`R`), also a platform |
 | `scripts/hallucination.gd`, `scripts/fake_platform.gd` | World 1's boss (`B` in 1-B) and its fake platforms |
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
+| `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |
+| `scripts/gun.gd` | `Gun`: firing, context heat and overflow, aiming (mouse polling, keys), switching, the gun in Clawd's hands |
+| `scripts/bullet.gd`, `scripts/beam_fx.gd` | Clawd's bullets (token, pellet, glyph, orb); the Attention Beam's flashes |
 | `scripts/rising_void.gd`, `shaders/void.gdshader` | The rising null of `risingVoid` levels (1-3) |
 | `scripts/window_motif.gd`, `shaders/motif_window.gdshader` | Window motif: floating text windows that type in and crumble |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
@@ -611,10 +681,10 @@ without COOP/COEP headers.
 | `scripts/spark.gd`, `shaders/halo.gdshader` | Spark (`S`), its icon and its halo |
 | `scripts/front_end.gd` | Title screen and world map |
 | `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state, weapons |
-| `scripts/shop.gd`, `scripts/shop_screen.gd` | The shop: items, prices, fortunes; its screen and HAIKU |
+| `scripts/shop.gd`, `scripts/shop_screen.gd` | The shop: items, prices, fortunes, the ARMORY; its screen and HAIKU |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |
-| `scripts/hud.gd` | HUD: hearts, found sparks, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label |
+| `scripts/hud.gd` | HUD: hearts, found sparks, token counter, rescued sub-agents, CONTROLS / pause / mute buttons, level label, boss bar, weapon panel and crosshair |
 | `scripts/game_menu.gd`, `scripts/settings.gd` | Pause, controls help and keybinding menus; saved bindings |
 | `scripts/sound.gd` | Synthesized sound effects, music loops and the hover jet (`src/core/audio.ts`) |
 | `scripts/level.gd` | `Level`: builds a level from map rows, tile lookup by pixel, level size |
