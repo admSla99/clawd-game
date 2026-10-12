@@ -384,6 +384,8 @@ func _draw() -> void:
 		var p := from.lerp(ctrl, e).lerp(ctrl.lerp(to, e), e)
 		draw_texture(_coin_small_tex, (p - Vector2(2, 2)).round())
 
+	_draw_boss_bar()
+
 	# Top right: CONTROLS, pause and mute buttons, then the level label (like the 2D HUD).
 	var b := buttons()
 	if b.has("label"):
@@ -401,6 +403,34 @@ func _draw() -> void:
 	on = b.controls.has_point(mouse)
 	panel(self, b.controls, _button_border(on, controls_open))
 	PixelFont.draw(self, "CONTROLS", b.controls.position + Vector2(6, 5), ORANGE_LIGHT if on or controls_open else TEXT)
+
+
+## drawBossBar() in src/render/hud.ts: the boss's name over a 150 px bar near the bottom of the view; up to 5 hp
+## one segment of 2 px dashes per hit point (red with orange glints, dark once lost), else 50 cells.
+func _draw_boss_bar() -> void:
+	var main := get_tree().get_first_node_in_group("main")
+	if main == null or main.boss == null or not is_instance_valid(main.boss) or not main.boss.fighting():
+		return
+	var b = main.boss
+	var view := get_viewport_rect().size - Vector2.ONE * Main.PAD * 2
+	var w := 150.0
+	var x := floorf(Main.PAD + view.x / 2 - w / 2)
+	var y := Main.PAD + view.y - 22
+	_text_shadowed(b.TITLE, Vector2(floorf(Main.PAD + view.x / 2 - PixelFont.width(b.TITLE) / 2.0), y - 10), TEXT)
+	var max_hp: int = b.max_hp
+	if max_hp <= 5:
+		var seg := w / max_hp
+		for i in max_hp:
+			var on: bool = i < b.hp
+			var d := 0.0
+			while d < seg - 4:
+				var c := (ORANGE_LIGHT if sin(_t * 10 + d) > 0.8 else RED) if on else Color("#333333")
+				draw_rect(Rect2(x + floorf(i * seg + d), y, 2, 4), c)
+				d += 3
+	else:
+		for i in 50:
+			var on: bool = float(i) / 50 < float(b.hp) / max_hp
+			draw_rect(Rect2(x + i * 3, y, 2, 4), (ORANGE_LIGHT if sin(_t * 10 + i) > 0.85 else RED) if on else Color("#333333"))
 
 
 ## drawSpeaker() in src/render/shapes.ts: a speaker with two sound waves, or a cross when muted. `at` is the

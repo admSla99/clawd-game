@@ -60,6 +60,7 @@ func _init() -> void:
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
 	await section("1-2 Gradient Caves: darkness and the caves motif (drawDarkness() in src/scenes/game.ts)", check_caves)
 	await section("1-3 Context Window: the rising void and floating windows (updateVoid() in src/scenes/game.ts)", check_window)
+	await section("1-B The Hallucination (src/entities/boss/hallucination.ts, pickups.ts)", check_boss)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
@@ -835,6 +836,109 @@ func check_window() -> bool:
 	m.load_level("1-1")
 	await frames(3)
 	ok(m.rising_void == null and m.motif_3d == null, "1-1 has neither")
+	return true
+
+
+func check_boss() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var progress = root.get_node("Progress")
+	var shot_script := load("res://scripts/shot.gd")
+	var shots := func() -> Array:
+		return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == shot_script)
+	m.load_level("1-B")
+	await frames(3)
+	var b = m.boss
+	ok(b != null and b.get_script() == load("res://scripts/hallucination.gd"), "1-B spawns the Hallucination at its 'B'")
+	ok(absf(b.floor_y - 15 * TILE) < 0.01 and absf(b.arena_w - 34 * TILE) < 0.01 and absf(b.cx - (17 * TILE + 8)) < 0.01,
+		"over the arena's floor (row 15), as wide as the level")
+	ok(m.scenery._materials[0].get_shader_parameter("glitch") == true, "the forest glitches (the boss motif)")
+	ok(b.mode == &"intro" and b.invincible and not b.hurtbox().has_area(), "it fades in, untouchable")
+	p.invuln = 1000
+	for i in 200:
+		await physics_frame
+		if not shots.call().is_empty(): break
+	ok(shots.call().size() >= 8 and shots.call()[0].color == Color("#E6E6E6"), "then fires a radial burst of white shots (%d)" % shots.call().size())
+	for i in 400:
+		await physics_frame
+		if b.mode == &"vulnerable": break
+	ok(b.mode == &"vulnerable" and b.stompable and not b.invincible and absf(b.cy - (b.floor_y - 18)) < 3,
+		"after its attack it sinks to the floor, dazed")
+	ok(not b.hurtbox().has_area(), "and does not hurt while dazed")
+	# A stomp takes one hit point.
+	snd.played.clear()
+	p.pos = Vector2(b.cx, b.cy - 17 - 24)
+	p.vel = Vector2.ZERO
+	for i in 60:
+		await physics_frame
+		if b.hp < 3: break
+	ok(b.hp == 2 and b.mode == &"hurt" and "bossHit" in snd.played and p.vel.y < 0, "a stomp while it is dazed hits it and bounces Clawd")
+	ok(not b.hit(&"spin", 3) and b.hp == 2, "a hit while it is not dazed does nothing")
+	for i in 120:
+		await physics_frame
+		if b.mode == &"appear": break
+	ok(b.mode == &"appear" and "bossTeleport" in snd.played, "then it vanishes and teleports")
+	# The rain: warnings on the floor, then red shots from the top of the view.
+	for e in shots.call(): e.remove()
+	b.attack_index = 1
+	b.volley = 0
+	b._next(&"attack", 0.0)
+	await frames(2)
+	ok(b.warnings.size() >= 8, "the rain marks the floor first (%d warnings)" % b.warnings.size())
+	for i in 70:
+		await physics_frame
+		if not shots.call().is_empty(): break
+	var rain: Array = shots.call()
+	ok(rain.size() >= 8 and rain[0].vel.y > 150 and rain[0].color == Color("#E0605A"), "then red shots rain down onto them")
+	# Fake platforms dissolve under Clawd.
+	for e in shots.call(): e.remove()
+	b.attack_index = 2
+	b.volley = 0
+	b._next(&"attack", 0.0)
+	await frames(2)
+	var fakes: Array = get_nodes_in_group("platforms").filter(func(n): return n.get_script() == load("res://scripts/fake_platform.gd"))
+	ok(fakes.size() == 3 and shots.call().size() == 10, "it conjures 3 fake platforms and a ring of 10 cyan shots")
+	# The TS spots sit just under the arena's one-way platforms; try one in the open (columns 11-14, row 12).
+	var fp = load("res://scripts/fake_platform.gd").create(m.level, Vector2(176, 200), 64)
+	p.pos = Vector2(fp.x + 32, fp.y - 20)
+	p.vel = Vector2.ZERO
+	for i in 40:
+		await physics_frame
+		if p.riding == fp: break
+	ok(p.riding == fp, "Clawd can land on a fake platform")
+	await frames(35)
+	ok(not is_instance_valid(fp) or fp.is_queued_for_deletion(), "and it dissolves 0.45 s after he stands on it")
+	# The last hit: it dies, the blaster drops, the exit opens when Clawd takes it.
+	b.hp = 1
+	b.mode = &"vulnerable"
+	b.timer = 2.0
+	b.invincible = false
+	ok(b.hit(&"spin", 3) and b.mode == &"dead", "its last hit point starts its death")
+	for i in 200:
+		await physics_frame
+		if m.boss == null: break
+	var pick = m.level.get_node_or_null("WeaponPickup")
+	ok(m.boss == null and pick != null and shots.call().is_empty(), "it bursts, drops the Token Blaster and its shots vanish")
+	ok(pick != null and absf(pick.feet().x - 17 * TILE) < 0.01 and absf(pick.feet().y - 15 * TILE) < 0.01, "the blaster lies in the middle of the arena")
+	snd.played.clear()
+	p.pos = pick.feet()
+	await frames(3)
+	ok(progress.weapons == ["blaster"] and progress.equipped == "blaster" and "weaponGet" in snd.played,
+		"touching it gives Clawd the Token Blaster (saved)")
+	var goal = m.level.get_node_or_null("Goal")
+	ok(goal != null and absf(goal.feet().x - (23 * TILE + 8)) < 0.01, "and the exit opens 6 tiles right of the middle")
+	m.reach_goal(goal)
+	for i in 180:
+		await physics_frame
+		if not m.overlay.results.is_empty(): break
+	ok(m.overlay.results.get("title", "") == "WORLD 1 CLEAR", "the results say WORLD 1 CLEAR")
+	ok(String(m.overlay.results.get("note", "")).begins_with("TOKEN BLASTER FOUND"), "and that the blaster was found")
+	ok(progress.is_unlocked(m.level_ids, m.level_ids.find("2-1")), "world 2 is unlocked")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.boss == null and m.scenery._materials[0].get_shader_parameter("glitch") == false, "1-1 has no boss and a calm forest")
+	p.invuln = 0
 	return true
 
 

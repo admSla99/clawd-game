@@ -50,7 +50,8 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
 `?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`,
-`S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`. Every spawned node keeps
+`S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`, `B` → a `Boss` marker
+(`Main` puts the level's `boss` there). Every spawned node keeps
 its map character in the meta `spawn`. Other spawn characters are skipped (tools/check.gd lists them per level).
 All nine levels are converted with every spawn ported so far.
 
@@ -95,6 +96,38 @@ checkpoint with a 2 s grace. It is a slab across the level, 4 m deep so it swall
 every 4 px (re-rolled 15 times a second) and grey specks below, its top face a band of dark null with
 flickering bits; bits fizz up from its surface around the view, and "NULL ▲ RISING" blinks in red 16 px
 below its edge (kept in the view, drawn by `Overlay`).
+
+### The Hallucination (1-B)
+
+`Main._spawn_boss()` puts the level's `boss` (`hallucination`) at its `Boss` marker, like the `boss` spawn in
+`spawnEntities()`: centred half a tile above the marker's bottom, over the first solid floor below it
+(`Level.floor_below()`), in an arena as wide as the level. `Hallucination` (`scripts/hallucination.gd`, from
+`src/entities/boss/hallucination.ts`) is an `Enemy` with 3 hp that is untouchable except while dazed: intro
+(2.2 s, fading in under its name), then attacks in turn: radial bursts of white shots (8 + 2 per phase, two or
+three volleys), a rain of red shots from the top of the view onto blinking floor warnings (6 + 2 per phase,
+one under Clawd), fake platforms with a ring of 10 cyan shots. After each attack it sinks to the floor dazed
+for 2.8 s (less each phase): any hit then (stomp, pound, spin, jet) takes one hit point (bossHit, shake,
+hitstop, a burst), it shudders, vanishes and teleports to one of three anchors away from Clawd; the phases
+speed it up by 25 % each. Its last hit point starts a 2.2 s death of bursts, then `Main.boss_defeated()`:
+"THE HALLUCINATION HAS BEEN GROUNDED", the shots vanish, the map tune plays and the Token Blaster drops in the
+middle of the arena. Drawn as the 2D rings of 2 px dots (radius 3 … 15, floor(r × 1.1) dots each, turning
+alternately, the outer one wobbling) with a red and a cyan copy 2 px to the sides; each ring rocks in depth
+about its own tilted axis, never edge-on. Red eyes at the front flash white before an attack; dazed it shows
+crosses and three orange dots orbiting in depth. The HUD shows its name over a bar of one dashed segment per hit
+point near the bottom of the view (`Hud._draw_boss_bar()`, `drawBossBar()`).
+
+`FakePlatform` (`scripts/fake_platform.gd`, from `src/entities/platforms.ts`): a hovering slab that looks like a
+moving platform without its jets, a platform in the group `platforms`; it fades in, flickers once Clawd stands
+on it (`Player` calls `on_stand()`), and dissolves 0.45 s later or after 7 s. As in TS, the boss's three spots
+sit just under the arena's one-way platforms.
+
+`WeaponPickup` (`scripts/weapon_pickup.gd`, from `src/entities/pickups.ts`): the gun (`GunSprite`,
+`scripts/gun_sprite.gd`: the 2D game's `GUN_SPRITES` as voxel meshes, here at 2 px cells) bobs and turns in a
+dithered beam of orange light with rising sparks, a GlowLight and a blinking "?!". Touching it calls
+`Main.weapon_found()`: `Progress.grant_weapon()` (owned weapons and the equipped one are saved), weaponGet,
+hitstop, a burst, "TOKEN BLASTER ACQUIRED!", and the exit opens 6 tiles right of the arena's middle. A boss
+level's results say "WORLD 1 CLEAR" and, on the first clear with the blaster, "TOKEN BLASTER FOUND · WORLD 2
+UNLOCKED".
 
 ### Enemies
 
@@ -218,7 +251,9 @@ next run), spam bots, shots and rate limiters (hovering, aimed fire and its rang
 stomping a spam bot and its tokens; 1-2's crushers: trigger, fall, crush, hurt, riding the top up, rising home,
 no damage), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's lamp position and breathing
 radius, 1-1 lit again), 1-3's rising void (start, delay, speed, never too far behind, paused, catching
-Clawd, reset below the checkpoint, the ▲ glyph) and windows, and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+Clawd, reset below the checkpoint, the ▲ glyph) and windows, the Hallucination (placement, glitch motif,
+intro, bursts, dazed, stomp, immunity, teleport, rain and warnings, fake platforms, death, the blaster, the
+exit, WORLD 1 CLEAR, world 2 unlocked), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map).
 
 ## Game clock and camera
@@ -466,6 +501,9 @@ Back to front:
   (`shaders/motif_window.gdshader`) opens from its title bar down, types its lines of prompt / code in
   (2 px letters in words, some orange) with a blinking cursor, drifts 3 m back into the depth fog and from
   80 % of its life crumbles into pixels from the top, then reappears elsewhere in its cell with new text.
+- Boss motif (the glitching forest): `Main` sets `glitch` on the scenery's materials in the boss theme;
+  `shaders/scenery.gdshader` then tears 3 px rows sideways with a red / cyan cast, splits trunks into two
+  strands over some 24 px bands, breaks cables off with a gap, and flickers whole boxes red or cyan.
 - `Parallax` (see above), its baked grey layers tinted between the palette's haze and light colours and its
   stars, data rain and rings towards the light colour.
 - `scripts/scenery.gd` (`Scenery`): the neural forest, three layers deep, drawn by `shaders/scenery.gdshader`:
@@ -561,6 +599,8 @@ without COOP/COEP headers.
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (`E`) |
 | `scripts/spam_bot.gd`, `scripts/shot.gd` | Spam bot (`F`) and the enemy projectile it fires |
 | `scripts/rate_limiter.gd` | "429" crusher (`R`), also a platform |
+| `scripts/hallucination.gd`, `scripts/fake_platform.gd` | World 1's boss (`B` in 1-B) and its fake platforms |
+| `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/rising_void.gd`, `shaders/void.gdshader` | The rising null of `risingVoid` levels (1-3) |
 | `scripts/window_motif.gd`, `shaders/motif_window.gdshader` | Window motif: floating text windows that type in and crumble |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
@@ -570,7 +610,7 @@ without COOP/COEP headers.
 | `scripts/sub_agent.gd`, `shaders/beam.gdshader` | Sub-agent (`A`), its HELP bubble and rescue beam |
 | `scripts/spark.gd`, `shaders/halo.gdshader` | Spark (`S`), its icon and its halo |
 | `scripts/front_end.gd` | Title screen and world map |
-| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state |
+| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state, weapons |
 | `scripts/shop.gd`, `scripts/shop_screen.gd` | The shop: items, prices, fortunes; its screen and HAIKU |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |

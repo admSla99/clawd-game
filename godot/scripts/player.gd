@@ -367,6 +367,9 @@ func _physics_process(dt: float) -> void:
 				ride = p
 				break
 	riding = ride
+	# A fake platform starts to dissolve once stood on (`ride.onStand?.()`).
+	if ride and ride.has_method("on_stand"):
+		ride.on_stand()
 	on_ground = is_on_floor() or riding != null
 	on_one_way = riding != null or (is_on_floor() and _floor_is_one_way())
 	if not grounded and on_ground:

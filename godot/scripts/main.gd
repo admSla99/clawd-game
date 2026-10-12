@@ -80,6 +80,9 @@ var dark_lamp := Vector4.ZERO
 var rising_void: RisingVoid = null
 ## The theme's 3D motif among the scenery (MOTIFS_3D), or null.
 var motif_3d: Node3D = null
+## The level's boss while it lives (1-B), or null; and whether this run found a weapon.
+var boss: Enemy = null
+var weapon_found_run := false
 
 @onready var view: SubViewportContainer = $View
 @onready var subviewport: SubViewport = $View/SubViewport
@@ -207,6 +210,8 @@ func load_level(id: String) -> void:
 	info = levels[level_ids.find(id)]
 	level.bake_cells(info.terrainSeed)
 	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
+	boss = _spawn_boss()
+	weapon_found_run = false
 	level.set_param("row_z", GameCamera.ROW_Z)
 	level.set_param("ambient", Themes.vec(Themes.palette(info.theme).light))
 	for key in ["top", "mid", "haze"]:
@@ -258,6 +263,7 @@ func load_level(id: String) -> void:
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
+	scenery.set_param("glitch", info.theme == "boss")
 	if motif_3d:
 		motif_3d.free()
 		motif_3d = null
@@ -551,6 +557,51 @@ func collect_token(at: Vector2) -> void:
 		overlay.popup("+1 HEART", player.pos + Vector2(0, -28), RED)
 
 
+## The level's boss (`boss` in levels/index.json) at its 'B' marker, like the 'boss' spawn in spawnEntities():
+## centred half a tile above the marker's bottom, over the first solid floor below it, in an arena as wide as the
+## level. Null when the level has none.
+func _spawn_boss() -> Enemy:
+	var marker := level.get_node_or_null("Boss")
+	if marker == null or not info.has("boss"):
+		return null
+	var at := Px.of(marker.position)
+	var floor_top := level.floor_below(floori(at.x / 16), floori((at.y - 1) / 16))
+	match info.boss:
+		"hallucination":
+			return Hallucination.create(level, at + Vector2(0, -8), floor_top, level.pixel_size.x)
+	return null
+
+
+## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster drops into the middle of the arena,
+## leftover shots vanish and the map tune plays.
+func boss_defeated(_b: Enemy, at: Vector2) -> void:
+	overlay.popup("THE HALLUCINATION HAS BEEN GROUNDED", at + Vector2(0, -70), Color("#F0A585"), 3.0)
+	WeaponPickup.create(level, level.pixel_size.x / 2, at.y)
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if e.projectile:
+			e.remove()
+	boss = null
+	Sound.play_music("map")
+
+
+## onWeaponFound(): the blaster is Clawd's (saved), a fanfare, and the exit opens 6 tiles right of the middle.
+func weapon_found(p: WeaponPickup) -> void:
+	Progress.grant_weapon(p.weapon)
+	weapon_found_run = true
+	Sound.play("weaponGet")
+	Game.hitstop(0.3)
+	shake(0.4)
+	var at := p.feet() + Vector2(0, -18)
+	particles.emit(at, {count = 90, speed = 200, life = 1.1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
+	overlay.popup("TOKEN BLASTER ACQUIRED!", at + Vector2(0, -30), Color("#F0A585"), 3.5)
+	overlay.popup("world 2 unlocked", at + Vector2(0, -18), Color("#9A9A9A"), 3.5)
+	var gx := floori(level.pixel_size.x / 2 / 16) + 6
+	var goal: Goal = load("res://scripts/goal.gd").new()
+	goal.name = "Goal"
+	goal.position = Px.to3(Vector2(gx * 16 + 8, level.floor_below(gx, 1)))
+	level.add_child(goal, true)
+
+
 ## A checkpoint was touched (activateCheckpoint() in src/scenes/game.ts): respawn there from now on and
 ## refill the hearts.
 func activate_checkpoint(cp: Checkpoint) -> void:
@@ -611,13 +662,14 @@ func _update_complete(dt: float) -> void:
 		Sound.play_music("map")
 		var i := level_ids.find(level_id)
 		overlay.results = {
-			"title": "LEVEL COMPLETE",
+			"title": "WORLD %d CLEAR" % info.world if info.has("boss") else "LEVEL COMPLETE",
 			"subtitle": "%s · %s" % [level_id, info.name],
 			"agents": agents.duplicate(),
 			"sparks": sparks.duplicate(),
 			"prev_sparks": prev_sparks.duplicate(),
 			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", Progress.format_time(secs)]],
 			# The first clear names the level it opened (ResultsScene).
-			"note": "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
+			"note": "TOKEN BLASTER FOUND · WORLD 2 UNLOCKED" if weapon_found_run and first_clear \
+				else "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
 			"t": 0.0,
 		}

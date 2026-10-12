@@ -102,7 +102,7 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 - **UI** is pixel art drawn in the SubViewport's `Ui` CanvasLayer with `PixelFont` (`Hud`, `Overlay`, `FrontEnd`,
   `Shop`, `Menu`). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
   offset by PAD. Screen-fixed 3D props hang on the camera; anything in front of z = 0 is drawn shifted down by z/3.
-- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S F R` so far);
+- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S F R B` so far; `B` is a marker where `Main` spawns the level's `boss`);
   numbered spawns (signs, sub-agents, sparks) get `index` in map order like `Spawn.index` in TS.
 
 ## Godot port status (branch `godot-2.5d`)
@@ -110,18 +110,18 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 **`godot/docs/port-plan.md` is the task list for the remaining levels, shooting and weapons**, with the user's
 decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
 
-All levels are converted with every spawn ported so far; 1-1, 1-2 (darkness) and 1-3 (rising void) are
-playable; **1-1** is fully playable (title → map → level →
+All levels are converted with every spawn ported so far; world 1 (1-1, 1-2 darkness, 1-3 rising void, 1-B the
+Hallucination, which drops the Token Blaster) is playable; **1-1** is fully playable (title → map → level →
 results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
-shot, rate limiter.
+shot, rate limiter, Hallucination.
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
 `godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10); sparks are a solid glowing star; spikes are a bed across
 the block depth; the shop opens after clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
 Tokens; world-2 weapons/mods are a locked ARMORY row.
 
 Not ported yet (the next goal is all levels plus shooting and weapons):
-- Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), bosses `B`
-  (`src/entities/boss/hallucination.ts` for 1-B, `codex.ts` for 2-B), world 2's tougher hp.
+- Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), the boss
+  Codex (`src/entities/boss/codex.ts`, 2-B), world 2's tougher hp.
 - Shooting: `src/entities/gun.ts`, `bullets.ts`, `pickups.ts` (the blaster dropped by the first boss),
   `src/weapons.ts` (5 weapons, heat, gun upgrades), aiming and weapon switching in `src/scenes/game.ts`; then the
   shop's ARMORY and the `prev` / `next` / slot keys in `Settings`.

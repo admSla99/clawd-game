@@ -34,10 +34,11 @@ const RATELIMITER := "res://scripts/rate_limiter.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
 # 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
-# 'S' a spark (each numbered like the signs); 'F' a spam bot and 'R' a rate limiter. Positions are the tile's
+# 'S' a spark (each numbered like the signs); 'F' a spam bot and 'R' a rate limiter; 'B' a Marker3D named Boss
+# (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "B": "boss"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -75,6 +76,15 @@ func _add_side_walls() -> void:
 		shape.position = Px.to3(Vector2(x + 32, (top + bottom) / 2))
 		body.add_child(shape)
 	add_child(body)
+
+
+## findFloorBelow() in src/scenes/game.ts: the top (px) of the first solid tile in column `tx` from row `ty`
+## down, or the level's bottom.
+func floor_below(tx: int, ty: int) -> float:
+	for y in range(ty, int(pixel_size.y / 16)):
+		if terrain.get_cell_item(Vector3i(tx, -y - 1, 0)) == SOLID:
+			return y * 16.0
+	return pixel_size.y
 
 
 ## Tile item under a point in level pixels, or -1.
@@ -277,6 +287,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"start":
 			node = Marker3D.new()
 			node.name = "Start"
+		"boss":
+			node = Marker3D.new()
+			node.name = "Boss"
 		"bug":
 			node = load(BUG).instantiate()
 		"token":

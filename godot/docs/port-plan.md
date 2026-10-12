@@ -82,12 +82,12 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M4 1-B The Hallucination
-- [ ] Arena; port `src/entities/boss/hallucination.ts` (attacks, phases, HP, teleports) as a big voxel model.
-- [ ] Boss HP bar in the HUD; sounds `bossHit`, `bossTeleport`.
-- [ ] `WeaponPickup` (`src/entities/pickups.ts`): the blaster drop, `weaponGet`, saved in `Progress`.
-- [ ] "WORLD 1 CLEAR!" results; the map unlocks world 2.
-- [ ] Glitching-forest motif.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Arena; port `src/entities/boss/hallucination.ts` (attacks, phases, HP, teleports) as a big voxel model.
+- [x] Boss HP bar in the HUD; sounds `bossHit`, `bossTeleport`.
+- [x] `WeaponPickup` (`src/entities/pickups.ts`): the blaster drop, `weaponGet`, saved in `Progress`.
+- [x] "WORLD 1 CLEAR!" results; the map unlocks world 2.
+- [x] Glitching-forest motif.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M5 Shooting and weapons
 - [ ] `weapons.gd`: port `src/weapons.ts` (5 weapons, gun upgrades, loadout from `Progress`).

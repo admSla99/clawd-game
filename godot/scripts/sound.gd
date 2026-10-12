@@ -47,7 +47,8 @@ const TRACKS := {
 
 ## The effects the port uses, rendered at start-up (play() renders any other one on first use).
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
-	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush"]
+	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
+	"bossHit", "bossTeleport", "weaponGet"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -360,6 +361,16 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 			tone(buf, "triangle", 2400, 1800, 0.08, 0.08)
 		"shoot":
 			tone(buf, "square", 1400, 500, 0.1, 0.05)
+		"bossHit":
+			tone(buf, "sawtooth", 300, 60, 0.4, 0.2)
+			noise(buf, 0.4, 0.4, 4000, 200, 0, 0.8)
+		"bossTeleport":
+			tone(buf, "sine", 200, 1600, 0.3, 0.1)
+			noise(buf, 0.3, 0.12, 6000, 1500, 0, 3)
+		"weaponGet":
+			for i in 7:
+				var f := midi(64 + [0, 4, 7, 12, 16, 19, 24][i])
+				tone(buf, "square", f, f, 0.25, 0.1, i * 0.08)
 		"crush":
 			tone(buf, "sine", 110, 35, 0.35, 0.45)
 			noise(buf, 0.3, 0.35, 400, 60, 0, 0.6)
@@ -383,6 +394,9 @@ static func _sfx_length(id: String) -> float:
 		"buy": return 3 * 0.05 + 0.1
 		"deflect": return 0.08
 		"shoot": return 0.1
+		"bossHit": return 0.4
+		"bossTeleport": return 0.3
+		"weaponGet": return 6 * 0.08 + 0.25
 		"crush": return 0.35
 		"die": return 0.6
 		"denied": return 0.28
