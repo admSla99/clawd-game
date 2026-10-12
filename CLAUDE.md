@@ -102,7 +102,7 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 - **UI** is pixel art drawn in the SubViewport's `Ui` CanvasLayer with `PixelFont` (`Hud`, `Overlay`, `FrontEnd`,
   `Shop`, `Menu`). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
   offset by PAD. Screen-fixed 3D props hang on the camera; anything in front of z = 0 is drawn shifted down by z/3.
-- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S F R B` so far; `B` is a marker where `Main` spawns the level's `boss`);
+- **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`@ E o C G ? M V A S F R T Y D H I B`, every TS spawn; `B` is a marker where `Main` spawns the level's `boss`);
   numbered spawns (signs, sub-agents, sparks) get `index` in map order like `Spawn.index` in TS.
 
 ## Godot port status (branch `godot-2.5d`)
@@ -113,7 +113,8 @@ decisions from the planning interview. Work through it in order and tick tasks o
 All levels are converted with every spawn ported so far; world 1 (1-1, 1-2 darkness, 1-3 rising void, 1-B the
 Hallucination, which drops the Token Blaster) is playable; **1-1** is fully playable (title → map → level →
 results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
-shot, rate limiter, Hallucination. Shooting is ported (M5): world 2 is armed (`scripts/gun.gd`, `bullet.gd`,
+shot, rate limiter, Hallucination, and world 2's turret (`T` / `Y`), drone, shield bot and injector (M6; world 2's
+bugs and spam bots are tougher). Shooting is ported (M5): world 2 is armed (`scripts/gun.gd`, `bullet.gd`,
 `weapons.gd`, `beam_fx.gd`), aiming with the mouse (polled from the window: the SubViewport's container ignores
 the mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
 crosshair, and the shop's ARMORY and GUN MODS once a weapon is found. No gamepad support (the user's call).
@@ -124,8 +125,7 @@ clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
 Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd finds a weapon.
 
 Not ported yet (the next goal is world 2):
-- Enemies `T` Turret, `Y` ceiling turret, `D` Drone, `H` ShieldBot, `I` Injector (`enemies2.ts`), the boss
-  Codex (`src/entities/boss/codex.ts`, 2-B), world 2's tougher hp; the world-2 levels' motifs.
+- The boss Codex (`src/entities/boss/codex.ts`, 2-B); the world-2 levels' motifs and their checks (M7–M11).
 
 To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
 change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays

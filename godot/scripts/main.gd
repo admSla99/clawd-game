@@ -257,7 +257,7 @@ func load_level(id: String) -> void:
 	hud.double_tokens = double_tokens
 	var dropped := 0
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
-		dropped += e.tokens
+		dropped += e.token_total()
 	tokens_total = (level.get_children().filter(func(c: Node) -> bool: return c is Token).size() + dropped) \
 		* (2 if double_tokens else 1)
 	complete_t = -1.0

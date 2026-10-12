@@ -50,7 +50,8 @@ cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids opti
 (`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
 `?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`,
-`S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`, `B` → a `Boss` marker
+`S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`, `T` / `Y` → `Turret`
+(on the floor / under the ceiling), `D` → `Drone`, `H` → `ShieldBot`, `I` → `Injector`, `B` → a `Boss` marker
 (`Main` puts the level's `boss` there). Every spawned node keeps
 its map character in the meta `spawn`. Other spawn characters are skipped (tools/check.gd lists them per level).
 All nine levels are converted with every spawn ported so far.
@@ -141,6 +142,12 @@ hitstop and shake, and calls `_die()` for what the subclass leaves behind. `Play
 3, the hover jet 1 (not projectiles), the pound shockwave 4 (`Main._on_pound_land()`); otherwise the hurtbox hurts
 Clawd and a projectile that touches him vanishes.
 
+`Main.load_level()` counts each enemy's `token_total()` for the level's token total (an injector's includes its
+two bugs). Enemies that walk or fly through the tiles without physics bodies use `move_x()` / `move_y()` /
+`floor_at()`, ports of `moveX()` / `moveY()` / `hasFloorAt()` in `src/world/collision.ts` on their `size` box
+(solid and corrupted tiles block, one-way tiles only from above). An enemy with `blocks_direction(dir)` (the shield
+bot) stops bullets and beams coming along `dir`: bullets ricochet, beams pass without a hit.
+
 - `Bug` (`E`, `scripts/bug.gd`): see above; a stomp or pound leaves the flattened shell.
 - `SpamBot` (`F`, `scripts/spam_bot.gd`): hovers ±26 × ±6 px around its post, faces Clawd and every 2.4 s fires a
   `Shot` at him while he is within 210 px, flickering red for the last 0.4 s. A 20 × 16 px voxel drone at 1 px
@@ -155,6 +162,36 @@ Clawd and a projectile that touches him vanishes.
   1.5 m deep block: dark body with studs (bright round the edge), a face plate whose eyes turn red and angry with
   brows, "429", and a chain up to where it hangs. It has its own material so the see-through windows never thin
   it out.
+
+World 2's enemies (`src/entities/enemies2.ts`, the port drops 5× their tokens like every enemy):
+
+- `Turret` (`T` floor, `Y` ceiling, `scripts/turret.gd`): 6 hp, 20 tokens, floor ones stompable. Its barrel turns
+  towards Clawd's middle at up to 3 rad/s, kept in the upper half-plane on the floor (the lower one on the
+  ceiling); every 2.4 s while he is within 250 px it fires three `Shot`s 0.14 s apart at 135 px/s from 10 px out
+  of its sensor, the barrel blinking red for the last 0.45 s. A 16 × 12 px voxel dome at 1 px (grey with a lit
+  spot, a dark lower half, a red sensor, a base plate; flipped for the ceiling) and a separate barrel turning
+  around the sensor on the dome's front (the 2D barrel is behind the dome, which hid it in 2.5D). The underside of
+  a ceiling is hidden behind its blocks' front face, so a ceiling turret is drawn bolted to that front face
+  (z = 1.5 m + 6 px) and lifted by z / 3, which puts it where it is in play. Own material, like the crusher.
+- `Drone` (`D`, `scripts/drone.gd`): 3 hp, 15 tokens, hovers 2 px above its cell's bottom. It bobs ±4 px until
+  Clawd's top is within 230 px of its middle, then circles 70 px to one side of him and 46 px above (a spring,
+  1.6–2.6 s), aims 0.45 s (its eye flashes red and white), dives at his middle at 270 px/s for 0.55 s (red
+  sparks; a wall, floor or ceiling ends the dive flush and bounces it back at 30 %), recovers 0.6 s and circles on
+  the other side. An 18 × 13 px quadcopter: a grey shell, a dark lower half with one eye, and thin rotor blades on
+  masts 3 px above it that blur between two frames (deep rotor discs showed grey tops that swallowed the shell).
+- `ShieldBot` (`H`, `scripts/shield_bot.gd`): 9 hp, 30 tokens. While Clawd is within 260 px (tops within 120 px)
+  it walks at 30 px/s towards him until 36 px away, never off a ledge; on the wrong side it stands 0.7 s before it
+  turns (its shield blinks grey: the window to hit its back), and every 2.6 s it fires a `Shot` straight ahead at
+  125 px/s while he is level with it (40 px). `blocks_direction()`: the shield stops shots coming at its front
+  that are not steeper than 1.4 : 1, and flashes white. A 13 × 18 px robot at 1 px (visor with the red eye on the
+  side it faces, a seam, 3 × 3 armour plates in two greys from `hash2(i, j, 3)`, stepping feet), a glowing cyan
+  shield of seven segments standing across 14 px of depth in front of it, and a glowing "403" above it.
+- `Injector` (`I`, `scripts/injector.gd`): 5 hp, 15 tokens. On the ground it waits (0.8–1.4 s, then 1–1.5 s) and,
+  while Clawd is within 260 px, hops at him: 330 px/s up and 1.3 × the distance across, at most 110 px/s; a wall
+  bounces it back at half speed. Destroyed, it splits into two 1-hp bugs (`Bug.speed` 40 px/s) running left and
+  right from its feet. A magenta blob with a dark rim, a pale top with a lit spot and a ">_" prompt blinking white
+  and pink; like the 2D draw it squashes up to 1.24 × wide before a hop and stretches in the air, as whole-pixel
+  sizes (`Injector.mesh(w, h, bright)` builds each).
 
 Checkpoints (`scripts/checkpoint.gd`, `C` in the map): a voxel terminal on a ribbed post, standing 0.6 m
 behind the gameplay plane so Clawd walks in front of it. Its 18 x 12 px screen has dark glass 1 px back in the
@@ -291,7 +328,11 @@ the game's events play their sounds, the jet hisses while hovering, M mutes, the
 music), 1-1's sub-agents and sparks (placement and numbering, pickup, HUD, results, saved progress, ghosts on the
 next run), spam bots, shots and rate limiters (hovering, aimed fire and its range, a shot's hit / spin / wall,
 stomping a spam bot and its tokens; 1-2's crushers: trigger, fall, crush, hurt, riding the top up, rising home,
-no damage), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's lamp position and breathing
+no damage), world 2's enemies (tough bugs and spam bots, counts per level; a turret's turn rate, aim, horizon
+limit, three-shot burst, reload and range; a ceiling turret under its tile and its lower half-plane; a drone's
+bobbing, circling, aim, 270 px/s dive and the side switch, a dive stopped flush by the floor; a shield bot's
+shield from the front / behind / above, slow turn, walk, shot, a bullet ricocheting off the shield and one in its
+back; an injector's hop, landing, split into two 1-hp bugs and its tokens), 1-2's darkness (its depth, the dimmed sky, the caves motif, Clawd's lamp position and breathing
 radius, 1-1 lit again), 1-3's rising void (start, delay, speed, never too far behind, paused, catching
 Clawd, reset below the checkpoint, the ▲ glyph) and windows, the Hallucination (placement, glitch motif,
 intro, bursts, dazed, stomp, immunity, teleport, rain and warnings, fake platforms, death, the blaster, the
@@ -359,7 +400,8 @@ Added in the port (not in TS), for every enemy:
   all), with a 1 px shadow; a hit on the same enemy within 0.12 s adds to its number instead of making a new one
   (the beam's 20 hits a second, the stream, a spread's five pellets), and the killing blow's number is light
   orange. The boss's own `hit()` shows none (it has its hits and the HUD bar).
-- **Health bars**: hidden at full health. Once hurt, a 4 px high frame 4 px over the enemy's box, as wide as the
+- **Health bars**: hidden at full health. Once hurt, a 4 px high frame centred at `Enemy.bar_y()` (4 px over the
+  enemy's box; over the shield bot's "403", under a ceiling turret), as wide as the
   enemy (12-24 px), with its hit points in red and the ones just lost in light, draining at 1.5 × max hp a
   second after the hit flash (`Enemy.shown_hp`). `Enemy.max_hp` is taken from `hp` on the first hit (after the
   level's world-2 toughness); `health_bar = false` hides it (the Hallucination).
@@ -679,6 +721,8 @@ without COOP/COEP headers.
 | `scenes/bug.tscn`, `scripts/bug.gd` | Patrolling bug (`E`) |
 | `scripts/spam_bot.gd`, `scripts/shot.gd` | Spam bot (`F`) and the enemy projectile it fires |
 | `scripts/rate_limiter.gd` | "429" crusher (`R`), also a platform |
+| `scripts/turret.gd`, `scripts/drone.gd` | World 2's turret (`T` floor, `Y` ceiling) and drone (`D`) |
+| `scripts/shield_bot.gd`, `scripts/injector.gd` | World 2's "403" shield bot (`H`) and prompt injector (`I`) |
 | `scripts/hallucination.gd`, `scripts/fake_platform.gd` | World 1's boss (`B` in 1-B) and its fake platforms |
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |

@@ -12,6 +12,8 @@ const SIZE := Vector2(16, 11)
 const SPRITE_Y := -1.0
 
 var dir := -1.0
+## Walking speed: SPEED, or 40 px/s for the bugs an Injector splits into.
+var speed := SPEED
 var vel := Vector2.ZERO
 var t := randf() * 3
 
@@ -27,7 +29,7 @@ func _physics_process(dt: float) -> void:
 		return
 	tick(dt)
 	t += dt
-	vel.x = dir * SPEED
+	vel.x = dir * speed
 	vel.y = minf(vel.y + GRAVITY * dt, MAX_FALL)
 	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
 	move_and_slide()

@@ -126,12 +126,12 @@ static func show_bar(e: Enemy) -> bool:
 		and (e.hp < e.max_hp or e.shown_hp < e.max_hp)
 
 
-## A bar 12-24 px wide (the enemy's width) 4 px over its box: dark frame, red hit points, and in light the
+## A bar 12-24 px wide (the enemy's width) at its bar_y() (4 px over its box): dark frame, red hit points, and in light the
 ## ones just lost draining away.
 func _draw_bar(e: Enemy) -> void:
 	var r := e.rect()
 	var w := clampf(roundf(r.size.x), 12, 24)
-	var v := to_view(Vector2(r.get_center().x, r.position.y - 4))
+	var v := to_view(Vector2(r.get_center().x, e.bar_y()))
 	var box := Rect2(v.x - roundf(w / 2) - 1, v.y - 2, w + 2, 4)
 	draw_rect(box, Color(0.04, 0.04, 0.05, 0.85))
 	var inner := box.position + Vector2.ONE

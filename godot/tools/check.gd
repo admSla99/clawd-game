@@ -64,6 +64,7 @@ func _init() -> void:
 	await section("aiming with the mouse (computeAim() in src/scenes/game.ts)", check_mouse_aim)
 	await section("shooting (src/entities/gun.ts, bullets.ts, src/weapons.ts)", check_gun)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
+	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -753,6 +754,206 @@ func check_enemies() -> bool:
 		if rl.mode == &"idle": break
 	ok(rl.mode == &"idle" and rl.y == 12 * TILE, "and goes back up to where it hangs")
 	ok(not rl.hit(&"spin", 3) and not rl.dead, "a spin does not hurt it")
+	return true
+
+
+## Holds Clawd at `feet` (level pixels), out of harm's way, for `n` physics frames, calling `each` after every
+## frame with the frame number; stops early when it returns true.
+func hold(p, feet: Vector2, n: int, each := Callable()) -> void:
+	p.invuln = 100
+	for i in n:
+		p.pos = feet
+		p.vel = Vector2.ZERO
+		await physics_frame
+		if each.is_valid() and each.call(i) == true:
+			break
+
+
+func check_world2_enemies() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var shot_script := load("res://scripts/shot.gd")
+	var bug_script := load("res://scripts/bug.gd")
+
+	# World 2's bugs and spam bots are tougher; world 1's are not.
+	m.load_level("2-1")
+	await frames(3)
+	var tough := true
+	for b in enemies_of("res://scripts/bug.gd"):
+		tough = tough and b.hp == 2
+	for b in enemies_of("res://scripts/spam_bot.gd"):
+		tough = tough and b.hp == 3
+	ok(tough and not enemies_of("res://scripts/bug.gd").is_empty(), "2-1's bugs have 2 hp and its spam bots 3")
+	var turrets := enemies_of("res://scripts/turret.gd")
+	var drones := enemies_of("res://scripts/drone.gd")
+	var bots := enemies_of("res://scripts/shield_bot.gd")
+	ok(turrets.size() == 2 and drones.size() == 4 and bots.size() == 2, "2-1 has 2 turrets 'T', 4 drones 'D' and 2 shield bots 'H'")
+
+	# A floor turret: 6 hp, 20 tokens, stompable, turns at 3 rad/s within the upper half-plane.
+	var tu = turrets[0]
+	ok(tu.hp == 6 and tu.tokens == 20 and tu.stompable and not tu.ceiling, "a turret has 6 hp, drops 20 tokens and can be stomped")
+	ok(tu.pivot() == tu.pos + Vector2(0, -5) and tu.rect().size == Vector2(16, 12), "it is 16 x 12 with its sensor 5 px above its feet")
+	tu.timer = 100
+	var a0: float = tu.angle
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 1)
+	ok(absf(tu.angle - a0) <= 3.0 / 60 + 0.001 and tu.angle < a0, "its barrel turns towards Clawd at 3 rad/s")
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 40)
+	ok(absf(tu.angle - atan2(-40, -60)) < 0.02, "and points at him (%.2f)" % tu.angle)
+	await hold(p, tu.pivot() + Vector2(60, 40 + 9), 60)
+	ok(absf(tu.angle - (-0.1)) < 0.02, "a floor turret never aims below the horizon (%.2f)" % tu.angle)
+	# A burst: three shots 0.14 s apart at 135 px/s, then 2.4 s to reload.
+	var seen := {}
+	snd.played.clear()
+	tu.timer = 0.01
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 30, func(_i):
+		for s in get_nodes_in_group("enemies"):
+			if s.get_script() == shot_script and not seen.has(s):
+				seen[s] = s.vel.length()
+		return false)
+	var speeds := seen.values()
+	ok(seen.size() == 3 and speeds.all(func(v): return absf(v - 135) < 0.01) and "shoot" in snd.played,
+		"it fires a burst of 3 shots at 135 px/s (%d)" % seen.size())
+	ok(tu.timer > 1.8 and tu.timer < 2.4, "and reloads for 2.4 s")
+	seen.clear()
+	tu.timer = 0.01
+	await hold(p, tu.pivot() + Vector2(-260, 0), 20)
+	ok(tu.burst == 0 and tu.timer < 0, "it holds fire while Clawd is beyond 250 px")
+	tu.timer = 100
+
+	# A drone bobs at its post until Clawd comes within 230 px, circles, aims and dives at 270 px/s.
+	var dr = drones[0]
+	ok(dr.hp == 3 and dr.tokens == 15 and dr.stompable and dr.rect().size == Vector2(14, 10), "a drone has 3 hp and drops 15 tokens")
+	var far: Vector2 = dr.pos + Vector2(-400, -200)
+	# Lambdas capture locals by value: they write into `got`.
+	var got := {"bob": 0.0}
+	await hold(p, far, 60, func(_i):
+		got.bob = maxf(got.bob, absf(dr.pos.y - dr.home_y))
+		return false)
+	ok(dr.mode == &"idle" and got.bob > 0.5 and got.bob < 4.5, "it bobs at its post while Clawd is far (%.1f px)" % got.bob)
+	var near: Vector2 = dr.pos + Vector2(100, 70)
+	await hold(p, near, 2)
+	ok(dr.mode == &"orbit", "it starts circling when he comes near")
+	var side: float = dr.side
+	# Clawd hangs in the air here: a dive into him could end in a stomp.
+	dr.hp = 1000
+	dr.timer = 0.0
+	var modes := []
+	await hold(p, near, 150, func(_i):
+		if modes.is_empty() or modes.back() != dr.mode:
+			modes.append(dr.mode)
+			if dr.mode == &"dive":
+				got.dive = dr.vel
+		return dr.mode == &"orbit" and modes.size() > 3)
+	ok(modes.slice(0, 4) == [&"aim", &"dive", &"recover", &"orbit"], "then aims, dives, recovers and circles again (%s)" % [modes])
+	ok(absf(got.get("dive", Vector2.ZERO).length() - 270) < 0.5, "it dives at 270 px/s (%s)" % got.get("dive"))
+	ok(dr.side == -side, "on the other side")
+	# A dive into the floor ends the dive and bounces it up.
+	var start := _start(m)
+	dr.pos = start + Vector2(0, -20)
+	dr.mode = &"dive"
+	dr.timer = 0.5
+	dr.vel = Vector2(0, 270)
+	await hold(p, far, 10, func(_i): return dr.mode != &"dive")
+	ok(dr.mode == &"recover" and dr.vel.y < 0 and dr.pos.y == start.y, "a dive into the floor stops flush and bounces it")
+
+	# A shield bot: 9 hp, 30 tokens; its shield stops shots from the front, not from behind or above.
+	var sb = bots[0]
+	ok(sb.hp == 9 and sb.tokens == 30 and sb.stompable and sb.facing == -1, "a shield bot has 9 hp, drops 30 tokens and faces left")
+	ok(sb.blocks_direction(Vector2(1, 0)) and sb.shield_flash > 0, "its shield stops a shot coming at its front (and flashes)")
+	ok(not sb.blocks_direction(Vector2(-1, 0)) and not sb.blocks_direction(Vector2(0.3, 1)), "but not one from behind or from above")
+	var level_y: float = sb.pos.y
+	var x0: float = sb.pos.x
+	sb.fire_timer = 100
+	await hold(p, Vector2(x0 + 100, level_y), 30)
+	ok(sb.facing == -1 and sb.pos.x == x0 and sb.turn_timer > 0, "it is slow to turn round, and stands still meanwhile")
+	await hold(p, Vector2(x0 + 100, level_y), 20)
+	ok(sb.facing == 1, "after 0.7 s it faces Clawd")
+	x0 = sb.pos.x
+	var ahead: bool = sb.floor_at(Vector2(x0 + 10, level_y + 2))
+	await hold(p, Vector2(x0 + 100, level_y), 30)
+	ok(sb.pos.x - x0 > 14 if ahead else sb.pos.x == x0, "it walks towards him at 30 px/s (%.1f px)" % (sb.pos.x - x0))
+	seen.clear()
+	snd.played.clear()
+	sb.fire_timer = 0.01
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 5, func(_i):
+		for s in get_nodes_in_group("enemies"):
+			if s.get_script() == shot_script and not seen.has(s):
+				seen[s] = s.vel
+		return false)
+	ok(seen.size() == 1 and seen.values()[0] == Vector2(125, 0) and "shoot" in snd.played, "it fires a shot straight ahead at 125 px/s")
+	for s in seen:
+		if not gone(s):
+			s.remove()
+	# Bullets ricochet off the front and hit from behind.
+	var bullet_script := load("res://scripts/bullet.gd")
+	var blaster: Dictionary = load("res://scripts/weapons.gd").get_def("blaster")
+	sb.fire_timer = 100
+	snd.played.clear()
+	var hp0: float = sb.hp
+	var bl = bullet_script.fire(m.level, sb.pos + Vector2(24, -10), PI, 380, blaster, 2.0)
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 6)
+	ok(sb.hp == hp0 and "deflect" in snd.played and (gone(bl) or bl.vel.x > 0), "a bullet at its shield ricochets without a hit")
+	bl = bullet_script.fire(m.level, sb.pos + Vector2(-24, -10), 0.0, 380, blaster, 2.0)
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 6)
+	ok(sb.hp == hp0 - 2, "a bullet in its back hits (hp %s)" % sb.hp)
+
+	# A ceiling turret in 2-2 hangs under a solid tile and aims into the lower half-plane.
+	m.load_level("2-2")
+	await frames(3)
+	var cts: Array = enemies_of("res://scripts/turret.gd").filter(func(e): return e.ceiling)
+	ok(cts.size() == 5, "2-2 has 5 ceiling turrets 'Y'")
+	var ct = cts[0]
+	ok(not ct.stompable and ct.pivot() == ct.pos + Vector2(0, -7), "a ceiling turret cannot be stomped; its sensor is 5 px below its top")
+	ok(m.level.tile(ct.rect().position + Vector2(8, -1)) == 0 and m.level.tile(ct.rect().position + Vector2(8, 1)) != 0,
+		"it hangs right under a solid tile")
+	ct.timer = 100
+	await hold(p, ct.pivot() + Vector2(60, 80 + 9), 40)
+	ok(absf(ct.angle - atan2(80, 60)) < 0.02, "it aims down at Clawd (%.2f)" % ct.angle)
+	await hold(p, ct.pivot() + Vector2(60, -80 + 9), 60)
+	ok(absf(ct.angle - 0.1) < 0.02, "never above the horizon (%.2f)" % ct.angle)
+
+	# An injector hops at Clawd, and splits into two bugs when destroyed.
+	m.load_level("2-3")
+	await frames(3)
+	var injs := enemies_of("res://scripts/injector.gd")
+	ok(injs.size() == 8, "2-3 has 8 injectors 'I'")
+	# The one nearest the start stands on wide flat ground (others hop off pillars into pits).
+	var start3 := _start(m)
+	var inj = injs[0]
+	for e in injs:
+		if e.pos.distance_to(start3) < inj.pos.distance_to(start3):
+			inj = e
+	ok(inj.hp == 5 and inj.tokens == 15 and inj.token_total() == 35, "an injector has 5 hp, drops 15 tokens and leaves 20 in bugs")
+	inj.hp = 1000
+	await hold(p, inj.pos + Vector2(100, 0), 30, func(_i): return inj.grounded)
+	inj.timer = 0.01
+	var tx: float = inj.pos.x + 100
+	await hold(p, Vector2(tx, inj.pos.y), 10, func(_i):
+		if inj.vel.y < 0:
+			got.hop = inj.vel
+			return true
+		return false)
+	ok(got.get("hop") == Vector2(110, -330), "it hops at Clawd: 330 px/s up, at most 110 across (%s)" % got.get("hop"))
+	await hold(p, Vector2(tx, inj.pos.y), 90, func(_i): return inj.grounded)
+	ok(inj.grounded and inj.vel == Vector2.ZERO, "and lands")
+	var bugs_before := enemies_of("res://scripts/bug.gd").size()
+	var tokens_before: int = m.level.get_children().filter(func(c): return c is Area3D and c.popped).size()
+	var at: Vector2 = inj.pos
+	inj.hp = 5
+	inj.hit(&"shot", 99)
+	await frames(2)
+	var new_bugs := enemies_of("res://scripts/bug.gd").filter(func(b): return b.hp == 1)
+	var popped: int = m.level.get_children().filter(func(c): return c is Area3D and c.popped).size() - tokens_before
+	ok(gone(inj) and enemies_of("res://scripts/bug.gd").size() == bugs_before + 2 and new_bugs.size() == 2,
+		"destroyed, it splits into two 1-hp bugs")
+	ok(new_bugs.all(func(b): return b.speed == 40 and absf(b.pos.x - at.x) < 10) and new_bugs[0].dir != new_bugs[1].dir,
+		"that run off left and right at 40 px/s")
+	ok(popped == 15, "and drops 15 tokens (got %d)" % popped)
+
+	m.load_level("1-1")
+	await frames(3)
+	ok(bugs().all(func(b): return b.hp == 1), "world 1's bugs keep 1 hp")
 	return true
 
 

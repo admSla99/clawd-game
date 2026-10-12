@@ -107,10 +107,10 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 ### M6 World-2 enemies (each with check section and voxel model)
 - [x] World 2's "tough" HP (`spawnEntities()` in `src/scenes/game.ts`): bugs 2, spam bots 3. Done early, with
       the health bars (see *Added beyond the plan*).
-- [ ] `T` Turret and `Y` ceiling turret (`src/entities/enemies2.ts`).
-- [ ] `D` Drone.
-- [ ] `H` ShieldBot (shield that blocks shots from the front).
-- [ ] `I` Injector.
+- [x] `T` Turret and `Y` ceiling turret (`src/entities/enemies2.ts`).
+- [x] `D` Drone.
+- [x] `H` ShieldBot (shield that blocks shots from the front).
+- [x] `I` Injector.
 
 ### M7 2-1 Merge Conflict Mesa
 - [ ] Convert, spawns, armed start, sign texts. Mesa motif: diff strata with conflict-marker seams.
