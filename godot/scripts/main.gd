@@ -28,7 +28,7 @@ const LAMP_Z := 1.0
 const DARK_SKY := 0.3
 ## Far background motif per theme (docs/scenery-themes.md), drawn on Background/Motif between the haze and
 ## the parallax ridges; themes without one leave it hidden.
-const MOTIFS := {"caves": preload("res://shaders/motif_caves.gdshader")}
+const MOTIFS := {"caves": preload("res://shaders/motif_caves.gdshader"), "mesa": preload("res://shaders/motif_mesa.gdshader")}
 ## Motifs built from 3D objects among the scenery layers: a node class with setup(seed, bounds, view, palette).
 const MOTIFS_3D := {"window": preload("res://scripts/window_motif.gd")}
 const ORANGE := Color("#D97757")
@@ -319,6 +319,8 @@ func load_level(id: String) -> void:
 		var mat := ShaderMaterial.new()
 		mat.shader = motif_shader
 		mat.set_shader_parameter("line_color", Themes.vec(palette.ray))
+		mat.set_shader_parameter("haze_color", Themes.vec(palette.haze))
+		mat.set_shader_parameter("mid_color", Themes.vec(palette.mid))
 		mat.set_shader_parameter("strength", 1.0)
 		motif.material = mat
 	_update_lamp()

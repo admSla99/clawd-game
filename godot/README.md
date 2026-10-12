@@ -337,7 +337,9 @@ back; an injector's hop, landing, split into two 1-hp bugs and its tokens), 1-2'
 radius, 1-1 lit again), 1-3's rising void (start, delay, speed, never too far behind, paused, catching
 Clawd, reset below the checkpoint, the ▲ glyph) and windows, the Hallucination (placement, glitch motif,
 intro, bursts, dazed, stomp, immunity, teleport, rain and warnings, fake platforms, death, the blaster, the
-exit, WORLD 1 CLEAR, world 2 unlocked), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
+exit, WORLD 1 CLEAR, world 2 unlocked), 2-1 Merge Conflict Mesa (theme, the mesa motif and its colours, armed
+start, its enemies, the TS sign texts; the real player with full jumps crosses the pit on its two one-way
+platforms, pounds through the corrupted floor to the spark below and climbs out), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, shooting down enemy shots and not the
@@ -619,6 +621,16 @@ Back to front:
   valley floor (every fourth an index line), faint away from the floor, and balls of light rolling along the
   floor (gradient descent), one per 420 px, each with a dithered halo that lights the contour lines within
   90 px. Additive, at a tenth of the camera's speed.
+  Mesa: `shaders/motif_mesa.gdshader`, diff strata. Two ranges of flat-topped mesas (the far one at 0.07 of the
+  camera's speed and hazier, the near one at 0.13), one per 280 / 360 px cell, standing at 70 / 80 % of the view's
+  height. Their rock is a diff, one 5 px stratum per line: context in a neutral rock tone, added / removed lines in
+  green / red with a "+" / "-" at their left end, dim "code" in each line, a lit ledge where a stratum steps out
+  from under the one above (the cliffs erode outwards line by line) and a dark joint below it. Blocks of seven
+  lines are sometimes a merge conflict: a `<<<<<<<` seam, two green lines, `=======`, two red lines, `>>>>>>>`;
+  the markers (seven 3 px glyphs, repeated every 64 px so the trunks in front never hide them all, joined by a
+  glowing crack) glow and pulse in the theme's ray colour and a spark runs along each seam. Opaque rock (the
+  shader also gets the theme's `haze_color` and `mid_color`), fading into the haze lower down and fast below the
+  mesas' foot, so pits keep their depth.
 - Window motif (`Main.MOTIFS_3D`: 3D motifs among the scenery, a node built per level): `scripts/window_motif.gd`
   (`WindowMotif`) fills three layers (z = -21, -11, -8 m; parallax 0.2, 0.32, 0.42) with a window slot per
   cell, each running its own ~14 s life on `Game.time`: a text panel of 48-96 × 28-52 px
@@ -754,6 +766,7 @@ without COOP/COEP headers.
 | `shaders/terrain_pixels.gdshader` | Level blocks (crust, circuits, one-way, spikes, corrupted glitch, lights, Clawd's shadow) |
 | `shaders/darkness.gdshaderinc` | Darkness of dark levels around Clawd's lamp (global `dark_amount`, `dark_lamp`) |
 | `shaders/motif_caves.gdshader` | Caves motif: contour lines of the loss landscape, rolling balls of light |
+| `shaders/motif_mesa.gdshader` | Mesa motif: mesas of diff strata with glowing merge-conflict seams |
 | `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
 | `tools/check.gd` | Headless checks, see *Checks* |

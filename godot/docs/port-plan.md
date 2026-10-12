@@ -113,8 +113,10 @@ enemies, level features, bosses, a scenery motif per theme, and world 2's shooti
 - [x] `I` Injector.
 
 ### M7 2-1 Merge Conflict Mesa
-- [ ] Convert, spawns, armed start, sign texts. Mesa motif: diff strata with conflict-marker seams.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Convert, spawns, armed start, sign texts. Mesa motif: diff strata with conflict-marker seams. Full jumps
+      fit (no override: no ceilings or spikes; the check drives the pit and the corrupted pocket); the TS sign
+      texts match the port's controls.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M8 2-2 GPU Forge
 - [ ] Convert, spawns. Forge motif: server racks and GPU monoliths (embers already exist).

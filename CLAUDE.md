@@ -111,7 +111,7 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
 
 All levels are converted with every spawn ported so far; world 1 (1-1, 1-2 darkness, 1-3 rising void, 1-B the
-Hallucination, which drops the Token Blaster) is playable; **1-1** is fully playable (title → map → level →
+Hallucination, which drops the Token Blaster) and 2-1 (mesa motif) are playable; **1-1** is fully playable (title → map → level →
 results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
 shot, rate limiter, Hallucination, and world 2's turret (`T` / `Y`), drone, shield bot and injector (M6; world 2's
 bugs and spam bots are tougher). Shooting is ported (M5): world 2 is armed (`scripts/gun.gd`, `bullet.gd`,
@@ -125,7 +125,7 @@ clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
 Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd finds a weapon.
 
 Not ported yet (the next goal is world 2):
-- The boss Codex (`src/entities/boss/codex.ts`, 2-B); the world-2 levels' motifs and their checks (M7–M11).
+- The boss Codex (`src/entities/boss/codex.ts`, 2-B); the motifs and checks of 2-2 … 2-B (M8–M11).
 
 To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
 change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays
