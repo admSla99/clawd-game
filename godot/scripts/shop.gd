@@ -1,15 +1,17 @@
 class_name Shop
 extends RefCounted
 
-## What the shop sells and what buying does (ShopScene in src/scenes/shop.ts, prices from src/weapons.ts). The
-## port has no shooting yet, so it sells the upgrades that work in world 1 (Extra Heart, Jet Tuning, Token Magnet,
-## at the TS prices), shows the world-2 weapons and gun mods as one locked ARMORY row, and adds four things of its
-## own: the Spark Radar and HAIKU's Fortune Haiku (tools for finding everything) and two consumables, Firewall
-## and Double Tokens. Everything is bought with banked tokens (Progress.wallet), the rarer things with sparks too
+## What the shop sells and what buying does (ShopScene in src/scenes/shop.ts, prices from src/weapons.ts). It
+## opens after 1-1 with the upgrades that work in world 1 (Extra Heart, Jet Tuning, Token Magnet, at the TS
+## prices) and four things of the port's own: the Spark Radar and HAIKU's Fortune Haiku (tools for finding
+## everything) and two consumables, Firewall and Double Tokens. The world-2 weapons and gun mods wait behind one
+## locked ARMORY row until Clawd finds a weapon (the blaster 1-B drops); then items() puts the ARMORY (the five
+## weapons: buy, then equip) and the GUN MODS (Bigger Model, Faster Inference, Longer Context) in its place.
+## Everything is bought with banked tokens (Progress.wallet), the rarer things with sparks too
 ## (Progress.sparks_available()). ShopScreen draws it.
 
 ## kind: "upgrade" (levels, `prices` / `sparks` per level), "fortune" (repeatable), "stock" (consumable, up to
-## `max` in stock), "locked".
+## `max` in stock), "locked", and from items(): "weapon" (`price`, `sparks`; bought once, then equipped).
 const ITEMS := [
 	{"id": "hearts", "kind": "upgrade", "section": "UPGRADES", "name": "Extra Heart", "prices": [100, 250], "sparks": [0, 4],
 		"desc": "One more heart to lose. Checkpoints refill to it too."},
@@ -17,13 +19,13 @@ const ITEMS := [
 		"desc": "+30% hover time per level, for the long gaps."},
 	{"id": "magnet", "kind": "upgrade", "section": "UPGRADES", "name": "Token Magnet", "prices": [120],
 		"desc": "Tokens within four and a half tiles fly to you."},
-	{"id": "radar", "kind": "upgrade", "section": "TOOLS", "name": "Spark Radar", "prices": [60], "sparks": [3],
+	{"id": "radar", "kind": "upgrade", "section": "TOOLS", "name": "Spark Radar", "prices": [80],
 		"desc": "An arrow by Clawd points to the nearest spark you have never found. It beats faster the closer you get."},
 	{"id": "fortune", "kind": "fortune", "section": "TOOLS", "name": "Fortune Haiku", "price": 25,
 		"desc": "HAIKU tells you, in 5-7-5, where a spark or a lost sub-agent still hides in a level you can play."},
 	{"id": "firewall", "kind": "stock", "section": "CONSUMABLES", "name": "Firewall", "price": 40, "max": 3,
 		"desc": "Blocks the next hit that would cost a heart. One guards each level, and it is only used up when it breaks."},
-	{"id": "double", "kind": "stock", "section": "CONSUMABLES", "name": "Double Tokens", "price": 50, "max": 3,
+	{"id": "double", "kind": "stock", "section": "CONSUMABLES", "name": "Double Tokens", "price": 100, "max": 3,
 		"desc": "Every token counts twice. One is used each time you clear a level."},
 	{"id": "armory", "kind": "locked", "section": "WORLD 2", "name": "Armory",
 		"desc": "Five weapons and their mods (Bigger Model, Faster Inference, Longer Context) for world 2, where Clawd shoots. It opens when Clawd finds a weapon."},
@@ -34,8 +36,24 @@ const MAGNET := 72.0
 const NUMBERS := ["one", "two", "three", "four", "five", "six"]
 
 
+## What is for sale now: ITEMS, with the ARMORY and GUN MODS instead of the locked row once Clawd owns a weapon.
+static func items() -> Array:
+	if Progress.weapons.is_empty():
+		return ITEMS
+	var out := ITEMS.filter(func(it: Dictionary) -> bool: return it.kind != "locked")
+	for id in Weapons.ORDER:
+		var w: Dictionary = Weapons.WEAPONS[id]
+		out.append({"id": id, "kind": "weapon", "section": "ARMORY", "name": w.name, "desc": w.desc, "price": w.price, "sparks": w.sparks})
+	for u in Weapons.UPGRADES:
+		var it: Dictionary = u.duplicate()
+		it.kind = "upgrade"
+		it.section = "GUN MODS"
+		out.append(it)
+	return out
+
+
 static func item(id: String) -> Dictionary:
-	for it in ITEMS:
+	for it in items():
 		if it.id == id:
 			return it
 	return {}
@@ -55,6 +73,8 @@ static func price(it: Dictionary, ids: Array) -> Dictionary:
 			return {"tokens": it.price, "sparks": 0} if not secrets(ids).is_empty() else {}
 		"stock":
 			return {"tokens": it.price, "sparks": 0} if Progress.in_stock(it.id) < it.max else {}
+		"weapon":
+			return {"tokens": it.price, "sparks": it.sparks} if not Progress.weapons.has(it.id) else {}
 	return {}
 
 
@@ -62,8 +82,13 @@ static func affordable(p: Dictionary) -> bool:
 	return not p.is_empty() and Progress.wallet >= p.tokens and Progress.sparks_available() >= p.sparks
 
 
-## Buys the item: "bought", "poor" (not enough tokens or sparks) or "none" (can't be bought).
+## Buys the item: "bought", "equipped" (a weapon Clawd owns: he holds it now), "poor" (not enough tokens or
+## sparks) or "none" (can't be bought).
 static func buy(it: Dictionary, ids: Array) -> String:
+	if it.kind == "weapon" and Progress.weapons.has(it.id):
+		Progress.equipped = it.id
+		Progress.save()
+		return "equipped"
 	var p := price(it, ids)
 	if p.is_empty():
 		return "none"
@@ -78,6 +103,9 @@ static func buy(it: Dictionary, ids: Array) -> String:
 			Progress.stock[it.id] = Progress.in_stock(it.id) + 1
 		"fortune":
 			Progress.fortune = tell_fortune(ids)
+		"weapon":
+			# grantWeapon() saves, and a new weapon is held at once (activate() in shop.ts).
+			Progress.grant_weapon(it.id)
 	Progress.save()
 	return "bought"
 

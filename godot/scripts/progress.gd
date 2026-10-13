@@ -22,6 +22,9 @@ var stock := {}
 var hinted: Array = []
 ## The last fortune's three lines.
 var fortune: Array = []
+## Weapon ids owned, in the order found (save.weapons), and the one in Clawd's hands (save.equipped).
+var weapons: Array = []
+var equipped := ""
 
 
 func _ready() -> void:
@@ -36,6 +39,8 @@ func load_file() -> void:
 	stock = {}
 	hinted = []
 	fortune = []
+	weapons = []
+	equipped = ""
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -47,13 +52,15 @@ func load_file() -> void:
 		stock = data.get("stock", {})
 		hinted = data.get("hinted", [])
 		fortune = data.get("fortune", [])
+		weapons = data.get("weapons", [])
+		equipped = data.get("equipped", "")
 
 
 func save() -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
-			"stock": stock, "hinted": hinted, "fortune": fortune}))
+			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped}))
 
 
 ## progressFor(): a level's progress, or an empty one.
@@ -109,6 +116,14 @@ func in_stock(id: String) -> int:
 ## Takes one of a consumable out of stock (it was used).
 func use_stock(id: String) -> void:
 	stock[id] = maxi(0, in_stock(id) - 1)
+	save()
+
+
+## grantWeapon() in src/weapons.ts: owns `id` from now on and holds it (saved).
+func grant_weapon(id: String) -> void:
+	if not weapons.has(id):
+		weapons.append(id)
+	equipped = id
 	save()
 
 

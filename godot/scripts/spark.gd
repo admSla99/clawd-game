@@ -9,7 +9,9 @@ extends Node3D
 ## all glowing strongly (bloom), bobbing 2 px, in front of a dithered orange halo (shaders/halo.gdshader, the 2D
 ## game's glow circle, made larger and brighter) that breathes, with a GlowLight that warms the ground and small
 ## embers drifting up from it. Touching it (14 x 14 px box) calls Main.collect_spark(). One collected on an
-## earlier run (Progress) is a ghost: drawSpark()'s dotted star with every other dot, muted, no glow or halo.
+## earlier run (Progress) is a ghost: the same solid star, smaller (rays 5-6 px) in muted greyish orange with a
+## soft glow, no halo, light or embers (TS's ghost, drawSpark()'s dotted star at 55 %, all but vanished in the
+## port's busy, dark levels; the user's call).
 
 ## Pickup box relative to the feet (x - 7, bottom - 15 in TS).
 const RECT := Rect2(-7, -15, 14, 14)
@@ -17,8 +19,8 @@ const RECT := Rect2(-7, -15, 14, 14)
 const CENTRE_Y := 8
 const ORANGE := Color("#D97757")
 const ORANGE_LIGHT := Color("#F0A585")
-## A ghost is the orange at about 55 % over the night (the 2D globalAlpha 0.55), not glowing.
-const GHOST := Color("#A35E48")
+## A ghost's colours: a pale core and muted greyish-orange rays.
+const GHOST := {"W": Color("#E6D3C6"), "L": Color("#C49A86"), "O": Color("#9C6A57"), "h": Color("#6E4E42")}
 ## A small spark for the HUD, the map and the results (drawSpark at half size), 9 x 9 px.
 const ICON := [
 	"....o....",
@@ -33,6 +35,7 @@ const ICON := [
 ]
 
 static var MATERIAL := Voxel.material(2.4)
+static var GHOST_MATERIAL := Voxel.material(1.3)
 ## Size of the star's grid and its centre pixel.
 const GRID := 21
 const C := 10
@@ -79,7 +82,7 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	var player: Player = get_tree().get_first_node_in_group("player")
-	if player and player.visible and Rect2(feet() + RECT.position, RECT.size).intersects(player.hitbox()):
+	if player and player.in_play() and Rect2(feet() + RECT.position, RECT.size).intersects(player.hitbox()):
 		var main := get_tree().get_first_node_in_group("main")
 		if main:
 			main.collect_spark(self)
@@ -106,8 +109,8 @@ func _update_visual() -> void:
 
 
 ## The star as text rows, GRID x GRID px around pixel (C, C); `arm` 3 or 4 (drawSpark()'s flicker). "W" white
-## core, "L" light orange, "O" orange, "h" faint tips. A ghost is drawSpark()'s dotted star instead (dot index i
-## lies 2|i| + 1 px out) with only the dots whose index sum is even.
+## core, "L" light orange, "O" orange, "h" faint tips. A ghost's rays are shorter (5 / 6 px) and its diagonals
+## have no tips.
 static func rows(arm: int, ghost := false) -> Array:
 	var grid := []
 	for y in GRID:
@@ -117,21 +120,8 @@ static func rows(arm: int, ghost := false) -> Array:
 		grid.append(row)
 	var at := func(x: int, y: int, ch: String) -> void:
 		grid[C + y][C + x] = ch
-	if ghost:
-		var put := func(ix: int, iy: int, ch: String) -> void:
-			if (ix + iy) % 2 == 0:
-				at.call(signi(ix) * (2 * absi(ix) + 1) if ix != 0 else 0, signi(iy) * (2 * absi(iy) + 1) if iy != 0 else 0, ch)
-		for d in [Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)]:
-			at.call(d.x, d.y, "L")
-		at.call(0, 0, "W")
-		for i in range(1, arm + 1):
-			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				put.call(d.x * i, d.y * i, "L" if i == 1 else "O")
-		for d in [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
-			put.call(d.x, d.y, "O")
-		return grid.map(func(r: Array) -> String: return "".join(PackedStringArray(r)))
-	# Rays: 9 px long while the arms are long, 7 while short; 3 px wide next to the core.
-	var length := 9 if arm > 3 else 7
+	# Rays: 9 px long while the arms are long, 7 while short (a ghost's 6 / 5); 3 px wide next to the core.
+	var length := (9 if arm > 3 else 7) - (3 if ghost else 0)
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var side := Vector2i(d.y, d.x)
 		for i in range(2, length + 1):
@@ -143,7 +133,7 @@ static func rows(arm: int, ghost := false) -> Array:
 	for d in [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
 		at.call(d.x * 2, d.y * 2, "L")
 		at.call(d.x * 3, d.y * 3, "O")
-		if arm > 3:
+		if arm > 3 and not ghost:
 			at.call(d.x * 4, d.y * 4, "h")
 	# Core: white plus with light orange corners.
 	for d in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
@@ -156,10 +146,8 @@ static func rows(arm: int, ghost := false) -> Array:
 static func mesh(arm: int, ghost := false) -> ArrayMesh:
 	var key := "%d %s" % [arm, ghost]
 	if not _meshes.has(key):
-		var pal := {"W": Color("#FFF1E6"), "L": ORANGE_LIGHT, "O": ORANGE, "h": ORANGE.darkened(0.45)}
-		if ghost:
-			pal = {"W": GHOST.lightened(0.3), "L": GHOST, "O": GHOST, "h": GHOST.darkened(0.3)}
-		_meshes[key] = Voxel.mesh(rows(arm, ghost), pal, {"W": 2, "L": 2, "O": 2, "h": 2}, Px.M, Voxel.MATERIAL if ghost else MATERIAL)
+		var pal: Dictionary = GHOST if ghost else {"W": Color("#FFF1E6"), "L": ORANGE_LIGHT, "O": ORANGE, "h": ORANGE.darkened(0.45)}
+		_meshes[key] = Voxel.mesh(rows(arm, ghost), pal, {"W": 2, "L": 2, "O": 2, "h": 2}, Px.M, GHOST_MATERIAL if ghost else MATERIAL)
 	return _meshes[key]
 
 

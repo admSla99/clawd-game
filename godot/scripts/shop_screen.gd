@@ -6,19 +6,27 @@ extends Node2D
 ## (description, level or stock, what buying does now); below it HAIKU, the shopkeeper: a blue Clawd with an
 ## orange bow tie (a voxel model at twice the size, hung on the camera like the title's Clawd) who only speaks in
 ## 5-7-5, typed out in a bubble: idle haiku every 9 s, thanks, refusals, and the fortunes it sells. Wallet top
-## right (banked tokens, sparks not spent). Up / down choose, Space / Enter or a click buys, Escape or the shop
-## key goes back to the map. What is for sale and what it does is Shop.
+## right (banked tokens, sparks not spent). Up / down (or the wheel) choose, Space / Enter or a click buys (or
+## equips an owned weapon), Escape or the shop key goes back to the map. A list taller than the screen (with the
+## ARMORY open) scrolls to keep the selected row in view, with arrows in the left margin. A weapon's card shows its
+## gun and stat bars (DAMAGE, FIRE RATE, RANGE, HEAT, as in shop.ts). What is for sale and what it does is Shop.
 
 const IDLE := [
 	["tokens in your claw", "power waits upon the shelf", "spend them, little crab"],
 	["a jet tuned just right", "hangs a moment in the air", "long gaps fear it so"],
 	["no refunds, my friend", "all sales are final, much like", "a model's weights are"],
-	["sparks hide in the dark", "my radar hums when they're near", "three of them, it costs"],
+	["sparks hide in the dark", "my radar hums when they're near", "eighty tokens, yours"],
 	["codex waits up north", "it types faster than it thinks", "bring a bigger heart"],
 ]
 const THANKS := [["thank you, come again", "your wallet is lighter now", "your claws are not, though"]]
 const DENIED := [["not enough to pay", "go collect a few more, then", "come back, little crab"]]
 const LOCKED := [["the armory sleeps", "until a weapon is found", "beyond the first boss"]]
+## Small talk once the ARMORY is open (IDLE_HAIKUS in shop.ts).
+const ARMORY_IDLE := [
+	["a bigger model", "is not always the answer", "but it sure helps here"],
+	["context overflows", "like rain in a paper cup", "buy a bigger cup"],
+	["codex waits up north", "it types faster than it thinks", "bring the big cannon"],
+]
 ## HAIKU's colours: Clawd's layout in blues (HAIKU_PALETTE in TS, with the port's extra shades).
 const HAIKU_PALETTE := {
 	"O": Color("#7F9CC6"), "H": Color("#A9C0E2"), "h": Color("#94AED6"), "o": Color("#5D7499"),
@@ -40,7 +48,12 @@ const ICONS := {
 	"firewall": [".ooooooo.", ".oLLLLLo.", ".oLWWWLo.", ".oLWWWLo.", ".oLLWLLo.", "..oLLLo..", "...oLo...", "....o....", "........."],
 	"double": [".........", "o...o.LL.", ".o.o.L..L", "..o....L.", ".o.o..L..", "o...o.LLL", ".........", ".........", "........."],
 	"armory": ["...ggg...", "..g...g..", "..g...g..", ".ggggggg.", ".gg.g.gg.", ".ggg.ggg.", ".ggggggg.", ".........", "........."],
+	"damage": [".........", "...ooo...", "...oLo...", ".oooLooo.", ".oLLLLLo.", ".oooLooo.", "...oLo...", "...ooo...", "........."],
+	"rate": [".........", "o...o....", "oo..oo...", "oLo.oLo..", "oLLooLLo.", "oLo.oLo..", "oo..oo...", "o...o....", "........."],
+	"context": [".........", ".........", "ggggggggg", "gooooo..g", "gLLLLL..g", "gooooo..g", "ggggggggg", ".........", "........."],
 }
+## The list ends this far above the bottom of the view (the help line is below it).
+const LIST_BOTTOM := 16
 
 var main: Main
 var sel := 0
@@ -53,13 +66,18 @@ var _mouse := Vector2(-1000, -1000)
 var _props: Node3D
 var _haiku_body: MeshInstance3D
 var _icons := {}
+## What is for sale while the shop is open (Shop.items()), and how far the list is scrolled (px).
+var items: Array = Shop.ITEMS
+var _scroll := 0.0
 
 
 func open() -> void:
 	visible = true
 	t = 0.0
 	sel = 0
-	say(IDLE[randi() % IDLE.size()])
+	_scroll = 0.0
+	items = Shop.items()
+	say(_idle())
 	_ensure_props()
 	_props.visible = true
 
@@ -68,6 +86,11 @@ func close() -> void:
 	visible = false
 	if _props:
 		_props.visible = false
+
+
+func _idle() -> Array:
+	var pool: Array = IDLE + ARMORY_IDLE if not Progress.weapons.is_empty() else IDLE
+	return pool[randi() % pool.size()]
 
 
 func say(lines: Array) -> void:
@@ -82,11 +105,15 @@ func handle(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
 		_mouse = event.position
 		return false
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		sel = (sel + (1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else items.size() - 1)) % items.size()
+		Sound.play("select")
+		return true
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse = event.position
 		var rows := _rows()
 		for i in rows.size():
-			if rows[i].has_point(_mouse):
+			if _shown(rows[i]) and rows[i].has_point(_mouse):
 				if i == sel:
 					_activate()
 				else:
@@ -102,10 +129,10 @@ func handle(event: InputEvent) -> bool:
 		Sound.play("select")
 		main.show_map(main.front.sel)
 	elif event.is_action_pressed("down") or event.is_action_pressed("ui_down"):
-		sel = (sel + 1) % Shop.ITEMS.size()
+		sel = (sel + 1) % items.size()
 		Sound.play("select")
 	elif event.is_action_pressed("up") or event.is_action_pressed("ui_up"):
-		sel = (sel + Shop.ITEMS.size() - 1) % Shop.ITEMS.size()
+		sel = (sel + items.size() - 1) % items.size()
 		Sound.play("select")
 	elif event.is_action_pressed("confirm") or event.is_action_pressed("jump"):
 		_activate()
@@ -115,7 +142,7 @@ func handle(event: InputEvent) -> bool:
 
 
 func _activate() -> void:
-	var it: Dictionary = Shop.ITEMS[sel]
+	var it: Dictionary = items[sel]
 	if it.kind == "locked":
 		Sound.play("denied")
 		say(LOCKED[0])
@@ -124,6 +151,8 @@ func _activate() -> void:
 		"bought":
 			Sound.play("buy")
 			say(Progress.fortune if it.kind == "fortune" else THANKS[0])
+		"equipped":
+			Sound.play("select")
 		"poor":
 			Sound.play("denied")
 			say(DENIED[0])
@@ -137,19 +166,43 @@ func _view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
 
 
-## Row rects in item order, under their section headings.
+## Row rects in item order, under their section headings, scrolled by _scroll.
 func _rows() -> Array:
 	var v := _view()
-	var y := v.position.y + 32
+	var y := _list_top() - _scroll
 	var section := ""
 	var out := []
-	for it in Shop.ITEMS:
+	for it in items:
 		if it.section != section:
 			section = it.section
 			y += 10
 		out.append(Rect2(v.position.x + 14, y, LIST_W, ROW_H))
 		y += ROW_STEP
 	return out
+
+
+func _list_top() -> float:
+	return _view().position.y + 32
+
+
+func _list_bottom() -> float:
+	return _view().end.y - LIST_BOTTOM
+
+
+## Whether a row is inside the list area (only those are drawn and clickable).
+func _shown(r: Rect2) -> bool:
+	return r.position.y >= _list_top() - 0.5 and r.end.y <= _list_bottom() + 0.5
+
+
+## Scrolls just enough to show the selected row, with its section's heading when it is the section's first row.
+func _follow() -> void:
+	var r: Rect2 = _rows()[sel]
+	# Unscrolled positions; the top wins when the row does not fit whole.
+	var top := r.position.y + _scroll
+	if sel == 0 or items[sel].section != items[sel - 1].section:
+		top -= 10
+	var bottom := r.end.y + _scroll
+	_scroll = maxf(0.0, minf(maxf(_scroll, bottom - _list_bottom()), top - _list_top()))
 
 
 func _detail_rect() -> Rect2:
@@ -168,7 +221,8 @@ func _process(dt: float) -> void:
 	bounce = maxf(0.0, bounce - dt)
 	# A fortune stays up longer than small talk.
 	if haiku_t > (20.0 if haiku == Progress.fortune else 9.0):
-		say(IDLE[randi() % IDLE.size()])
+		say(_idle())
+	_follow()
 	_update_haiku()
 	queue_redraw()
 
@@ -219,7 +273,8 @@ func _draw() -> void:
 	_draw_list()
 	_draw_detail()
 	_draw_bubble()
-	_text("↑ ↓ CHOOSE    SPACE BUY    ESC BACK", Vector2(v.get_center().x - PixelFont.width("↑ ↓ CHOOSE    SPACE BUY    ESC BACK") / 2.0, v.end.y - 10), Color("#5C5C5C"))
+	var help := "↑ ↓ CHOOSE    SPACE BUY / EQUIP    ESC BACK" if not Progress.weapons.is_empty() else "↑ ↓ CHOOSE    SPACE BUY    ESC BACK"
+	_text(help, Vector2(v.get_center().x - PixelFont.width(help) / 2.0, v.end.y - 10), Color("#5C5C5C"))
 
 
 func _text(s: String, at: Vector2, color: Color) -> void:
@@ -234,9 +289,13 @@ func _big(s: String, at: Vector2, color: Color) -> void:
 	draw_set_transform(Vector2.ZERO)
 
 
+## An item's icon: its grid in ICONS, or a weapon's gun (GunSprite) at one pixel a cell.
 func _icon(id: String) -> ImageTexture:
 	if not _icons.has(id):
-		_icons[id] = Spark._texture(ICONS[id], {"o": Color("#D97757"), "L": Color("#F0A585"), "W": Color("#FFF1E6"), "g": Color("#5A5A5A")})
+		if GunSprite.SPRITES.has(id):
+			_icons[id] = Spark._texture(GunSprite.SPRITES[id], GunSprite.PALETTE)
+		else:
+			_icons[id] = Spark._texture(ICONS[id], {"o": Color("#D97757"), "L": Color("#F0A585"), "W": Color("#FFF1E6"), "g": Color("#5A5A5A")})
 	return _icons[id]
 
 
@@ -271,18 +330,27 @@ func _draw_price(right: float, y: float, p: Dictionary) -> void:
 func _draw_list() -> void:
 	var rows := _rows()
 	var section := ""
-	for i in Shop.ITEMS.size():
-		var it: Dictionary = Shop.ITEMS[i]
+	var x: float = rows[0].position.x
+	if _scroll > 0:
+		PixelFont.draw(self, "▲", Vector2(x - 9, _list_top() + 1), Hud.ORANGE)
+	if rows[-1].end.y > _list_bottom() + 0.5:
+		PixelFont.draw(self, "▼", Vector2(x - 9, _list_bottom() - 7), Hud.ORANGE)
+	for i in items.size():
+		var it: Dictionary = items[i]
 		var r: Rect2 = rows[i]
-		if it.section != section:
-			section = it.section
+		var heading: bool = it.section != section
+		section = it.section
+		if heading and _shown(r) and r.position.y - 9 >= _list_top() - 0.5:
 			PixelFont.draw(self, section, r.position + Vector2(0, -9), Color("#6A6A6A"))
+		if not _shown(r):
+			continue
 		var selected := i == sel
 		var hover := r.has_point(_mouse)
 		var border := Hud.ORANGE if selected else Hud.ORANGE_LIGHT.lerp(Color("#2C2C2C"), 0.5) if hover else Color("#2C2C2C")
 		Hud.panel(self, r, border, Color(0.12, 0.075, 0.07, 0.94) if selected else Color(0.07, 0.07, 0.08, 0.9))
 		var locked: bool = it.kind == "locked"
-		draw_texture(_icon(it.id), r.position + Vector2(3, 2))
+		var icon := _icon(it.id)
+		draw_texture(icon, r.position + Vector2(3, floorf((ROW_H - icon.get_height()) / 2.0)))
 		var name_col := Color("#6A6A6A") if locked else Hud.TEXT if selected else Hud.TEXT_DIM
 		PixelFont.draw(self, it.name, r.position + Vector2(17, 4), name_col)
 		var right := r.end.x - 5
@@ -313,6 +381,13 @@ func _draw_list() -> void:
 					_draw_price(right, y, p)
 			"locked":
 				PixelFont.draw(self, "LOCKED", Vector2(right - PixelFont.width("LOCKED"), y), Color("#5A5A5A"))
+			"weapon":
+				if Progress.weapons.has(it.id):
+					var eq: bool = Progress.equipped == it.id
+					var s := "EQUIPPED" if eq else "OWNED"
+					PixelFont.draw(self, s, Vector2(right - PixelFont.width(s), y), Hud.ORANGE if eq else Color("#6A6A6A"))
+				else:
+					_draw_price(right, y, Shop.price(it, main.level_ids))
 
 
 ## Words of `s` wrapped to `w` px, from `at` down, 8 px a line. Returns the y after the last line.
@@ -335,7 +410,7 @@ func _wrap(s: String, at: Vector2, w: float, color: Color) -> float:
 
 func _draw_detail() -> void:
 	var d := _detail_rect()
-	var it: Dictionary = Shop.ITEMS[sel]
+	var it: Dictionary = items[sel]
 	Hud.panel(self, d, Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.95), true)
 	_big(String(it.name).to_upper(), d.position + Vector2(8, 7), Hud.TEXT if it.kind != "locked" else Color("#8A8A8A"))
 	var y := _wrap(it.desc, d.position + Vector2(8, 26), d.size.x - 16, Hud.TEXT_DIM)
@@ -353,6 +428,12 @@ func _draw_detail() -> void:
 	if info != "":
 		PixelFont.draw(self, info, Vector2(d.position.x + 8, y), info_col)
 		y += 10
+	var effect := _mod_effect(it)
+	if effect != "":
+		PixelFont.draw(self, effect, Vector2(d.position.x + 8, y), Hud.TEXT_DIM)
+		y += 10
+	if it.kind == "weapon":
+		_draw_stats(Weapons.get_def(it.id), d, y)
 	# The last fortune, to read again.
 	if it.kind == "fortune" and not Progress.fortune.is_empty():
 		for line in Progress.fortune:
@@ -364,6 +445,10 @@ func _draw_detail() -> void:
 	if it.kind == "locked":
 		hint = "OPENS IN WORLD 2"
 		col = Color("#6A6A6A")
+	elif it.kind == "weapon" and Progress.weapons.has(it.id):
+		hint = "SPACE / CLICK: EQUIP"
+		if Progress.equipped == it.id:
+			hint = "EQUIPPED · SWITCH: 1-5 / %s / WHEEL" % Settings.keys_text(["prev", "next"])
 	elif p.is_empty():
 		hint = "FULLY UPGRADED" if it.kind == "upgrade" else "STOCK FULL" if it.kind == "stock" else "NOTHING LEFT TO TELL"
 		col = Color("#6A6A6A")
@@ -375,6 +460,49 @@ func _draw_detail() -> void:
 	PixelFont.draw(self, hint, Vector2(d.position.x + 8, d.end.y - 11), col)
 	if not p.is_empty():
 		_draw_price(d.end.x - 8, d.end.y - 11, p)
+
+
+## What a gun mod does now, and after the next level: damage and fire rate multipliers, the context size.
+func _mod_effect(it: Dictionary) -> String:
+	if it.section != "GUN MODS":
+		return ""
+	var lv := Progress.upgrade(it.id)
+	var at := func(l: int) -> String:
+		match it.id:
+			"damage":
+				return "x%.2f" % (1.0 + 0.25 * l)
+			"rate":
+				return "x%.2f" % (1.0 + 0.15 * l)
+		return str(100 + 40 * l)
+	var what: String = {"damage": "DAMAGE", "rate": "FIRE RATE", "context": "CONTEXT"}[it.id]
+	if lv >= it.prices.size():
+		return "%s %s" % [what, at.call(lv)]
+	return "%s %s → %s" % [what, at.call(lv), at.call(lv + 1)]
+
+
+## A weapon's stat bars (render() in shop.ts): damage per second, fire rate, range (the beam's fixed) and heat per
+## second, 20 cells each; a line for the cannon's splash or the beam's pierce; its gun at four times the list size.
+func _draw_stats(w: Dictionary, d: Rect2, y: float) -> void:
+	var dps: float = w.damage * w.pellets * w.fire_rate
+	var stats := [
+		["DAMAGE", minf(1.0, dps / 36)],
+		["FIRE RATE", minf(1.0, w.fire_rate / 20)],
+		["RANGE", 0.85 if w.kind == "beam" else minf(1.0, w.speed * w.life / 360)],
+		["HEAT", minf(1.0, w.heat * w.fire_rate / 80)],
+	]
+	for k in stats.size():
+		PixelFont.draw(self, stats[k][0], Vector2(d.position.x + 8, y + k * 9), Color("#6A6A6A"))
+		for c in 20:
+			draw_rect(Rect2(d.position.x + 62 + c * 4, y + 1 + k * 9, 3, 4), Hud.ORANGE if float(c) / 20 < stats[k][1] else Color("#2E2E2E"))
+	if w.has("splash"):
+		PixelFont.draw(self, "splash damage · breaks corrupted blocks", Vector2(d.position.x + 8, y + 37), Hud.ORANGE_LIGHT)
+	if w.kind == "beam":
+		PixelFont.draw(self, "pierces every enemy in the line", Vector2(d.position.x + 8, y + 37), BeamFx.CYAN)
+	var icon := _icon(w.id)
+	var at := Vector2(d.position.x + 148 + (d.end.x - 8 - d.position.x - 148 - icon.get_width() * 4) / 2.0, y + 18 - icon.get_height() * 2).round()
+	draw_set_transform(at, 0, Vector2(4, 4))
+	draw_texture(icon, Vector2.ZERO)
+	draw_set_transform(Vector2.ZERO)
 
 
 ## HAIKU's words, typed out at 40 letters a second, in a blue bubble with a tail towards him.

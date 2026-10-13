@@ -33,6 +33,23 @@ func scene_ready(name: String) -> void:
 	await frames(2)
 
 
+## The per-level sections: one file per level in tools/checks/ (`<id>.gd`, run in name order), so levels ported
+## in parallel never edit this file. Each has `const TITLE` and `func run(c) -> bool`, where `c` is this script:
+## c.ok(), await c.frames(), c.current_scene, c.enemies_of(), c.bugs(), await c.drive(), ... (see tools/checks/2-1.gd).
+func level_sections() -> void:
+	var files := Array(DirAccess.get_files_at("res://tools/checks")).filter(func(f: String) -> bool: return f.ends_with(".gd"))
+	files.sort()
+	for f in files:
+		# A file that does not parse loads as a script that cannot be instanced: a failure, not a silent skip.
+		var script: GDScript = load("res://tools/checks/" + f)
+		if script == null or not script.can_instantiate():
+			print("tools/checks/" + f)
+			ok(false, "tools/checks/%s loads (a parse error above?)" % f)
+			continue
+		var level_check = script.new()
+		await section(level_check.TITLE, level_check.run.bind(self))
+
+
 ## Runs one section. A section returns true at its end; a script error inside it makes the
 ## coroutine return early with null, which counts as a failure instead of passing silently.
 func section(title: String, f: Callable) -> void:
@@ -44,12 +61,18 @@ func section(title: String, f: Callable) -> void:
 func _init() -> void:
 	await process_frame
 	level_script = load("res://scripts/level.gd")
-	# Progress goes to a file of its own, so the checks never touch the player's.
+	# Progress goes to a file of its own, so the checks never touch the player's; one per process, as worktrees of
+	# this project share user:// and may run their checks at the same time.
 	var progress = root.get_node("Progress")
 	var real_progress: String = progress.path
-	progress.path = "user://progress_check.json"
+	progress.path = "user://progress_check_%d.json" % OS.get_process_id()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.load_file()
+	# The same for the settings: sections that press M or rebind keys save them, and parallel runs writing the
+	# player's settings.cfg left the game muted.
+	var settings = root.get_node("Settings")
+	var real_settings: String = settings.path
+	settings.path = "user://settings_check_%d.cfg" % OS.get_process_id()
 	await section("noise (golden values from src/core/noise.ts)", check_noise)
 	await section("levels match levels/<id>.txt", check_levels)
 	await section("player physics (tests/player.test.ts)", check_physics)
@@ -58,6 +81,14 @@ func _init() -> void:
 	await section("spin, ground pound and drop-through in 1-1 (src/entities/player.ts)", check_moves)
 	await section("checkpoints, exit and signs in 1-1", check_objects)
 	await section("moving platforms over the last gap of 1-1 (src/entities/platforms.ts)", check_platforms)
+	await section("1-2 Gradient Caves: darkness and the caves motif (drawDarkness() in src/scenes/game.ts)", check_caves)
+	await section("1-3 Context Window: the rising void and floating windows (updateVoid() in src/scenes/game.ts)", check_window)
+	await section("1-B The Hallucination (src/entities/boss/hallucination.ts, pickups.ts)", check_boss)
+	await level_sections()
+	await section("aiming with the mouse (computeAim() in src/scenes/game.ts)", check_mouse_aim)
+	await section("shooting (src/entities/gun.ts, bullets.ts, src/weapons.ts)", check_gun)
+	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
+	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -67,6 +98,8 @@ func _init() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.path = real_progress
 	progress.load_file()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.path))
+	settings.path = real_settings
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
@@ -86,19 +119,23 @@ func check_noise() -> bool:
 func check_levels() -> bool:
 	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
 	ok(index.size() == 9, "9 levels in index.json")
+	var spawns: Dictionary = level_script.SPAWNS
 	for l in index:
-		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).trim_suffix("\n").split("\n")
+		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).replace("\r", "").trim_suffix("\n").split("\n")
 		var level: Node3D = load("res://levels/%s.tscn" % l.id).instantiate()
 		var terrain: GridMap = level.get_node("Terrain")
 		var oneway: GridMap = level.get_node("OneWay")
 		var want_tiles := 0
-		var want := {"@": 0, "E": 0, "o": 0}
+		var want := {}
+		var unported := {}
 		var bad := 0
 		for y in rows.size():
 			for x in rows[y].length():
 				var ch := rows[y][x]
-				if ch in want:
-					want[ch] += 1
+				if spawns.has(ch):
+					want[ch] = want.get(ch, 0) + 1
+				elif ch != "." and ch != " " and not TILE_CHARS.contains(ch):
+					unported[ch] = unported.get(ch, 0) + 1
 				var c := Vector3i(x, -y - 1, 0)
 				var item := oneway.get_cell_item(c) if ch == "=" else terrain.get_cell_item(c)
 				if TILE_CHARS.contains(ch):
@@ -106,12 +143,17 @@ func check_levels() -> bool:
 					bad += int(item != TILE_CHARS.find(ch))
 				else:
 					bad += int(terrain.get_cell_item(c) != -1 or oneway.get_cell_item(c) != -1)
-		var spawns := level.get_children()
-		var bugs := spawns.filter(func(n): return n.is_in_group("enemies")).size()
-		var tokens := spawns.filter(func(n): return n is Area3D).size()
-		ok(bad == 0 and terrain.get_used_cells().size() + oneway.get_used_cells().size() == want_tiles and want["@"] == 1
-			and level.has_node("Start") and bugs == want["E"] and tokens == want["o"],
-			"%s: %d tiles, 0 misplaced, 1 start, %d bugs, %d tokens" % [l.id, want_tiles, bugs, tokens])
+		var got := {}
+		for n in level.get_children():
+			if n.has_meta("spawn"):
+				got[n.get_meta("spawn")] = got.get(n.get_meta("spawn"), 0) + 1
+		var boss: bool = l.has("boss")
+		ok(bad == 0 and terrain.get_used_cells().size() + oneway.get_used_cells().size() == want_tiles,
+			"%s: %d tiles, 0 misplaced" % [l.id, want_tiles])
+		ok(got == want and want.get("@", 0) == 1 and level.has_node("Start") and (boss or want.get("G", 0) == 1),
+			"%s: one start, %s, every ported spawn placed %s" % [l.id, "no exit (boss)" if boss else "one exit", want])
+		if not unported.is_empty():
+			print("       %s: not ported yet: %s" % [l.id, unported])
 		level.free()
 	return true
 
@@ -303,7 +345,7 @@ func check_scenes() -> bool:
 	ok(m.mode == m.Mode.PLAY and m.level_id == "1-2" and m.player.collision_layer == 2 and m.player.can_process()
 		and m.hud.visible and not front.visible and m.player.pos.distance_to(_start(m)) < 1, "Enter plays it, with Clawd on '@'")
 	m.menu.handle(key(KEY_P))
-	for i in 5:
+	for i in m.menu.PAUSE_ITEMS.find("QUIT TO MAP"):
 		m.menu.handle(key(KEY_DOWN))
 	m.menu.handle(key(KEY_ENTER))
 	await frames(3)
@@ -366,7 +408,7 @@ func check_hazards() -> bool:
 
 	m.load_level("1-1")
 	await frames(3)
-	var bug = get_nodes_in_group("enemies")[0]
+	var bug = bugs()[0]
 	var bug_x: float = bug.pos.x
 	p.pos = bug.pos + Vector2(-40, 0)
 	p.invuln = 0
@@ -378,23 +420,24 @@ func check_hazards() -> bool:
 
 	m.load_level("1-1")
 	await frames(3)
-	var n := get_nodes_in_group("enemies").size()
-	bug = get_nodes_in_group("enemies")[0]
+	var n := bugs().size()
+	var droppers: int = get_nodes_in_group("enemies").filter(func(e): return e.tokens > 0).size()
+	bug = bugs()[0]
 	p.pos = bug.pos + Vector2(0, -40)
 	p.vel = Vector2.ZERO
 	p.invuln = 0
 	var bounced := false
 	for i in 60:
 		await physics_frame
-		if get_nodes_in_group("enemies").size() < n:
+		if bugs().size() < n:
 			bounced = p.vel.y < 0
 			break
 	ok(bounced, "stomping a bug kills it and bounces")
 	ok(m.particles.list.size() > 0, "stomp emits particles")
 	var popped: Array = m.level.get_children().filter(func(c): return c is Area3D and c.popped)
 	ok(popped.size() == 10, "a defeated bug drops 10 tokens (got %d)" % popped.size())
-	ok(m.tokens_total == m.level.get_children().filter(func(c): return c is Area3D and not c.popped).size() + n * 10,
-		"the level's token total counts what the bugs drop")
+	ok(m.tokens_total == m.level.get_children().filter(func(c): return c is Area3D and not c.popped).size() + droppers * 10,
+		"the level's token total counts what the enemies drop (%d of them)" % droppers)
 	var had: int = m.tokens
 	for i in 180:
 		await physics_frame
@@ -428,6 +471,12 @@ func check_hazards() -> bool:
 	return true
 
 
+## The bugs of the current level (the group "enemies" also holds spam bots, crushers and shots).
+func bugs() -> Array:
+	var script := load("res://scripts/bug.gd")
+	return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == script)
+
+
 func _start(m: Node) -> Vector2:
 	return Px.of(m.level.get_node("Start").position)
 
@@ -441,8 +490,8 @@ func check_moves() -> bool:
 	# Spin next to a bug kills it.
 	m.load_level("1-1")
 	await frames(3)
-	var n := get_nodes_in_group("enemies").size()
-	var bug = get_nodes_in_group("enemies")[0]
+	var n := bugs().size()
+	var bug = bugs()[0]
 	p.pos = bug.pos + Vector2(-20, 0)
 	p.vel = Vector2.ZERO
 	p.invuln = 5
@@ -452,7 +501,7 @@ func check_moves() -> bool:
 	Input.action_release("spin")
 	ok(p.state == &"spin" and &"spin" in events, "spin starts the spin state")
 	await frames(10)
-	ok(get_nodes_in_group("enemies").size() == n - 1 and p.hearts == p.MAX_HEARTS, "spin defeats a bug next to Clawd")
+	ok(bugs().size() == n - 1 and p.hearts == p.MAX_HEARTS, "spin defeats a bug next to Clawd")
 
 	# A spin in the air hops once.
 	p.pos = Vector2(10 * TILE, 10 * TILE)
@@ -580,6 +629,840 @@ func check_objects() -> bool:
 	return true
 
 
+## Whether an enemy is defeated or removed (its node may be freed already).
+func gone(e) -> bool:
+	return not is_instance_valid(e) or e.dead
+
+
+## The level's enemies whose script is `path`, in map order.
+func enemies_of(path: String) -> Array:
+	var script := load(path)
+	return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == script)
+
+
+func check_enemies() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var shot_script := load("res://scripts/shot.gd")
+
+	# The spam bot in 1-1 hovers around its post and fires at Clawd within 210 px.
+	m.load_level("1-1")
+	await frames(3)
+	var bots := enemies_of("res://scripts/spam_bot.gd")
+	ok(bots.size() == 1, "1-1 has one spam bot 'F'")
+	var bot = bots[0]
+	ok(bot.hp == 3 and bot.tokens == 10 and bot.stompable, "it has 3 hp (TS 1 × HP_FACTOR), drops 10 tokens and can be stomped")
+	var at: Vector2 = bot.pos
+	await frames(30)
+	ok(bot.pos.distance_to(at) > 1 and absf(bot.pos.x - bot.home.x) <= 26 and absf(bot.pos.y - bot.home.y) <= 6,
+		"it hovers around its post (26 x 6 px)")
+	p.pos = bot.home + Vector2(-150, 0)
+	p.vel = Vector2.ZERO
+	p.invuln = 10
+	bot.fire_timer = 0.05
+	snd.played.clear()
+	var shot = null
+	for i in 10:
+		await physics_frame
+		var shots := get_nodes_in_group("enemies").filter(func(e): return e.get_script() == shot_script)
+		if not shots.is_empty():
+			shot = shots[0]
+			break
+	ok(shot != null and "shoot" in snd.played, "it fires a shot and plays shoot")
+	if shot:
+		var aim: Vector2 = p.pos + Vector2(0, -9) - (bot.pos + Vector2(0, -7))
+		ok(absf(shot.vel.length() - 85) < 0.01 and shot.vel.normalized().dot(aim.normalized()) > 0.95,
+			"the shot flies at Clawd at 85 px/s")
+		ok(shot.projectile and not shot.stompable and shot.tokens == 0, "a shot is a projectile without tokens")
+	bot.fire_timer = 100
+	p.pos = bot.home + Vector2(-260, 0)
+	bot.fire_timer = 0.0
+	await frames(5)
+	ok(bot.fire_timer <= 0, "it holds fire while Clawd is out of range")
+	bot.fire_timer = 100
+
+	# A shot hurts Clawd and vanishes; a spin destroys it; a wall stops it.
+	m.load_level("1-1")
+	await frames(3)
+	for b in enemies_of("res://scripts/spam_bot.gd"):
+		b.fire_timer = 100
+	var start := _start(m)
+	p.pos = start
+	p.vel = Vector2.ZERO
+	p.invuln = 0
+	await frames(2)
+	var hearts: int = p.hearts
+	shot = shot_script.fire(m.level, p.pos + Vector2(-30, -9), Vector2(85, 0))
+	for i in 60:
+		await physics_frame
+		if p.hearts < hearts: break
+	ok(p.hearts == hearts - 1 and gone(shot), "a shot hurts Clawd and vanishes")
+	await frames(90)
+	p.invuln = 0
+	p.pos = start
+	p.vel = Vector2.ZERO
+	await frames(2)
+	hearts = p.hearts
+	Input.action_press("spin")
+	await frames(2)
+	Input.action_release("spin")
+	shot = shot_script.fire(m.level, p.pos + Vector2(-26, -9), Vector2(85, 0))
+	for i in 20:
+		await physics_frame
+		if gone(shot): break
+	ok(gone(shot) and p.hearts == hearts, "a spin destroys a shot without a hit")
+	var wall_shot = shot_script.fire(m.level, start + Vector2(0, -4), Vector2(0, 200))
+	await frames(10)
+	ok(gone(wall_shot), "a shot dies on a solid tile")
+
+	# Stomping the spam bot defeats it.
+	m.load_level("1-1")
+	await frames(3)
+	bot = enemies_of("res://scripts/spam_bot.gd")[0]
+	bot.fire_timer = 100
+	p.invuln = 5
+	var bounced := false
+	for i in 90:
+		p.pos = Vector2(bot.pos.x, p.pos.y) if i > 0 else bot.pos + Vector2(0, -30)
+		if i == 0:
+			p.vel = Vector2.ZERO
+		await physics_frame
+		if gone(bot):
+			bounced = p.vel.y < 0
+			break
+	ok(bounced, "stomping a spam bot defeats it and bounces")
+	var popped: Array = m.level.get_children().filter(func(c): return c is Area3D and c.popped)
+	ok(popped.size() == 10, "it drops 10 tokens (got %d)" % popped.size())
+
+	# The rate limiters of 1-2: the first hangs at tiles (36, 12) above a floor at row 18.
+	m.load_level("1-2")
+	await frames(3)
+	var rls := enemies_of("res://scripts/rate_limiter.gd")
+	ok(rls.size() == 4, "1-2 has 4 rate limiters 'R'")
+	var rl = rls[0]
+	ok(rl.x == 36 * TILE and rl.y == 12 * TILE and rl.is_in_group("platforms"), "a rate limiter hangs from its cell's top-left, 2 x 2 tiles")
+	ok(rl.invincible and rl.tokens == 0 and not rl.stompable, "it cannot be hurt and drops nothing")
+	p.pos = Vector2(rl.x + 32 + 24, 18 * TILE)
+	p.vel = Vector2.ZERO
+	await frames(30)
+	ok(rl.mode == &"idle", "it waits while Clawd is beside it")
+	p.pos = Vector2(rl.pos.x, 18 * TILE)
+	p.vel = Vector2.ZERO
+	p.invuln = 0
+	hearts = p.hearts
+	snd.played.clear()
+	var modes := []
+	for i in 120:
+		await physics_frame
+		if modes.is_empty() or modes.back() != rl.mode:
+			modes.append(rl.mode)
+		if rl.mode == &"rest": break
+	ok(modes == [&"shake", &"fall", &"rest"] or modes == [&"idle", &"shake", &"fall", &"rest"], "under it, it shakes, drops and rests (%s)" % [modes])
+	ok(rl.y == 18 * TILE - 32 and "crush" in snd.played, "it lands on the floor and plays crush")
+	ok(p.hearts == hearts - 1, "it hurts Clawd beneath it")
+	# Standing on it while it rests, Clawd rides it up without getting hurt.
+	p.invuln = 0
+	p.pos = Vector2(rl.pos.x, rl.y - 2)
+	p.vel = Vector2.ZERO
+	hearts = p.hearts
+	await frames(20)
+	ok(p.riding == rl and p.on_ground, "Clawd can stand on its top")
+	for i in 120:
+		await physics_frame
+		if rl.mode == &"rise" and rl.y < 18 * TILE - 32 - 20: break
+	ok(rl.mode == &"rise" and p.riding == rl and absf(p.pos.y - rl.y) < 0.01 and p.hearts == hearts,
+		"it rises and carries Clawd up, its top does not hurt")
+	p.pos = Vector2(rl.x - 60, 18 * TILE)
+	p.vel = Vector2.ZERO
+	for i in 120:
+		await physics_frame
+		if rl.mode == &"idle": break
+	ok(rl.mode == &"idle" and rl.y == 12 * TILE, "and goes back up to where it hangs")
+	ok(not rl.hit(&"spin", 3) and not rl.dead, "a spin does not hurt it")
+	return true
+
+
+## Holds Clawd at `feet` (level pixels), out of harm's way, for `n` physics frames, calling `each` after every
+## frame with the frame number; stops early when it returns true.
+func hold(p, feet: Vector2, n: int, each := Callable()) -> void:
+	p.invuln = 100
+	for i in n:
+		p.pos = feet
+		p.vel = Vector2.ZERO
+		await physics_frame
+		if each.is_valid() and each.call(i) == true:
+			break
+
+
+func check_world2_enemies() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var shot_script := load("res://scripts/shot.gd")
+	var bug_script := load("res://scripts/bug.gd")
+
+	# World 2's bugs and spam bots are tougher; world 1's are not.
+	m.load_level("2-1")
+	await frames(3)
+	var tough := true
+	for b in enemies_of("res://scripts/bug.gd"):
+		tough = tough and b.hp == 6
+	for b in enemies_of("res://scripts/spam_bot.gd"):
+		tough = tough and b.hp == 9
+	ok(tough and not enemies_of("res://scripts/bug.gd").is_empty(), "2-1's bugs have 2 hp and its spam bots 3, times HP_FACTOR (6, 9)")
+	var turrets := enemies_of("res://scripts/turret.gd")
+	var drones := enemies_of("res://scripts/drone.gd")
+	var bots := enemies_of("res://scripts/shield_bot.gd")
+	ok(turrets.size() == 2 and drones.size() == 4 and bots.size() == 2, "2-1 has 2 turrets 'T', 4 drones 'D' and 2 shield bots 'H'")
+
+	# A floor turret: 6 hp, 20 tokens, stompable, turns at 3 rad/s within the upper half-plane.
+	var tu = turrets[0]
+	ok(tu.hp == 18 and tu.tokens == 20 and tu.stompable and not tu.ceiling, "a turret has 6 hp × 3, drops 20 tokens and can be stomped")
+	ok(tu.pivot() == tu.pos + Vector2(0, -5) and tu.rect().size == Vector2(16, 12), "it is 16 x 12 with its sensor 5 px above its feet")
+	tu.timer = 100
+	var a0: float = tu.angle
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 1)
+	ok(absf(tu.angle - a0) <= 3.0 / 60 + 0.001 and tu.angle < a0, "its barrel turns towards Clawd at 3 rad/s")
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 40)
+	ok(absf(tu.angle - atan2(-40, -60)) < 0.02, "and points at him (%.2f)" % tu.angle)
+	await hold(p, tu.pivot() + Vector2(60, 40 + 9), 60)
+	ok(absf(tu.angle - (-0.1)) < 0.02, "a floor turret never aims below the horizon (%.2f)" % tu.angle)
+	# A burst: three shots 0.14 s apart at 135 px/s, then 2.4 s to reload.
+	var seen := {}
+	snd.played.clear()
+	tu.timer = 0.01
+	await hold(p, tu.pivot() + Vector2(-60, -40 + 9), 30, func(_i):
+		for s in get_nodes_in_group("enemies"):
+			if s.get_script() == shot_script and not seen.has(s):
+				seen[s] = s.vel.length()
+		return false)
+	var speeds := seen.values()
+	ok(seen.size() == 3 and speeds.all(func(v): return absf(v - 135) < 0.01) and "shoot" in snd.played,
+		"it fires a burst of 3 shots at 135 px/s (%d)" % seen.size())
+	ok(tu.timer > 1.8 and tu.timer < 2.4, "and reloads for 2.4 s")
+	seen.clear()
+	tu.timer = 0.01
+	await hold(p, tu.pivot() + Vector2(-260, 0), 20)
+	ok(tu.burst == 0 and tu.timer < 0, "it holds fire while Clawd is beyond 250 px")
+	tu.timer = 100
+
+	# A drone bobs at its post until Clawd comes within 230 px, circles, aims and dives at 270 px/s.
+	var dr = drones[0]
+	ok(dr.hp == 9 and dr.tokens == 15 and dr.stompable and dr.rect().size == Vector2(14, 10), "a drone has 3 hp × 3 and drops 15 tokens")
+	var far: Vector2 = dr.pos + Vector2(-400, -200)
+	# Lambdas capture locals by value: they write into `got`.
+	var got := {"bob": 0.0}
+	await hold(p, far, 60, func(_i):
+		got.bob = maxf(got.bob, absf(dr.pos.y - dr.home_y))
+		return false)
+	ok(dr.mode == &"idle" and got.bob > 0.5 and got.bob < 4.5, "it bobs at its post while Clawd is far (%.1f px)" % got.bob)
+	var near: Vector2 = dr.pos + Vector2(100, 70)
+	await hold(p, near, 2)
+	ok(dr.mode == &"orbit", "it starts circling when he comes near")
+	var side: float = dr.side
+	# Clawd hangs in the air here: a dive into him could end in a stomp.
+	dr.hp = 1000
+	dr.timer = 0.0
+	var modes := []
+	await hold(p, near, 150, func(_i):
+		if modes.is_empty() or modes.back() != dr.mode:
+			modes.append(dr.mode)
+			if dr.mode == &"dive":
+				got.dive = dr.vel
+		return dr.mode == &"orbit" and modes.size() > 3)
+	ok(modes.slice(0, 4) == [&"aim", &"dive", &"recover", &"orbit"], "then aims, dives, recovers and circles again (%s)" % [modes])
+	ok(absf(got.get("dive", Vector2.ZERO).length() - 270) < 0.5, "it dives at 270 px/s (%s)" % got.get("dive"))
+	ok(dr.side == -side, "on the other side")
+	# A dive into the floor ends the dive and bounces it up.
+	var start := _start(m)
+	dr.pos = start + Vector2(0, -20)
+	dr.mode = &"dive"
+	dr.timer = 0.5
+	dr.vel = Vector2(0, 270)
+	await hold(p, far, 10, func(_i): return dr.mode != &"dive")
+	ok(dr.mode == &"recover" and dr.vel.y < 0 and dr.pos.y == start.y, "a dive into the floor stops flush and bounces it")
+
+	# A shield bot: 9 hp, 30 tokens; its shield stops shots from the front, not from behind or above.
+	var sb = bots[0]
+	ok(sb.hp == 27 and sb.tokens == 30 and sb.stompable and sb.facing == -1, "a shield bot has 9 hp × 3, drops 30 tokens and faces left")
+	ok(sb.blocks_direction(Vector2(1, 0)) and sb.shield_flash > 0, "its shield stops a shot coming at its front (and flashes)")
+	ok(not sb.blocks_direction(Vector2(-1, 0)) and not sb.blocks_direction(Vector2(0.3, 1)), "but not one from behind or from above")
+	var level_y: float = sb.pos.y
+	var x0: float = sb.pos.x
+	sb.fire_timer = 100
+	await hold(p, Vector2(x0 + 100, level_y), 30)
+	ok(sb.facing == -1 and sb.pos.x == x0 and sb.turn_timer > 0, "it is slow to turn round, and stands still meanwhile")
+	await hold(p, Vector2(x0 + 100, level_y), 20)
+	ok(sb.facing == 1, "after 0.7 s it faces Clawd")
+	x0 = sb.pos.x
+	var ahead: bool = sb.floor_at(Vector2(x0 + 10, level_y + 2))
+	await hold(p, Vector2(x0 + 100, level_y), 30)
+	ok(sb.pos.x - x0 > 14 if ahead else sb.pos.x == x0, "it walks towards him at 30 px/s (%.1f px)" % (sb.pos.x - x0))
+	seen.clear()
+	snd.played.clear()
+	sb.fire_timer = 0.01
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 5, func(_i):
+		for s in get_nodes_in_group("enemies"):
+			if s.get_script() == shot_script and not seen.has(s):
+				seen[s] = s.vel
+		return false)
+	ok(seen.size() == 1 and seen.values()[0] == Vector2(125, 0) and "shoot" in snd.played, "it fires a shot straight ahead at 125 px/s")
+	for s in seen:
+		if not gone(s):
+			s.remove()
+	# Bullets ricochet off the front and hit from behind.
+	var bullet_script := load("res://scripts/bullet.gd")
+	var blaster: Dictionary = load("res://scripts/weapons.gd").get_def("blaster")
+	sb.fire_timer = 100
+	snd.played.clear()
+	var hp0: float = sb.hp
+	var bl = bullet_script.fire(m.level, sb.pos + Vector2(24, -10), PI, 380, blaster, 2.0)
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 6)
+	ok(sb.hp == hp0 and "deflect" in snd.played and (gone(bl) or bl.vel.x > 0), "a bullet at its shield ricochets without a hit")
+	bl = bullet_script.fire(m.level, sb.pos + Vector2(-24, -10), 0.0, 380, blaster, 2.0)
+	await hold(p, Vector2(sb.pos.x + 100, level_y), 6)
+	ok(sb.hp == hp0 - 2, "a bullet in its back hits (hp %s)" % sb.hp)
+
+	# A ceiling turret in 2-2 hangs under a solid tile and aims into the lower half-plane.
+	m.load_level("2-2")
+	await frames(3)
+	var cts: Array = enemies_of("res://scripts/turret.gd").filter(func(e): return e.ceiling)
+	ok(cts.size() == 5, "2-2 has 5 ceiling turrets 'Y'")
+	var ct = cts[0]
+	ok(not ct.stompable and ct.pivot() == ct.pos + Vector2(0, -7), "a ceiling turret cannot be stomped; its sensor is 5 px below its top")
+	ok(m.level.tile(ct.rect().position + Vector2(8, -1)) == 0 and m.level.tile(ct.rect().position + Vector2(8, 1)) != 0,
+		"it hangs right under a solid tile")
+	ct.timer = 100
+	await hold(p, ct.pivot() + Vector2(60, 80 + 9), 40)
+	ok(absf(ct.angle - atan2(80, 60)) < 0.02, "it aims down at Clawd (%.2f)" % ct.angle)
+	await hold(p, ct.pivot() + Vector2(60, -80 + 9), 60)
+	ok(absf(ct.angle - 0.1) < 0.02, "never above the horizon (%.2f)" % ct.angle)
+
+	# An injector hops at Clawd, and splits into two bugs when destroyed.
+	m.load_level("2-3")
+	await frames(3)
+	var injs := enemies_of("res://scripts/injector.gd")
+	ok(injs.size() == 8, "2-3 has 8 injectors 'I'")
+	# The one nearest the start stands on wide flat ground (others hop off pillars into pits).
+	var start3 := _start(m)
+	var inj = injs[0]
+	for e in injs:
+		if e.pos.distance_to(start3) < inj.pos.distance_to(start3):
+			inj = e
+	ok(inj.hp == 15 and inj.tokens == 15 and inj.token_total() == 35, "an injector has 5 hp × 3, drops 15 tokens and leaves 20 in bugs")
+	inj.hp = 1000
+	await hold(p, inj.pos + Vector2(100, 0), 30, func(_i): return inj.grounded)
+	inj.timer = 0.01
+	var tx: float = inj.pos.x + 100
+	await hold(p, Vector2(tx, inj.pos.y), 10, func(_i):
+		if inj.vel.y < 0:
+			got.hop = inj.vel
+			return true
+		return false)
+	ok(got.get("hop") == Vector2(110, -330), "it hops at Clawd: 330 px/s up, at most 110 across (%s)" % got.get("hop"))
+	await hold(p, Vector2(tx, inj.pos.y), 90, func(_i): return inj.grounded)
+	ok(inj.grounded and inj.vel == Vector2.ZERO, "and lands")
+	var bugs_before := enemies_of("res://scripts/bug.gd").size()
+	var tokens_before: int = m.level.get_children().filter(func(c): return c is Area3D and c.popped).size()
+	var at: Vector2 = inj.pos
+	inj.hp = 5
+	inj.hit(&"shot", 99)
+	await frames(2)
+	var new_bugs := enemies_of("res://scripts/bug.gd").filter(func(b): return b.hp == 3)
+	var popped: int = m.level.get_children().filter(func(c): return c is Area3D and c.popped).size() - tokens_before
+	ok(gone(inj) and enemies_of("res://scripts/bug.gd").size() == bugs_before + 2 and new_bugs.size() == 2,
+		"destroyed, it splits into two bugs of 1 hp × 3")
+	ok(new_bugs.all(func(b): return b.speed == 40 and absf(b.pos.x - at.x) < 10) and new_bugs[0].dir != new_bugs[1].dir,
+		"that run off left and right at 40 px/s")
+	ok(popped == 15, "and drops 15 tokens (got %d)" % popped)
+
+	m.load_level("1-1")
+	await frames(3)
+	ok(bugs().all(func(b): return b.hp == 3), "world 1's bugs keep 1 hp (× 3)")
+	return true
+
+
+## Drives the real player with the actions `f` returns each physics frame (null stops), like simulate() but in
+## Main's level. Returns when `f` stops or after `max_frames`.
+func drive(f: Callable, max_frames := 600) -> void:
+	var held: Array = []
+	for i in max_frames:
+		var want = f.call(i)
+		if want == null:
+			break
+		for a in held:
+			if not a in want:
+				Input.action_release(a)
+		for a in want:
+			if not a in held:
+				Input.action_press(a)
+		held = want
+		await physics_frame
+	for a in held:
+		Input.action_release(a)
+
+
+func check_caves() -> bool:
+	var m = current_scene
+	var p = m.player
+	m.load_level("1-2")
+	await frames(3)
+	ok(m.info.get("dark", false) == true and m.info.theme == "caves", "1-2 is dark and uses the caves theme")
+	ok(is_equal_approx(m.dark_amount, 0.93), "the darkness is as deep as the TS gradient's edge (0.93)")
+	ok(m.haze.material.get_shader_parameter("dim") < 1.0 and m.parallax.modulate.r < 1.0, "the sky and the ridges dim")
+	ok(m.motif.visible and m.motif.material.shader.resource_path.ends_with("motif_caves.gdshader"),
+		"the caves motif (contour lines and rolling balls) is behind the level")
+	p.pos = _start(m) + Vector2(40, 0)
+	await frames(2)
+	m._update_lamp()
+	var lamp: Vector4 = m.dark_lamp
+	var want: Vector3 = p.global_position + Vector3(0, 9.0 / 16, 1.0)
+	ok(Vector3(lamp.x, lamp.y, lamp.z).distance_to(want) < 0.01, "Clawd's lamp follows him, 1 m in front of him")
+	ok(lamp.w * 16 >= 102 - 0.01 and lamp.w * 16 <= 108 + 0.01, "its radius is 105 +- 3 px (%.1f)" % (lamp.w * 16))
+	var radii := []
+	for i in 40:
+		await physics_frame
+		radii.append(m.dark_lamp.w)
+	ok(radii.max() - radii.min() > 0.01, "and breathes")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.dark_amount == 0.0 and not m.motif.visible and m.haze.material.get_shader_parameter("dim") == 1.0
+		and m.parallax.modulate == Color.WHITE, "1-1 is lit and has no caves motif")
+	return true
+
+
+func check_window() -> bool:
+	var m = current_scene
+	var p = m.player
+	var game = root.get_node("Game")
+	var events := []
+	p.event.connect(func(k, _a): events.append(k))
+	m.load_level("1-3")
+	await frames(3)
+	var v = m.rising_void
+	ok(v != null and v.speed == 22 and is_equal_approx(v.delay, 4.0 - 3.0 / 60) or v.delay <= 4.0,
+		"1-3 has a rising void (22 px/s after 4 s)")
+	ok(absf(v.y - (m.level.pixel_size.y + 40)) < 0.01, "it starts 40 px below the level")
+	ok(m.motif_3d != null and m.motif_3d.get_script() == load("res://scripts/window_motif.gd") and m.motif_3d._windows.size() > 6,
+		"floating windows drift behind the level (%d)" % m.motif_3d._windows.size())
+	var start: Vector2 = _start(m)
+	var hold := func() -> void:
+		p.pos = start
+		p.vel = Vector2.ZERO
+	var y0: float = v.y
+	for i in 120:
+		await physics_frame
+		hold.call()
+	ok(v.y == y0 and v.delay > 0, "it waits out its delay")
+	v.delay = 0.0
+	y0 = v.y
+	for i in 60:
+		await physics_frame
+		hold.call()
+	ok(absf((y0 - v.y) - 22.0) < 1.0, "then rises 22 px a second (%.1f)" % (y0 - v.y))
+	# Never more than 14 tiles below Clawd.
+	y0 = v.y
+	p.pos = start + Vector2(0, -400)
+	await physics_frame
+	ok(v.y <= p.pos.y + 16 * 14 and v.y < y0 - 100, "it never falls more than 14 tiles behind Clawd (%.1f below him)" % (v.y - p.pos.y))
+	hold.call()
+	game.paused = true
+	y0 = v.y
+	await frames(30)
+	ok(v.y == y0, "a paused world holds it")
+	game.paused = false
+	# Caught: a heart less, back to the checkpoint, the void 10 tiles below it with a 2 s grace.
+	var hearts: int = p.hearts
+	events.clear()
+	v.y = start.y - 5.0
+	await frames(2)
+	ok(p.hearts == hearts - 1 and &"fell" in events, "sinking 4 px into it costs a heart and drops Clawd out")
+	ok(p.pos.distance_to(p.spawn_point) < 2.0, "he is back at the checkpoint")
+	ok(absf(v.y - (p.spawn_point.y + 160)) < 1.0 and v.delay > 1.9, "and the void is 10 tiles below it, 2 s behind")
+	var font = load("res://scripts/pixel_font.gd")
+	ok(font.GLYPHS.has("▲"), "the font has the ▲ of NULL ▲ RISING")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.rising_void == null and m.motif_3d == null, "1-1 has neither")
+	return true
+
+
+func check_boss() -> bool:
+	var m = current_scene
+	var p = m.player
+	var snd = root.get_node("Sound")
+	var progress = root.get_node("Progress")
+	var shot_script := load("res://scripts/shot.gd")
+	var shots := func() -> Array:
+		return get_nodes_in_group("enemies").filter(func(e): return e.get_script() == shot_script)
+	m.load_level("1-B")
+	await frames(3)
+	var b = m.boss
+	ok(b != null and b.get_script() == load("res://scripts/hallucination.gd"), "1-B spawns the Hallucination at its 'B'")
+	ok(absf(b.floor_y - 15 * TILE) < 0.01 and absf(b.arena_w - 34 * TILE) < 0.01 and absf(b.cx - (17 * TILE + 8)) < 0.01,
+		"over the arena's floor (row 15), as wide as the level")
+	ok(m.scenery._materials[0].get_shader_parameter("glitch") == true, "the forest glitches (the boss motif)")
+	ok(b.mode == &"intro" and b.invincible and not b.hurtbox().has_area(), "it fades in, untouchable")
+	p.invuln = 1000
+	for i in 200:
+		await physics_frame
+		if not shots.call().is_empty(): break
+	ok(shots.call().size() >= 8 and shots.call()[0].color == Color("#E6E6E6"), "then fires a radial burst of white shots (%d)" % shots.call().size())
+	for i in 400:
+		await physics_frame
+		if b.mode == &"vulnerable": break
+	ok(b.mode == &"vulnerable" and b.stompable and not b.invincible and absf(b.cy - (b.floor_y - 18)) < 3,
+		"after its attack it sinks to the floor, dazed")
+	ok(not b.hurtbox().has_area(), "and does not hurt while dazed")
+	# A stomp takes one hit point.
+	snd.played.clear()
+	p.pos = Vector2(b.cx, b.cy - 17 - 24)
+	p.vel = Vector2.ZERO
+	for i in 60:
+		await physics_frame
+		if b.hp < 3: break
+	ok(b.hp == 2 and b.mode == &"hurt" and "bossHit" in snd.played and p.vel.y < 0, "a stomp while it is dazed hits it and bounces Clawd")
+	ok(not b.hit(&"spin", 3) and b.hp == 2, "a hit while it is not dazed does nothing")
+	for i in 120:
+		await physics_frame
+		if b.mode == &"appear": break
+	ok(b.mode == &"appear" and "bossTeleport" in snd.played, "then it vanishes and teleports")
+	# The rain: warnings on the floor, then red shots from the top of the view.
+	for e in shots.call(): e.remove()
+	b.attack_index = 1
+	b.volley = 0
+	b._next(&"attack", 0.0)
+	await frames(2)
+	ok(b.warnings.size() >= 8, "the rain marks the floor first (%d warnings)" % b.warnings.size())
+	for i in 70:
+		await physics_frame
+		if not shots.call().is_empty(): break
+	var rain: Array = shots.call()
+	ok(rain.size() >= 8 and rain[0].vel.y > 150 and rain[0].color == Color("#E0605A"), "then red shots rain down onto them")
+	# Fake platforms dissolve under Clawd.
+	for e in shots.call(): e.remove()
+	b.attack_index = 2
+	b.volley = 0
+	b._next(&"attack", 0.0)
+	await frames(2)
+	var fakes: Array = get_nodes_in_group("platforms").filter(func(n): return n.get_script() == load("res://scripts/fake_platform.gd"))
+	ok(fakes.size() == 3 and shots.call().size() == 10, "it conjures 3 fake platforms and a ring of 10 cyan shots")
+	# The TS spots sit just under the arena's one-way platforms; try one in the open (columns 11-14, row 12).
+	var fp = load("res://scripts/fake_platform.gd").create(m.level, Vector2(176, 200), 64)
+	p.pos = Vector2(fp.x + 32, fp.y - 20)
+	p.vel = Vector2.ZERO
+	for i in 40:
+		await physics_frame
+		if p.riding == fp: break
+	ok(p.riding == fp, "Clawd can land on a fake platform")
+	await frames(35)
+	ok(not is_instance_valid(fp) or fp.is_queued_for_deletion(), "and it dissolves 0.45 s after he stands on it")
+	# The last hit: it dies, the blaster drops, the exit opens when Clawd takes it.
+	b.hp = 1
+	b.mode = &"vulnerable"
+	b.timer = 2.0
+	b.invincible = false
+	ok(b.hit(&"spin", 3) and b.mode == &"dead", "its last hit point starts its death")
+	for i in 200:
+		await physics_frame
+		if m.boss == null: break
+	var pick = m.level.get_node_or_null("WeaponPickup")
+	ok(m.boss == null and pick != null and shots.call().is_empty(), "it bursts, drops the Token Blaster and its shots vanish")
+	ok(pick != null and absf(pick.feet().x - 17 * TILE) < 0.01 and absf(pick.feet().y - 15 * TILE) < 0.01, "the blaster lies in the middle of the arena")
+	snd.played.clear()
+	p.pos = pick.feet()
+	await frames(3)
+	ok(progress.weapons == ["blaster"] and progress.equipped == "blaster" and "weaponGet" in snd.played,
+		"touching it gives Clawd the Token Blaster (saved)")
+	var goal = m.level.get_node_or_null("Goal")
+	ok(goal != null and absf(goal.feet().x - (23 * TILE + 8)) < 0.01, "and the exit opens 6 tiles right of the middle")
+	m.reach_goal(goal)
+	for i in 180:
+		await physics_frame
+		if not m.overlay.results.is_empty(): break
+	ok(m.overlay.results.get("title", "") == "WORLD 1 CLEAR", "the results say WORLD 1 CLEAR")
+	ok(String(m.overlay.results.get("note", "")).begins_with("TOKEN BLASTER FOUND"), "and that the blaster was found")
+	ok(progress.is_unlocked(m.level_ids, m.level_ids.find("2-1")), "world 2 is unlocked")
+	m.load_level("1-1")
+	await frames(3)
+	ok(m.boss == null and m.scenery._materials[0].get_shader_parameter("glitch") == false, "1-1 has no boss and a calm forest")
+	p.invuln = 0
+	return true
+
+
+func check_mouse_aim() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	if progress.weapons.is_empty():
+		progress.grant_weapon("blaster")
+	m.load_level("2-1")
+	await frames(3)
+	var g = m.gun
+	ok(g.armed and p.armed, "world 2 is armed")
+	# The gun lives in the SubViewport, whose container ignores the mouse: it must still see the mouse move.
+	for target in [Vector2(100, 40), Vector2(400, 200)]:
+		var e := InputEventMouseMotion.new()
+		e.position = target
+		e.global_position = target
+		Input.parse_input_event(e)
+		# Mouse motion is accumulated until the next event; let it through now.
+		Input.flush_buffered_events()
+		await frames(3)
+		var want: Vector2 = m.camera.top_left + target - g.pivot()
+		ok(g.mouse_view == target and g.mouse_aiming() and absf(angle_difference(p.aim, want.angle())) < 0.05,
+			"moving the mouse to %s aims there (%.1f deg, want %.1f, mouse %s)" % [target, rad_to_deg(p.aim), rad_to_deg(want.angle()), g.mouse_view])
+	ok(m.overlay.to_view(g.mouse_world()) == g.mouse_view + Vector2.ONE * m.PAD, "the mouse's level point is where the window shows it")
+	g.mouse_moved = -1000000
+	await frames(2)
+	ok(not g.mouse_aiming() and absf(p.aim) < 0.01 or absf(absf(p.aim) - PI) < 0.01, "without the mouse Clawd aims ahead with the keys")
+	m.load_level("1-1")
+	await frames(3)
+	ok(not g.armed and not p.armed, "world 1 is not armed")
+	return true
+
+
+## A bug that stands still at `at` (its middle) with `hp` hit points, a target for the gun.
+func target(m, at: Vector2, hp: float):
+	var bug = load(level_script.BUG).instantiate()
+	m.level.add_child(bug)
+	bug.set_physics_process(false)
+	bug.pos = at + Vector2(0, bug.size.y / 2)
+	bug.hp = hp
+	return bug
+
+
+func check_gun() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var snd = root.get_node("Sound")
+	var weapons = load("res://scripts/weapons.gd")
+	var bullet_script = load("res://scripts/bullet.gd")
+	var shot_script = load("res://scripts/shot.gd")
+	progress.weapons = ["blaster", "spreader", "stream", "beam", "cannon"]
+	progress.equipped = "blaster"
+	for u in ["damage", "rate", "context"]:
+		progress.upgrades.erase(u)
+	m.load_level("2-1")
+	await frames(3)
+	var g = m.gun
+	g.mouse_moved = -1000000
+	p.invuln = 1000
+	ok(g.weapon.id == "blaster" and g._hand.visible, "Clawd holds his equipped weapon, the Token Blaster")
+
+	# Fire rate and damage: 6 shots a second of 2 damage; Bigger Model and Faster Inference add 25 % and 15 %.
+	var count_shots := func(seconds: float) -> int:
+		var n := 0
+		for i in roundi(seconds * 60):
+			if g.fire(1.0 / 60, true):
+				n += 1
+		return n
+	for b in get_nodes_in_group("bullets"):
+		b._remove()
+	g.cooldown = 0.0
+	g.heat = 0.0
+	var n: int = count_shots.call(2.0)
+	var bullets := get_nodes_in_group("bullets")
+	# A cooldown of 1/6 s counted down in 1/60 s steps runs out on the 11th frame, as in TS: 11 shots in 2 s.
+	ok(n == 11 and bullets.size() == 11 and bullets.all(func(b): return b.damage == 2.0 and b.kind == "token"),
+		"the blaster fires 6 tokens a second (every 11th frame), 2 damage each (%d shots)" % n)
+	for b in bullets:
+		b._remove()
+	progress.upgrades["damage"] = 1
+	progress.upgrades["rate"] = 1
+	g.cooldown = 0.0
+	g.heat = 0.0
+	n = count_shots.call(2.0)
+	bullets = get_nodes_in_group("bullets")
+	ok(n == 14 and bullets.all(func(b): return b.damage == 2.5), "Bigger Model and Faster Inference: 2.5 damage, 14 shots in 2 s (%d)" % n)
+	for b in bullets:
+		b._remove()
+	progress.upgrades.erase("damage")
+	progress.upgrades.erase("rate")
+
+	# Context heat: the stream fills the 100 context in under 3 s and overflows; no shots for 1.3 s, then cool.
+	g.set_weapon("stream")
+	g.cooldown = 0.0
+	g.heat = 0.0
+	snd.played.clear()
+	var t := 0.0
+	while g.overheated <= 0 and t < 10:
+		g.fire(1.0 / 60, true)
+		t += 1.0 / 60
+	# 4.5 context a shot every 5th frame, less 32 a second: full after 4.4 s.
+	ok(t > 4.3 and t < 4.5 and "overheat" in snd.played, "Stream Output overflows the context after %.2f s" % t)
+	n = count_shots.call(1.25)
+	ok(n == 0 and g.overheated > 0, "an overflowed gun does not fire")
+	count_shots.call(0.1)
+	ok(g.overheated <= 0 and g.heat < 10, "after 1.3 s it has cooled down (heat %.1f)" % g.heat)
+	ok(count_shots.call(0.1) > 0, "and fires again")
+	progress.upgrades["context"] = 1
+	ok(g.heat_cap() == 140.0, "Longer Context: 140 context")
+	progress.upgrades.erase("context")
+	for b in get_nodes_in_group("bullets"):
+		b._remove()
+
+	# A token hits the first enemy in its way and stops; the beam pierces every enemy in its line.
+	var at: Vector2 = g.pivot()
+	var clear := true
+	for x in range(0, 140, 4):
+		clear = clear and m.level.tile(at + Vector2(x, 0)) not in [level_script.SOLID, level_script.CORRUPT]
+	ok(clear, "the 140 px ahead of Clawd at the start of 2-1 are open")
+	var near = target(m, at + Vector2(50, 0), 10)
+	var far = target(m, at + Vector2(100, 0), 10)
+	var b1 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	snd.played.clear()
+	await frames(25)
+	ok(near.hp == 8.0 and far.hp == 10.0 and gone(b1) and "hit" in snd.played, "a token hits the first enemy and stops (%s, %s)" % [near.hp, far.hp])
+	m.fire_beam(at, 0.0, 1.0)
+	ok(near.hp == 7.0 and far.hp == 9.0, "the Attention Beam hits both")
+
+	# Damage numbers and health bars (port additions).
+	var ov = m.overlay
+	var amounts := func(e) -> Array:
+		var id: int = e.get_instance_id()
+		return ov.numbers.filter(func(x): return x.id == id).map(func(x): return x.amount)
+	ok(amounts.call(near) == [2.0, 1.0], "each hit shows its damage over the enemy (%s)" % [amounts.call(near)])
+	for i in 3:
+		near.hit(&"shot", 1.0)
+	ok(amounts.call(near) == [2.0, 4.0], "quick hits add up in one number (%s)" % [amounts.call(near)])
+	ok(ov.amount_text(2.5) == "2.5" and ov.amount_text(2.0) == "2", "2.5 shows as 2.5, 2 as 2")
+	var fresh = target(m, at + Vector2(30, -40), 10)
+	ok(ov.show_bar(near) and near.max_hp == 10.0 and not ov.show_bar(fresh), "a hurt enemy shows its health bar, one at full health doesn't")
+	near.hit(&"shot", 100)
+	ok(ov.numbers.any(func(x): return x.id == near.get_instance_id() and x.kill), "the killing blow's number is marked")
+	ok(not ov.show_bar(near), "a dead enemy has no bar")
+	far.hit(&"shot", 100)
+	fresh.hit(&"shot", 100)
+	await frames(2)
+
+	# Platforms are cover (the port, the user's call): shots stop on a one-way plank from below and on a platform.
+	var plank := Vector2i(-1, -1)
+	for c: Vector3i in m.level.oneway.get_used_cells():
+		# GridMap cell y is -(row + 1); the rows under the plank's cell must be open.
+		var below := Vector2(c.x * 16 + 8, (-c.y - 1) * 16 + 16)
+		var open := true
+		for dy in range(4, 68, 8):
+			open = open and m.level.tile(below + Vector2(0, dy)) not in [level_script.SOLID, level_script.CORRUPT, level_script.ONEWAY]
+		if open:
+			plank = Vector2i(c.x, -c.y - 1)
+			break
+	ok(plank.x >= 0, "2-1 has a one-way plank with room under it")
+	var plank_top := Vector2(plank.x * 16 + 8, plank.y * 16)
+	var over_plank = target(m, plank_top + Vector2(0, -20), 10)
+	var cover_b = bullet_script.fire(m.level, plank_top + Vector2(0, 60), -PI / 2, 440, weapons.get_def("blaster"), 2.0)
+	var last := Vector2.ZERO
+	for i in 15:
+		if gone(cover_b): break
+		last = cover_b.pos
+		await physics_frame
+	ok(gone(cover_b) and last.y > plank_top.y and last.y < plank_top.y + 16 and over_plank.hp == 10.0,
+		"a token fired up stops on the one-way plank (last seen at y %.1f, plank %d) and the bug above is safe" % [last.y, plank_top.y])
+	m.fire_beam(plank_top + Vector2(0, 60), -PI / 2, 1.0)
+	ok(over_plank.hp == 10.0, "so does the beam")
+	over_plank.hit(&"shot", 100)
+	var fake = load("res://scripts/fake_platform.gd").create(m.level, at + Vector2(40, -3), 32)
+	var behind = target(m, at + Vector2(100, 0), 10)
+	var cover_b2 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	for i in 15:
+		if gone(cover_b2): break
+		last = cover_b2.pos
+		await physics_frame
+	ok(gone(cover_b2) and last.x < at.x + 44 and behind.hp == 10.0, "a token stops on a platform in its way (x %.1f)" % (last.x - at.x))
+	behind.hit(&"shot", 100)
+	fake.queue_free()
+	await frames(2)
+
+	# Enemy shots that can be shot down vanish with the bullet; the others let it pass.
+	var shot = shot_script.fire(m.level, at + Vector2(80, 0), Vector2(-40, 0), Color.RED, true, 4.0)
+	var b2 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	await frames(15)
+	ok(gone(shot) and gone(b2), "a token shoots down an enemy shot")
+	var hard = shot_script.fire(m.level, at + Vector2(60, 0), Vector2.ZERO, Color.RED, false, 4.0)
+	var b3 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	await frames(15)
+	ok(not gone(hard) and (gone(b3) or b3.pos.x > at.x + 70), "but passes through one that can't be")
+	hard.remove()
+
+	# World 2 is tough (spawnEntities()): bugs have 2 hp, spam bots 3, times HP_FACTOR (3) as everywhere in the
+	# port; a hurt one's bar drains to its hp.
+	m.load_level("2-1")
+	await frames(3)
+	var bugs2 := enemies_of("res://scripts/bug.gd")
+	var bots2 := enemies_of("res://scripts/spam_bot.gd")
+	ok(bugs2.size() == 7 and bugs2.all(func(e): return e.hp == 6.0) and bots2.size() == 2 and bots2.all(func(e): return e.hp == 9.0),
+		"2-1's bugs have 6 hp, its spam bots 9")
+	bots2[0].hit(&"shot", 1.0)
+	ok(m.overlay.show_bar(bots2[0]) and bots2[0].shown_hp == 9.0, "a hit spam bot shows its bar, the lost hp still light")
+	await frames(60)
+	ok(is_equal_approx(bots2[0].shown_hp, 8.0) and m.overlay.show_bar(bots2[0]), "then the light part drains to its hp")
+	p.invuln = 1000
+	g.mouse_moved = -1000000
+
+	# Switching: next / prev through the owned weapons (wrapping), 1-5 for a slot; saved as the equipped one.
+	g.set_weapon("blaster")
+	var press := func(action: String) -> void:
+		Input.action_press(action)
+		await frames(1)
+		Input.action_release(action)
+		await frames(1)
+	snd.played.clear()
+	await press.call("next")
+	ok(g.weapon.id == "spreader" and progress.equipped == "spreader" and g.label_t > 1 and "select" in snd.played, "next: the Context Spreader")
+	await press.call("prev")
+	await press.call("prev")
+	ok(g.weapon.id == "cannon", "prev twice wraps around to the Opus Cannon")
+	await press.call("slot3")
+	ok(g.weapon.id == "stream" and progress.equipped == "stream", "3: Stream Output")
+	progress.weapons = ["blaster", "spreader"]
+	await press.call("slot4")
+	ok(g.weapon.id == "stream", "a slot without a weapon does nothing")
+	progress.weapons = ["blaster", "spreader", "stream", "beam", "cannon"]
+
+	# Armed, attack shoots instead of spinning; spin still spins.
+	g.set_weapon("blaster")
+	g.cooldown = 0.0
+	var before: int = g.shot_count
+	Input.action_press("attack")
+	await frames(4)
+	ok(g.shot_count > before and p.state != &"spin", "armed, attack shoots and doesn't spin")
+	Input.action_release("attack")
+	await frames(2)
+
+	# The Opus Cannon's orb explodes where it stops: splash damage, and it breaks corrupted blocks (1-1's at
+	# columns 220..223, row 15).
+	m.load_level("1-1")
+	await frames(3)
+	var block := Vector2(221 * 16 + 8, 15 * 16 + 8)
+	var victim = target(m, block + Vector2(24, -30), 20)
+	snd.played.clear()
+	var orb = bullet_script.fire(m.level, block + Vector2(0, -40), PI / 2, 230, weapons.get_def("cannon"), 14.0)
+	await frames(20)
+	ok(gone(orb) and "explode" in snd.played, "the orb explodes on the blocks")
+	ok(m.level.tile(block) != level_script.CORRUPT, "and breaks the corrupted cluster")
+	ok(victim.hp == 12.0, "an enemy in the blast takes its 8 splash damage (hp %s)" % victim.hp)
+	victim.hit(&"shot", 100)
+
+	# Pulled into the exit, Clawd takes his gun with him (bug list #6: it stayed hanging in front of the gate).
+	m.load_level("2-1")
+	await frames(3)
+	var g2 = m.gun
+	var goal = m.level.get_node("Goal")
+	m.player.pos = goal.feet()
+	await frames(20)
+	ok(m.complete_t >= 0 and g2._hand.visible and g2.shrink == 1.0, "at the exit Clawd still holds his gun")
+	await frames(60)
+	ok(not m.player.visual.visible and not g2._hand.visible and g2.shrink == 0.0, "pulled in, the gun vanishes with him")
+	m.load_level("2-1")
+	await frames(3)
+	ok(g2._hand.visible and g2.shrink == 1.0 and m.player.visual.visible, "and the next level hands it back")
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
 func check_platforms() -> bool:
 	var m = current_scene
 	var p = m.player
@@ -698,15 +1581,18 @@ func check_hud() -> bool:
 	await frames(60)
 	ok(hud._hearts == p.MAX_HEARTS, "then the hearts come back")
 
-	# Every 100 tokens give a heart, up to 5, and a checkpoint keeps them.
-	m.tokens = 99
+	# Every 300 tokens give a heart (100 in TS), up to 5, and a checkpoint keeps them.
+	m.tokens = 98
 	m.collect_token(p.pos)
-	ok(p.hearts == p.MAX_HEARTS + 1, "the 100th token gives a heart")
+	ok(p.hearts == p.MAX_HEARTS, "the 100th token gives none (the port asks for 300)")
+	m.tokens = 299
+	m.collect_token(p.pos)
+	ok(p.hearts == p.MAX_HEARTS + 1, "the 300th token gives a heart")
 	await frames(2)
 	ok(hud._slots() == p.MAX_HEARTS + 1, "the HUD grows a slot for it")
 	m.activate_checkpoint(m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/checkpoint.gd"))[0])
 	ok(p.hearts == p.MAX_HEARTS + 1, "a checkpoint does not take it away")
-	m.tokens = 499
+	m.tokens = 899
 	p.hearts = 5
 	m.collect_token(p.pos)
 	ok(p.hearts == 5, "no more than 5 hearts")
@@ -737,7 +1623,7 @@ func check_menus() -> bool:
 	var settings = root.get_node("Settings")
 	# Never touch the player's own settings file.
 	var real_path: String = settings.path
-	settings.path = "user://settings_check.cfg"
+	settings.path = "user://settings_check_%d.cfg" % OS.get_process_id()
 	settings.bindings = settings.defaults()
 	settings.apply()
 	m.load_level("1-1")
@@ -792,6 +1678,25 @@ func check_menus() -> bool:
 	ok(menu.state == menu.NONE and m.tokens == 0, "RESTART LEVEL reloads the level")
 	await frames(3)
 
+	# CROSSHAIR (the port's): its colour, white by default; Enter and left / right cycle it, saved.
+	var cross0: int = settings.crosshair
+	settings.crosshair = 0
+	ok(settings.CROSSHAIRS[0][0] == "WHITE" and settings.crosshair_color() == Color.WHITE, "the crosshair is white by default")
+	menu.handle(key(KEY_P))
+	for i in menu.PAUSE_ITEMS.find("CROSSHAIR"):
+		menu.handle(key(KEY_DOWN))
+	menu.handle(key(KEY_ENTER))
+	ok(menu.state == menu.PAUSE and settings.crosshair == 1, "Enter on CROSSHAIR picks the next colour and keeps the menu open")
+	menu.handle(key(KEY_LEFT))
+	menu.handle(key(KEY_LEFT))
+	ok(settings.crosshair == settings.CROSSHAIRS.size() - 1, "left / right cycle it (%s)" % settings.CROSSHAIRS[settings.crosshair][0])
+	cfg.load(settings.path)
+	ok(cfg.get_value("video", "crosshair") == settings.CROSSHAIRS[settings.crosshair][0], "and it is saved by name")
+	settings.crosshair = cross0
+	settings.save()
+	menu.close()
+	await frames(3)
+
 	# The HUD buttons, at the usual 480 x 270 view (the headless window is smaller).
 	var vp_size: Vector2i = m.subviewport.size
 	m.subviewport.size = Vector2i(480, 270) + Vector2i.ONE * m.PAD * 2
@@ -809,6 +1714,15 @@ func check_menus() -> bool:
 	ok(menu.state == menu.CONTROLS, "clicking CONTROLS shows the controls help")
 	var lines: Array = menu.control_lines()
 	ok(lines[1][0] == "SPACE W K" and lines[0][0] == "← A → D", "the help lists the bound keys (%s, %s)" % [lines[0][0], lines[1][0]])
+	var progress = root.get_node("Progress")
+	var had: Array = progress.weapons
+	progress.weapons = []
+	var plain: int = menu.control_lines().size()
+	progress.weapons = ["blaster"]
+	var armed_lines: Array = menu.control_lines().map(func(l): return l[1])
+	progress.weapons = had
+	ok(plain == 8 and armed_lines.size() == 12 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
+		"with a weapon found it adds shooting, aiming and switching")
 
 	# Keybindings: rebind jump's second slot.
 	menu.handle(key(KEY_ENTER))
@@ -819,7 +1733,7 @@ func check_menus() -> bool:
 	menu.handle(key(KEY_ENTER))
 	ok(menu.listening and settings.BINDABLE[menu.key_row] == &"jump" and menu.key_slot == 1, "Enter on a slot listens for a key")
 	menu.handle(key(KEY_X))
-	ok(menu.listening and menu.error == "X ALREADY BOUND TO ATTACK (SPIN)", "a key of another action is refused (%s)" % menu.error)
+	ok(menu.listening and menu.error == "X ALREADY BOUND TO ATTACK (SPIN / SHOOT)", "a key of another action is refused (%s)" % menu.error)
 	menu.handle(key(KEY_U))
 	ok(not menu.listening and settings.bindings[&"jump"] == [KEY_SPACE, KEY_U, KEY_K], "a free key is bound")
 	ok(InputMap.event_is_action(key(KEY_U), "jump") and not InputMap.event_is_action(key(KEY_W), "jump"), "the InputMap follows")
@@ -857,7 +1771,8 @@ func check_menus() -> bool:
 	# Every text the menus draw is in the font.
 	var texts: Array = menu.PAUSE_ITEMS + ["PAUSED", "CONTROLS", "KEYBINDINGS", "RESET DEFAULTS", "BACK", "...", ">",
 		"ENTER — CHANGE KEYS", "PRESS A KEY · ESC CANCEL · BKSP CLEAR", "↑↓ ROW · ←→ SLOT · ENTER REBIND",
-		"↑↓ SELECT · ENTER OK · ESC RESUME", "ON", "OFF", "ALREADY BOUND TO"] + settings.LABELS.values()
+		"↑↓ SELECT · ENTER OK · ESC RESUME", "↑↓ SELECT · ←→ COLOUR · ESC RESUME", "ON", "OFF", "ALREADY BOUND TO"] \
+		+ settings.LABELS.values() + settings.CROSSHAIRS.map(func(c): return c[0])
 	for row in lines:
 		texts += row
 	for code in [KEY_A, KEY_Z, KEY_0, KEY_9, KEY_SEMICOLON, KEY_COMMA, KEY_PERIOD, KEY_SLASH, KEY_APOSTROPHE, KEY_QUOTELEFT, KEY_BACKSLASH, KEY_BRACKETLEFT, KEY_MINUS, KEY_EQUAL, KEY_SHIFT, KEY_TAB, KEY_F1, KEY_KP_1]:
@@ -952,7 +1867,7 @@ func check_sound() -> bool:
 	ok("land" in snd.played, "landing plays land")
 
 	snd.played.clear()
-	var bug = get_nodes_in_group("enemies")[0]
+	var bug = bugs()[0]
 	p.pos = bug.pos + Vector2(0, -40)
 	p.vel = Vector2.ZERO
 	p.invuln = 1
@@ -975,10 +1890,13 @@ func check_sound() -> bool:
 	await frames(3)
 	ok("die" in snd.played, "falling out plays die")
 
+	# Relative to the player's own settings (this section runs on them, and several worktrees share them): two
+	# presses leave them as they were.
+	var was_muted: bool = root.get_node("Settings").muted
 	m.menu.handle(key(KEY_M))
-	ok(root.get_node("Settings").muted and AudioServer.is_bus_mute(0), "M mutes")
+	ok(root.get_node("Settings").muted != was_muted and AudioServer.is_bus_mute(0) != was_muted, "M mutes (unmutes if muted)")
 	m.menu.handle(key(KEY_M))
-	ok(not root.get_node("Settings").muted and not AudioServer.is_bus_mute(0), "and unmutes")
+	ok(root.get_node("Settings").muted == was_muted and AudioServer.is_bus_mute(0) == was_muted, "and a second M undoes it")
 
 	var goal = m.level.get_node("Goal")
 	p.pos = goal.feet()
@@ -1050,9 +1968,10 @@ func check_sparks() -> bool:
 	var grid: Array = spark_script.rows(4)
 	ok(grid.size() == 21 and grid[10][10] == "W" and grid[10][19] == "h" and grid[10][15] == "O" and grid[1][10] == "h"
 		and grid[11][12] == "O" and grid[14][14] == "h", "the spark is a solid star: white core, tapering rays, diagonals")
-	var dotted: Array = spark_script.rows(3, true)
-	ok(spark_script.rows(3)[10][19] == "." and spark_script.rows(3)[10][17] == "h" and dotted[10].count("O") + dotted[10].count("L") < spark_script.rows(3)[10].count("O") + spark_script.rows(3)[10].count("L"),
-		"its rays flicker between 7 and 9 px; a ghost is drawSpark()'s dotted star")
+	var ghost_rows: Array = spark_script.rows(4, true)
+	ok(spark_script.rows(3)[10][19] == "." and spark_script.rows(3)[10][17] == "h" and ghost_rows[10][10] == "W"
+		and ghost_rows[10][16] == "h" and ghost_rows[10][17] == "." and ghost_rows[14][14] == "." and ghost_rows[13][13] == "O",
+		"its rays flicker between 7 and 9 px; a ghost is the same solid star, its rays 3 px shorter")
 
 	snd.played.clear()
 	var sp = sparks[1]
@@ -1109,6 +2028,17 @@ func check_shop() -> bool:
 	var shop = m.shop
 	ok(shop_items.ITEMS.map(func(it): return it.id) == ["hearts", "hover", "magnet", "radar", "fortune", "firewall", "double", "armory"],
 		"it sells the world-1 upgrades, the tools, the consumables and a locked armory")
+	# Balance (M12): as in TS, the sparks of every level buy everything that costs sparks, with none to spare.
+	var spark_prices := 0
+	for it in shop_items.ITEMS + load("res://scripts/weapons.gd").UPGRADES:
+		for s in it.get("sparks", []):
+			spark_prices += s
+	for w in load("res://scripts/weapons.gd").WEAPONS.values():
+		spark_prices += w.sparks
+	var level_sparks := 0
+	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
+		level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
+	ok(spark_prices == level_sparks, "the shop's spark prices add up to the sparks in the levels (%d / %d)" % [spark_prices, level_sparks])
 
 	# Extra Heart: 100 tokens.
 	shop.sel = 0
@@ -1118,17 +2048,17 @@ func check_shop() -> bool:
 	shop.handle(key(KEY_ENTER))
 	ok(progress.upgrade("hearts") == 1 and progress.wallet == 200 and shop.haiku == shop.DENIED[0],
 		"its second level also needs 4 sparks: refused")
-	# Jet Tuning, the radar (3 sparks), a fortune, a Firewall and a Double Tokens.
+	# Jet Tuning, the radar, a fortune, a Firewall and a Double Tokens.
 	shop.handle(key(KEY_DOWN))
 	shop.handle(key(KEY_ENTER))
 	ok(progress.upgrade("hover") == 1 and progress.wallet == 140, "Jet Tuning: 60 tokens")
 	shop.sel = 3
 	shop.handle(key(KEY_ENTER))
-	ok(progress.upgrade("radar") == 1 and progress.wallet == 80 and progress.sparks_available() == 0, "Spark Radar: 60 tokens and 3 sparks")
+	ok(progress.upgrade("radar") == 1 and progress.wallet == 60 and progress.sparks_available() == 3, "Spark Radar: 80 tokens, no sparks")
 	shop.sel = 4
 	shop.handle(key(KEY_ENTER))
 	var first: Array = progress.fortune
-	ok(progress.wallet == 55 and first.size() == 3 and first[0].ends_with("1-1") and shop.haiku == first,
+	ok(progress.wallet == 35 and first.size() == 3 and first[0].ends_with("1-1") and shop.haiku == first,
 		"a fortune: HAIKU tells where something still hides (%s)" % [first])
 	progress.wallet += 25
 	shop.handle(key(KEY_ENTER))
@@ -1136,18 +2066,18 @@ func check_shop() -> bool:
 	var spark_hint: Array = shop_items.fortune_lines({"level": "1-1", "kind": "S", "index": 0, "x": 160, "y": 5})
 	# Spark 0 of 1-1 sits on a one-way ledge between the first and second checkpoint (columns 107, 177).
 	ok(spark_hint == ["a spark sleeps in 1-1", "past save number one", "right above a ledge"], "hints read the map: %s" % [spark_hint])
-	progress.wallet = 100
+	progress.wallet = 150
 	shop.sel = 5
 	shop.handle(key(KEY_ENTER))
 	shop.sel = 6
 	shop.handle(key(KEY_ENTER))
-	ok(progress.in_stock("firewall") == 1 and progress.in_stock("double") == 1 and progress.wallet == 10, "Firewall 40, Double Tokens 50")
+	ok(progress.in_stock("firewall") == 1 and progress.in_stock("double") == 1 and progress.wallet == 10, "Firewall 40, Double Tokens 100")
 	shop.sel = 7
 	snd.played.clear()
 	shop.handle(key(KEY_ENTER))
 	ok("denied" in snd.played and shop.haiku == shop.LOCKED[0], "the armory is locked")
 	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(progress.path))
-	ok(cfg.upgrades.hearts == 1 and cfg.stock.firewall == 1 and cfg.sparks_spent == 3, "purchases are saved")
+	ok(cfg.upgrades.hearts == 1 and cfg.stock.firewall == 1 and cfg.sparks_spent == 0, "purchases are saved")
 	shop.handle(key(KEY_ESCAPE))
 	ok(m.mode == m.Mode.MAP and not shop.visible, "Escape goes back to the map")
 
@@ -1185,6 +2115,60 @@ func check_shop() -> bool:
 	m.player.pos = Px.of(tokens[0].position) + Vector2(-50, 9)
 	await frames(2)
 	ok(tokens[0].popped, "Token Magnet: a token 50 px away comes loose and flies to Clawd")
+
+	# The ARMORY opens once Clawd has a weapon (the blaster 1-B drops).
+	var weapons = load("res://scripts/weapons.gd")
+	# A world-2 level picked (world 2 is still locked here, so show_map() would not move there).
+	m.front.sel = 4
+	ok(m.front.map_gun() == "", "without a weapon the map's Clawd is unarmed in world 2")
+	progress.grant_weapon("blaster")
+	ok(m.front.map_gun() == "blaster", "with one he holds it on a world-2 level (levelSelect.ts: armed in world 2)")
+	m.front.sel = 0
+	progress.wallet = 1000
+	progress.sparks_spent = 0
+	m.show_map(0)
+	await frames(3)
+	ok(m.front.map_gun() == "", "and not on a world-1 level")
+	m.front.handle(key(KEY_B))
+	await frames(3)
+	var ids: Array = shop.items.map(func(it): return it.id)
+	ok(ids == ["hearts", "hover", "magnet", "radar", "fortune", "firewall", "double", "blaster", "spreader", "stream", "beam", "cannon",
+		"damage", "rate", "context"], "then the ARMORY's weapons and the GUN MODS take the locked row's place")
+	ok(not shop._shown(shop._rows()[-1]), "the list is taller than the screen")
+	shop.sel = ids.size() - 1
+	# The list follows the selection in _process(), which can lag behind the physics frames.
+	await process_frame
+	await process_frame
+	ok(shop._shown(shop._rows()[-1]) and not shop._shown(shop._rows()[0]), "choosing the last row scrolls it into view")
+	shop.handle(key(KEY_DOWN))
+	await process_frame
+	await process_frame
+	ok(shop.sel == 0 and shop._scroll == 0.0, "down from there wraps to the top")
+	shop.sel = ids.find("spreader")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.weapons == ["blaster", "spreader"] and progress.equipped == "spreader" and progress.wallet == 880,
+		"Context Spreader: 120 tokens, held at once")
+	m.front.sel = 4
+	ok(m.front.map_gun() == "spreader", "the map's Clawd holds the equipped weapon")
+	m.front.sel = 0
+	shop.sel = ids.find("stream")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.weapons.has("stream") and progress.wallet == 660 and progress.sparks_available() == 0, "Stream Output: 220 tokens and 3 sparks")
+	shop.sel = ids.find("beam")
+	shop.handle(key(KEY_ENTER))
+	ok(not progress.weapons.has("beam") and shop.haiku == shop.DENIED[0], "the Attention Beam needs 8 sparks: refused")
+	snd.played.clear()
+	shop.sel = ids.find("blaster")
+	shop.handle(key(KEY_ENTER))
+	ok(progress.equipped == "blaster" and progress.wallet == 660 and "select" in snd.played, "an owned weapon is equipped for free")
+	for u in ["damage", "rate", "context"]:
+		shop.sel = ids.find(u)
+		shop.handle(key(KEY_ENTER))
+	ok(progress.wallet == 390 and weapons.damage_mult() == 1.25 and weapons.rate_mult() == 1.15 and weapons.heat_cap() == 140.0,
+		"Bigger Model 100, Faster Inference 90, Longer Context 80")
+	cfg = JSON.parse_string(FileAccess.get_file_as_string(progress.path))
+	ok(cfg.weapons == ["blaster", "spreader", "stream"] and cfg.equipped == "blaster" and cfg.upgrades.damage == 1, "and saved")
+	shop.handle(key(KEY_ESCAPE))
 	m.load_level("1-1")
 	await frames(3)
 	return true

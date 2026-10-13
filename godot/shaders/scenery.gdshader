@@ -10,13 +10,15 @@
 // With `silhouette` (the foreground layer) trunks are flat dark cutouts with a jagged broken top and cables
 // are dark. Every lit tone is the body mixed towards `light_color` (see Themes); every pixel fades into
 // the sky behind it with its depth (shaders/fog.gdshaderinc). Pixels are box-local (instance `box_size`), so patterns sit on the box wherever
-// it is; top faces are bands of view rows like the level blocks. Colours are sRGB, converted at the end.
+// it is; top faces are bands of view rows like the level blocks. In dark levels it darkens away from Clawd's
+// lamp (shaders/darkness.gdshaderinc) except where it glows. Colours are sRGB, converted at the end.
 shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
 #include "res://shaders/fog.gdshaderinc"
 #include "res://shaders/reveal.gdshaderinc"
+#include "res://shaders/darkness.gdshaderinc"
 
 instance uniform vec3 box_size = vec3(1.0);
 instance uniform float seed = 0.0;
@@ -26,11 +28,15 @@ uniform bool silhouette = false;
 uniform bool world_perspective = false;
 uniform float row_z = 0.1875;
 uniform float game_time = 0.0;
+// The boss theme's motif (docs/scenery-themes.md: the glitching forest): rows tear sideways with a red / cyan
+// split, trunks split into two strands and rejoin, cables break off into nothing, boxes flicker red or cyan.
+uniform bool glitch = false;
 
 varying vec3 lpos;
 varying vec3 lnormal;
 varying float along;
 varying float wz;
+varying vec3 wp;
 
 // hash2 from src/core/noise.ts (32-bit wrapping math).
 float hash2(int x, int y, int s) {
@@ -56,6 +62,7 @@ void vertex() {
 	lnormal = NORMAL;
 	along = UV.x;
 	wz = w.z;
+	wp = w.xyz;
 }
 
 void fragment() {
@@ -68,6 +75,30 @@ void fragment() {
 	int k = int(round(kind));
 	ivec2 p = ivec2(floor(vec2(lpos.x + box_size.x * 0.5, box_size.y * 0.5 - lpos.y) * 16.0));
 	ivec2 sz = ivec2(round(box_size.xy * 16.0));
+	vec3 tear_tint = vec3(0.0);
+	if (glitch) {
+		int gf = int(floor(game_time * 10.0));
+		// A torn 3 px row: its pattern slides sideways and takes a red or cyan cast.
+		float th = hash2(p.y / 3, gf, sd + 7);
+		if (th > 0.975) {
+			p.x += int((hash2(p.y / 3, gf, sd + 8) - 0.5) * 14.0);
+			tear_tint = hash2(p.y / 3, gf, sd + 9) > 0.5 ? vec3(0.88, 0.38, 0.35) : vec3(0.37, 0.82, 0.85);
+		}
+		// Trunks split into two strands over some 24 px bands, and rejoin.
+		if (k == 0 && !silhouette && lnormal.z > 0.5 && sz.x >= 12 && hash2(p.y / 24, 40, sd) > 0.62) {
+			int a = sz.x * 2 / 5;
+			if (p.x >= a && p.x < a + max(2, sz.x / 5)) {
+				discard;
+			}
+		}
+		// Cables break off: a gap somewhere along some of them.
+		if (k == 1 && hash2(sd, 50, 3) > 0.45) {
+			float g0 = 0.2 + hash2(sd, 51, 3) * 0.5;
+			if (along > g0 && along < g0 + 0.12 + 0.05 * sin(game_time * 3.0 + float(sd))) {
+				discard;
+			}
+		}
+	}
 	if (k == 1) {
 		// Cable with a pulse running along it, a short bright head and a fading tail.
 		col = silhouette ? BODY * 0.4 : tone(0.16);
@@ -160,6 +191,21 @@ void fragment() {
 		// Trunk sides, opened by the perspective.
 		col = int(floor((box_size.z * 0.5 - lpos.z) / row_z)) == 0 ? tone(0.1) : tone(0.04);
 	}
+	if (glitch) {
+		if (tear_tint != vec3(0.0)) {
+			col = mix(col, tear_tint, 0.45);
+			boost = max(boost, 1.2);
+		}
+		// Now and then a whole box flickers towards red or cyan.
+		float fh = hash2(sd, int(floor(game_time * 6.0)), 61);
+		if (fh > 0.93) {
+			col = mix(col, fh > 0.965 ? vec3(0.88, 0.38, 0.35) : vec3(0.37, 0.82, 0.85), 0.3);
+		}
+	}
 	col = apply_fog(col, -wz, SCREEN_UV.y);
+	// Dark levels: only what is near Clawd's lamp shows; the glowing nodes and pulses keep shining.
+	if (boost <= 1.0) {
+		col = apply_darkness(col, wp, 0.0, p);
+	}
 	ALBEDO = pow(col, vec3(2.2)) * boost;
 }

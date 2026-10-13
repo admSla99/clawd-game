@@ -29,12 +29,21 @@ const SIGN := "res://scripts/sign.gd"
 const PLATFORM := "res://scripts/moving_platform.gd"
 const AGENT := "res://scripts/sub_agent.gd"
 const SPARK := "res://scripts/spark.gd"
+const SPAMBOT := "res://scripts/spam_bot.gd"
+const RATELIMITER := "res://scripts/rate_limiter.gd"
+const TURRET := "res://scripts/turret.gd"
+const DRONE := "res://scripts/drone.gd"
+const SHIELDBOT := "res://scripts/shield_bot.gd"
+const INJECTOR := "res://scripts/injector.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
 # 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
-# 'S' a spark (each numbered like the signs). Positions are the tile's bottom-centre, like Spawn.x / Spawn.y in
-# src/world/level.ts.
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark"}
+# 'S' a spark (each numbered like the signs); 'F' a spam bot and 'R' a rate limiter; world 2's 'T' / 'Y' a
+# turret on the floor / ceiling, 'D' a drone, 'H' a shield bot and 'I' an injector; 'B' a Marker3D named Boss
+# (Main puts the level's `boss` there). Positions are the tile's
+# bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
+# the meta "spawn".
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -43,12 +52,15 @@ var _cells_tex: ImageTexture
 
 @onready var terrain: GridMap = $Terrain
 @onready var oneway: GridMap = $OneWay
-## Level width in tiles (Level.w in TS), fixed when the level enters the tree.
+## Level width in tiles (Level.w in TS) and size in pixels (Level.pixelW / pixelH), fixed when the level
+## enters the tree.
 var width := 0
+var pixel_size := Vector2.ZERO
 
 
 func _ready() -> void:
-	width = int(size().x / 16)
+	pixel_size = size()
+	width = int(pixel_size.x / 16)
 	_add_side_walls()
 
 
@@ -69,6 +81,15 @@ func _add_side_walls() -> void:
 		shape.position = Px.to3(Vector2(x + 32, (top + bottom) / 2))
 		body.add_child(shape)
 	add_child(body)
+
+
+## findFloorBelow() in src/scenes/game.ts: the top (px) of the first solid tile in column `tx` from row `ty`
+## down, or the level's bottom.
+func floor_below(tx: int, ty: int) -> float:
+	for y in range(ty, int(pixel_size.y / 16)):
+		if terrain.get_cell_item(Vector3i(tx, -y - 1, 0)) == SOLID:
+			return y * 16.0
+	return pixel_size.y
 
 
 ## Tile item under a point in level pixels, or -1.
@@ -249,6 +270,7 @@ static func build(rows: PackedStringArray) -> Level:
 				maps[int(item == ONEWAY)].set_cell_item(Vector3i(x, -y - 1, 0), item)
 			elif SPAWNS.has(ch):
 				var node := _add_spawn(level, SPAWNS[ch], Vector2(x * 16 + 8, (y + 1) * 16))
+				node.set_meta("spawn", ch)
 				if SPAWNS[ch] == "sign":
 					node.set("index", signs)
 					signs += 1
@@ -270,6 +292,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"start":
 			node = Marker3D.new()
 			node.name = "Start"
+		"boss":
+			node = Marker3D.new()
+			node.name = "Boss"
 		"bug":
 			node = load(BUG).instantiate()
 		"token":
@@ -290,6 +315,25 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"spark":
 			node = load(SPARK).new()
 			node.name = "Spark"
+		"spambot":
+			node = load(SPAMBOT).new()
+			node.name = "SpamBot"
+		"ratelimiter":
+			node = load(RATELIMITER).new()
+			node.name = "RateLimiter"
+		"turret", "ceilturret":
+			node = load(TURRET).new()
+			node.name = "Turret"
+			node.ceiling = kind == "ceilturret"
+		"drone":
+			node = load(DRONE).new()
+			node.name = "Drone"
+		"shieldbot":
+			node = load(SHIELDBOT).new()
+			node.name = "ShieldBot"
+		"injector":
+			node = load(INJECTOR).new()
+			node.name = "Injector"
 		"platform_h", "platform_v":
 			node = load(PLATFORM).new()
 			node.name = "Platform"

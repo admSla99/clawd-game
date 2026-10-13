@@ -9,8 +9,7 @@ extends CharacterBody3D
 ## continue_pound()). Hurt is `hurt_timer`. Down + jump on a one-way platform drops through it.
 
 ## Moments the game reacts to with particles and camera shake (events in the TS player):
-## jump, land, hard_land, hurt, stomp, defeat (an enemy killed by spin or the hover jet), spin,
-## pound_start, pound_land, drop_through. `at` is where it happened, in level pixels.
+## jump, land, hard_land, hurt, stomp, spin, pound_start, pound_land, drop_through. `at` is where it happened, in level pixels.
 signal event(kind: StringName, at: Vector2)
 
 const RUN_SPEED := 150.0
@@ -27,6 +26,8 @@ const MAX_FALL := 430.0
 const JUMP_VELOCITY := 470.0
 const COYOTE_TIME := 0.1
 const JUMP_BUFFER := 0.12
+## Height of a one-way tile's collision strip in px (a quarter of a cell, tools/build_meshlib.gd).
+const ONE_WAY_STRIP := 4.0
 const HOVER_DURATION := 0.85
 const HOVER_FALL_SPEED := 18.0
 const HOVER_ACCEL := 2600.0
@@ -79,6 +80,10 @@ var jumping := false
 var hover_left := HOVER_DURATION
 var hovering := false
 var facing := 1
+## Holding a weapon (world 2): the attack button shoots instead of spinning, and the aim (radians, 0 = right,
+## y down like the TS angle, set by Gun every frame) decides which way Clawd faces.
+var armed := false
+var aim := 0.0
 var anim := 0.0
 var prev_pos: Vector2
 ## Scale of $Visual for squash & stretch; eases back to 1. The collision shape keeps its size.
@@ -95,8 +100,9 @@ var drop_timer := 0.0
 var on_one_way := false
 ## No input, only gravity and slowing down (the level is complete).
 var frozen := false
-## The moving platform Clawd stands on, or null.
-var riding: MovingPlatform = null
+## The platform Clawd stands on (a MovingPlatform or a RateLimiter: anything in the group "platforms" with
+## x, y, dx, dy, active and rect()), or null.
+var riding = null
 ## Standing on a tile floor or riding a platform (set after moving).
 var on_ground := false
 
@@ -170,6 +176,21 @@ func respawn() -> void:
 	visual.visible = true
 
 
+## In a level, not parked behind the title or the map (park()). Not `visible`: that blinks while invulnerable.
+func in_play() -> bool:
+	return process_mode != Node.PROCESS_MODE_DISABLED
+
+
+## fellOut() in TS (out of the level's bottom, or caught by the rising void): a heart less, and back to the
+## checkpoint ("die" when it was the last one, which refills them).
+func fall_out() -> void:
+	hearts -= 1
+	event.emit(&"die" if hearts <= 0 else &"fell", pos)
+	if hearts <= 0:
+		hearts = max_hearts
+	respawn()
+
+
 ## Clawd's hurt and pick-up box in level pixels (hitbox in the TS player).
 func hitbox() -> Rect2:
 	return Rect2(pos + HITBOX.position, HITBOX.size)
@@ -221,12 +242,20 @@ func _physics_process(dt: float) -> void:
 
 	# Ride the moving platform (they move before the player): carried sideways, kept on its top.
 	if riding:
-		var r := riding.rect()
+		var r: Rect2 = riding.rect()
 		if not riding.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
 			riding = null
 		else:
 			move_and_collide(Vector3(riding.dx, 0, 0) * Px.M)
-			pos = Vector2(pos.x, riding.y)
+			# Carried up, a ceiling stops Clawd (moveY() in TS, which one-way tiles do not block); carried
+			# down, he just follows.
+			if riding.y < pos.y:
+				var one_way := get_collision_mask_value(4)
+				set_collision_mask_value(4, false)
+				move_and_collide(Vector3(0, pos.y - riding.y, 0) * Px.M)
+				set_collision_mask_value(4, one_way)
+			else:
+				pos = Vector2(pos.x, riding.y)
 	var grounded := is_on_floor() or riding != null
 	if grounded:
 		coyote = COYOTE_TIME
@@ -252,7 +281,7 @@ func _physics_process(dt: float) -> void:
 		else:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
 		vel.x = move_toward(vel.x, dir * RUN_SPEED, accel * dt)
-		if dir != 0:
+		if dir != 0 and not armed:
 			if int(dir) != facing and grounded:
 				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
 			facing = int(dir)
@@ -260,8 +289,10 @@ func _physics_process(dt: float) -> void:
 	# Actions: down in the air pounds, spin (or attack, unarmed) spins; down + jump on a one-way drops.
 	var can_act := (state == &"normal" or state == &"spin") and hurt_timer <= 0 and not frozen
 	if can_act:
-		var spin_pressed := Input.is_action_just_pressed("spin") or Input.is_action_just_pressed("attack")
-		if not grounded and (Input.is_action_just_pressed("down") or (Input.is_action_pressed("down") and spin_pressed)):
+		var spin_pressed := Input.is_action_just_pressed("spin") or (not armed and Input.is_action_just_pressed("attack"))
+		# Armed, down with the trigger held aims down instead of pounding.
+		var down_pressed := Input.is_action_just_pressed("down") and not (armed and Input.is_action_pressed("attack"))
+		if not grounded and (down_pressed or (Input.is_action_pressed("down") and spin_pressed)):
 			_start_pound()
 			can_act = false
 		elif spin_pressed and spin_cooldown <= 0 and state != &"spin":
@@ -323,19 +354,19 @@ func _physics_process(dt: float) -> void:
 	var fall_speed := vel.y
 	if vel.y < 0:
 		_corner_correct(vel.y * dt)
-	# One-way platforms block only a falling Clawd whose body is clear of them, and not while dropping
-	# through. ponytail: checks all one-way tiles the body overlaps, not the one landed on; fine for 1-tile slabs.
-	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _touches_tile(Level.ONEWAY, Rect2(-SIZE.x / 2, -SIZE.y, SIZE.x, SIZE.y)))
+	# One-way platforms block only a falling Clawd whose body is clear of their collision strips, and not while
+	# dropping through.
+	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _in_one_way_strip())
 	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
 	move_and_slide()
 	vel = Vector2(velocity.x, -velocity.y) / Px.M
 	if is_on_ceiling():
 		jumping = false
 	# Land on a moving platform from above (the platform loop in the TS player's update()).
-	var ride: MovingPlatform = null
+	var ride = null
 	if not is_on_floor() and vel.y >= 0 and drop_timer <= 0:
-		for p: MovingPlatform in get_tree().get_nodes_in_group("platforms"):
-			var r := p.rect()
+		for p in get_tree().get_nodes_in_group("platforms"):
+			var r: Rect2 = p.rect()
 			if not p.active or pos.x + SIZE.x / 2 <= r.position.x or pos.x - SIZE.x / 2 >= r.end.x:
 				continue
 			if prev_pos.y <= p.y - p.dy + 1.5 and pos.y >= p.y:
@@ -344,6 +375,9 @@ func _physics_process(dt: float) -> void:
 				ride = p
 				break
 	riding = ride
+	# A fake platform starts to dissolve once stood on (`ride.onStand?.()`).
+	if ride and ride.has_method("on_stand"):
+		ride.on_stand()
 	on_ground = is_on_floor() or riding != null
 	on_one_way = riding != null or (is_on_floor() and _floor_is_one_way())
 	if not grounded and on_ground:
@@ -438,12 +472,7 @@ func _check_hazards() -> void:
 	if frozen:
 		return
 	if pos.y > kill_y:
-		hearts -= 1
-		# fellOut() in TS: a heart less, and back to the checkpoint ("die" when it was the last one).
-		event.emit(&"die" if hearts <= 0 else &"fell", pos)
-		if hearts <= 0:
-			hearts = max_hearts
-		respawn()
+		fall_out()
 		return
 	if invuln <= 0 and _touches_tile(Level.SPIKE, SPIKE_PROBE):
 		if hurt(pos.x + 10.0 * signf(vel.x)):
@@ -452,21 +481,29 @@ func _check_hazards() -> void:
 	var hb := Rect2(pos + HITBOX.position, HITBOX.size)
 	var attack := attack_box()
 	var beam := hover_beam()
-	for e in get_tree().get_nodes_in_group("enemies"):
-		var er: Rect2 = e.rect()
-		# Stomp: falling (or pounding) onto the top part of an enemy.
-		if (vel.y > 0 or state == &"pound") and hb.intersects(er) and prev_pos.y <= e.stomp_line():
+	# checkEnemies() in src/scenes/game.ts.
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if e.dead:
+			continue
+		var er := e.rect()
+		# Stomp: falling (or pounding) onto the top part of an enemy. Stomping always bounces, even if
+		# the enemy is briefly immune.
+		if e.stompable and not e.invincible and (vel.y > 0 or state == &"pound") and hb.intersects(er) \
+				and prev_pos.y <= e.stomp_line():
+			var pound := state == &"pound"
+			e.hit(&"pound" if pound else &"stomp", Enemy.POUND_STOMP_DAMAGE if pound else Enemy.STOMP_DAMAGE)
 			event.emit(&"stomp", e.pos)
-			e.hit(&"pound" if state == &"pound" else &"stomp")
 			_bounce()
-		elif attack.has_area() and attack.intersects(er):
-			event.emit(&"defeat", e.pos)
-			e.hit(&"spin")
-		elif beam.has_area() and beam.intersects(er):
-			event.emit(&"defeat", e.pos)
-			e.hit(&"beam")
-		elif hb.intersects(e.hurtbox()):
-			hurt(e.pos.x)
+			continue
+		if attack.has_area() and attack.intersects(er) and e.hit(&"spin", Enemy.SPIN_DAMAGE):
+			continue
+		if beam.has_area() and not e.projectile and beam.intersects(er) and e.hit(&"beam", Enemy.BEAM_DAMAGE):
+			continue
+		var hurt_box := e.hurtbox()
+		if hurt_box.has_area() and hb.intersects(hurt_box):
+			if e.projectile and e.consume_on_hit:
+				e.remove()
+			hurt(er.get_center().x)
 
 
 ## Bounce off an enemy's head (bounce() in the TS player).
@@ -488,6 +525,20 @@ func _touches_tile(item: int, probe: Rect2) -> bool:
 	for y in range(floori(a.y / 16), floori(b.y / 16) + 1):
 		for x in range(floori(a.x / 16), floori(b.x / 16) + 1):
 			if level.tile(Vector2(x, y) * 16) == item:
+				return true
+	return false
+
+
+## Whether the body overlaps the collision strip of a one-way tile, its top ONE_WAY_STRIP px (the shape in
+## tools/build_meshlib.gd). Not the whole tile: where one-way platforms are two rows apart (2-4), the head is
+## still in the tile above while the feet reach the one below, and Clawd must land there (moveY() in TS).
+func _in_one_way_strip() -> bool:
+	var top := pos.y - SIZE.y
+	for y in range(floori(top / 16), floori((pos.y - 0.001) / 16) + 1):
+		if y * 16 + ONE_WAY_STRIP <= top or y * 16 >= pos.y - 0.001:
+			continue
+		for x in range(floori((pos.x - SIZE.x / 2) / 16), floori((pos.x + SIZE.x / 2 - 0.001) / 16) + 1):
+			if level.tile(Vector2(x, y) * 16) == Level.ONEWAY:
 				return true
 	return false
 

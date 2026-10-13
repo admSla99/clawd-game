@@ -226,6 +226,12 @@ func _silhouettes(node: Node3D, mat: ShaderMaterial, s: int, width: float, bound
 		i += 1
 
 
+## Sets a uniform on every layer's material (the boss theme's `glitch`).
+func set_param(param: StringName, value: Variant) -> void:
+	for mat in _materials:
+		mat.set_shader_parameter(param, value)
+
+
 ## The material of the foreground layer (for the see-through windows, shaders/reveal.gdshaderinc).
 func foreground_material() -> ShaderMaterial:
 	for i in LAYERS.size():

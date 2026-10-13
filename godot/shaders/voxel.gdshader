@@ -1,5 +1,8 @@
 // Voxel sprites (Voxel.mesh): unshaded linear vertex colours times `albedo`; `albedo` above 1.0 makes the
-// WorldEnvironment glow pick them up. `flash` draws everything white (Clawd's hit flash).
+// WorldEnvironment glow pick them up. `flash` draws everything white (Clawd's hit flash); per instance,
+// `tint` (linear rgb, alpha = amount) recolours a sprite like drawSprite()'s `tint` (an enemy's hit flash).
+// In dark levels sprites fade into the dark away from Clawd's lamp and the lights (shaders/darkness.gdshaderinc),
+// except glowing materials (`albedo` above 1).
 // Rim light: `rim_light` (world position, reach) and `rim_energy` (GlowLight.rim_for(), set per instance)
 // warm the side of the sprite facing that light: a 1 px rim on the silhouette edges of the front face
 // (UV.x holds each pixel's edges from Voxel.mesh(): 1 right, 2 left, 4 top, 8 bottom) and the side faces
@@ -12,6 +15,7 @@ render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
 #include "res://shaders/reveal.gdshaderinc"
+#include "res://shaders/darkness.gdshaderinc"
 
 uniform vec4 albedo = vec4(1.0);
 uniform bool flash = false;
@@ -19,6 +23,7 @@ instance uniform vec4 rim_light = vec4(0.0);
 instance uniform float rim_energy = 0.0;
 instance uniform vec4 sway = vec4(0.0);
 instance uniform float bend = 0.0;
+instance uniform vec4 tint = vec4(0.0);
 
 // The lanterns' warm light, linear.
 const vec3 RIM_COLOR = vec3(0.87, 0.38, 0.24);
@@ -47,11 +52,13 @@ void fragment() {
 		discard;
 	}
 	vec3 col = COLOR.rgb * albedo.rgb;
+	float near = 0.0; // the nearest light's reach here, for the darkness
 	if (rim_energy > 0.0) {
 		vec3 d = rim_light.xyz - wpos;
 		float dist = length(d);
 		float att = clamp(1.0 - dist / max(rim_light.w, 1e-3), 0.0, 1.0) * rim_energy;
 		att = floor(att * 3.0 + 0.5) / 3.0;
+		near = att;
 		if (att > 0.0) {
 			vec3 dir = d / max(dist, 1e-4);
 			int e = int(round(edges));
@@ -67,6 +74,11 @@ void fragment() {
 				col += RIM_COLOR * att * 1.3;
 			}
 		}
+	}
+	col = mix(col, tint.rgb, tint.a);
+	// Dark levels: sprites away from Clawd's lamp and the lights fade out; glowing materials do not.
+	if (albedo.r <= 1.0) {
+		col = mix(col, pow(DARK_COLOR, vec3(2.2)), darkness_at(wpos, near, ivec2(floor(wpos.xy * 16.0))));
 	}
 	ALBEDO = flash ? vec3(1.0) : col;
 }

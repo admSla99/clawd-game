@@ -45,6 +45,8 @@ var t := 0.0
 ## Selected level index on the map, and where the map's Clawd is (view px).
 var sel := 0
 var clawd_pos := Vector2.ZERO
+## Gun textures for the map's Clawd, per weapon id.
+var _gun_textures := {}
 ## Sub-agents and sparks per level (`A` and `S` in its map).
 var agents_total := {}
 var sparks_total := {}
@@ -226,6 +228,24 @@ func view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
 
 
+## The gun the map's Clawd holds: the equipped weapon while a world-2 level is selected, "" when unarmed.
+func map_gun() -> String:
+	if _world_of(sel) < 2 or Progress.weapons.is_empty():
+		return ""
+	return Progress.equipped if Progress.weapons.has(Progress.equipped) else String(Progress.weapons[0])
+
+
+## The gun in his hands as in a level (Gun._update_visual(), aiming right): 2 px cells, the grip 5 px right of
+## his middle and 9 px over his feet (`feet`, view px).
+func _draw_map_gun(id: String, feet: Vector2) -> void:
+	var tex: ImageTexture = _gun_textures.get(id)
+	if tex == null:
+		tex = Spark._texture(GunSprite.SPRITES[id], GunSprite.PALETTE)
+		_gun_textures[id] = tex
+	var size := tex.get_size() * Gun.CELL
+	draw_texture_rect(tex, Rect2((feet + Vector2(5, -9 + Gun.CELL) - Vector2(0, size.y)).round(), size), false)
+
+
 func _world_of(i: int) -> int:
 	return int(main.levels[i].world)
 
@@ -253,7 +273,7 @@ func node_pos(i: int) -> Vector2:
 
 func _card_rect() -> Rect2:
 	var v := view()
-	var w := 228.0
+	var w := 264.0
 	var y := maxf(v.position.y + v.size.y * 0.7, v.position.y + v.size.y * 0.62 + 42)
 	return Rect2(roundf(v.get_center().x - w / 2), roundf(y), w, 46)
 
@@ -510,10 +530,13 @@ func _draw_map() -> void:
 	for i in ids.size():
 		_draw_node(i)
 
-	# Clawd on the selected node.
+	# Clawd on the selected node, armed in world 2 once he has a weapon (TS says so but draws him unarmed).
 	var hop := roundf(absf(sin(t * 4)) * 2)
 	var clawd := ClawdSprite.texture(ClawdSprite.rows({"arms": "mid", "legs": "stand", "eyes": "blink" if fmod(t, 3.0) > 2.85 else "open"}))
 	draw_texture(clawd, (clawd_pos + Vector2(-clawd.get_width() / 2.0, -10 - clawd.get_height() - hop)).round())
+	var gun_id := map_gun()
+	if gun_id != "":
+		_draw_map_gun(gun_id, clawd_pos + Vector2(0, -10 - hop))
 
 	_draw_card()
 	# All sparks found, bottom left (SPARKS FOUND in TS), and the keys.
@@ -557,25 +580,39 @@ func _draw_card() -> void:
 	var hover := r.has_point(_mouse)
 	Hud.panel(self, r, Hud.ORANGE if hover else BORDER, Color(0.07, 0.07, 0.08, 0.94), true)
 	var cx := r.get_center().x
-	_big("%s · %s" % [def.id, String(def.name).to_upper()], Vector2(cx, r.position.y + 6), Hud.TEXT, true)
+	# The name at twice the size when it fits the card, else at the normal size (2-3's is too long).
+	var title := "%s · %s" % [def.id, String(def.name).to_upper()]
+	if PixelFont.width(title) * 2 <= r.size.x - 16:
+		_big(title, Vector2(cx, r.position.y + 6), Hud.TEXT, true)
+	else:
+		PixelFont.draw_centred(self, title, cx + 1, r.position.y + 11, Color(0, 0, 0, 0.65))
+		PixelFont.draw_centred(self, title, cx, r.position.y + 10, Hud.TEXT)
 	PixelFont.draw_centred(self, def.subtitle, cx, r.position.y + 22, Hud.TEXT_DIM)
+	# The bottom row left to right: sparks, sub-agents, CLEARED, ARMED; the best time (or PLAY) on the right.
 	var y := r.position.y + 33
 	var x := r.position.x + 10
 	var stotal: int = sparks_total.get(def.id, 0)
 	if stotal > 0:
 		var sgot := Progress.count(prog.sparks)
+		var s := "%d / %d" % [sgot, stotal]
 		draw_texture(Spark.icon(sgot == 0), Vector2(x, y - 2))
-		PixelFont.draw(self, "%d / %d" % [sgot, stotal], Vector2(x + 13, y), Hud.TEXT)
-		x += 50
+		PixelFont.draw(self, s, Vector2(x + 13, y), Hud.TEXT)
+		x += 13 + PixelFont.width(s) + 12
 	var total: int = agents_total.get(def.id, 0)
 	if total > 0:
 		var got := Progress.count(prog.agents)
+		var s := "%d / %d" % [got, total]
 		draw_texture(ClawdSprite.texture(ClawdSprite.frame(), Color(0, 0, 0, 0) if got > 0 else Color("#6A6A6A")), Vector2(x, y - 2))
-		PixelFont.draw(self, "%d / %d" % [got, total], Vector2(x + 17, y), Hud.TEXT)
-	if def.world == 2:
-		PixelFont.draw(self, "ARMED", Vector2(x + 50, y), Hud.ORANGE)
+		PixelFont.draw(self, s, Vector2(x + 17, y), Hud.TEXT)
+		x += 17 + PixelFont.width(s) + 12
+	var tags := []
 	if prog.completed:
-		PixelFont.draw_centred(self, "CLEARED", cx + 16, y, Hud.ORANGE_LIGHT)
+		tags.append(["CLEARED", Hud.ORANGE_LIGHT])
+	if def.world == 2:
+		tags.append(["ARMED", Hud.ORANGE])
+	for tag in tags:
+		PixelFont.draw(self, tag[0], Vector2(x, y), tag[1])
+		x += PixelFont.width(tag[0]) + 8
 	if prog.best_time != null:
 		var bt := Progress.format_time(prog.best_time)
 		PixelFont.draw(self, bt, Vector2(r.end.x - 10 - PixelFont.width(bt), y), Hud.TEXT_DIM)

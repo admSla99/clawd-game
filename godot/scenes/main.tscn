@@ -69,6 +69,13 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
+[node name="Motif" type="ColorRect" parent="View/SubViewport/World/Background"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
 [node name="Parallax" type="Node2D" parent="View/SubViewport/World/Background"]
 script = ExtResource("5")
 

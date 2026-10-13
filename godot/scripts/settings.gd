@@ -1,7 +1,7 @@
 extends Node
 
-## Autoload "Settings": the player's key bindings, the CRT filter and mute, saved in user://settings.cfg (like
-## `save.keys` and `renderer.crt` in src/app.ts). Bindings follow src/core/input.ts: every action the player
+## Autoload "Settings": the player's key bindings, the CRT filter, mute and the crosshair's colour, saved in
+## user://settings.cfg (like `save.keys` and `renderer.crt` in src/app.ts; the crosshair colour is the port's). Bindings follow src/core/input.ts: every action the player
 ## can rebind has up to SLOTS keys (physical keycodes, so the layout of the keyboard does not matter), applied
 ## to the InputMap actions of the same name; a few keys always do the same thing (FIXED) and cannot be
 ## rebound. W may serve both jump and up, as in the default layout; any other key belongs to one action.
@@ -9,17 +9,18 @@ extends Node
 ## Where they are saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://settings.cfg"
 const SLOTS := 3
-## Actions the player can rebind, in the order the keybinding menu lists them. The TS list also has prev and
-## next (weapon switching), which the port does not have yet.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"pause", &"shop", &"mute", &"controls"]
+## Actions the player can rebind, in the order the keybinding menu lists them.
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
 	&"up": "UP",
 	&"down": "DOWN / POUND",
 	&"jump": "JUMP",
-	&"attack": "ATTACK (SPIN)",
+	&"attack": "ATTACK (SPIN / SHOOT)",
 	&"spin": "SPIN",
+	&"prev": "PREV WEAPON",
+	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
 	&"shop": "SHOP (MAP)",
 	&"mute": "MUTE",
@@ -33,17 +34,32 @@ const DEFAULTS := {
 	&"jump": [KEY_SPACE, KEY_W, KEY_K],
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
+	&"prev": [KEY_Q],
+	&"next": [KEY_E],
 	&"pause": [KEY_P],
 	&"shop": [KEY_B],
 	&"mute": [KEY_M],
 	&"controls": [KEY_H],
 }
 ## Keys that cannot be rebound (FIXED_KEYS in TS): Escape pauses and goes back, Enter and Space confirm,
-## Backspace goes back.
+## Backspace goes back, 1-5 pick a weapon slot.
 const FIXED := {
 	&"pause": [KEY_ESCAPE],
 	&"confirm": [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE],
 	&"back": [KEY_ESCAPE, KEY_BACKSPACE],
+	&"slot1": [KEY_1],
+	&"slot2": [KEY_2],
+	&"slot3": [KEY_3],
+	&"slot4": [KEY_4],
+	&"slot5": [KEY_5],
+}
+## The mouse (attachMouse() in src/core/input.ts): the left button attacks (shoots when armed), the right one
+## spins, the wheel switches weapons (down = next).
+const MOUSE := {
+	&"attack": [MOUSE_BUTTON_LEFT],
+	&"spin": [MOUSE_BUTTON_RIGHT],
+	&"next": [MOUSE_BUTTON_WHEEL_DOWN],
+	&"prev": [MOUSE_BUTTON_WHEEL_UP],
 }
 ## Short names for keys whose own name is too long for a key slot.
 const SHORT := {
@@ -53,10 +69,17 @@ const SHORT := {
 	KEY_HOME: "HOME", KEY_END: "END", KEY_PAGEUP: "PGUP", KEY_PAGEDOWN: "PGDN", KEY_META: "META",
 }
 
+## The crosshair's colours, [name, colour], picked in the pause menu (a port addition: TS's orange dots got lost
+## against the orange and red levels). White, with the crosshair's dark outline, reads on every level.
+const CROSSHAIRS := [["WHITE", Color("#FFFFFF")], ["CYAN", Color("#5FF2FF")], ["LIME", Color("#B4FF4D")],
+	["MAGENTA", Color("#FF5CDB")], ["YELLOW", Color("#FFE45C")], ["ORANGE", Color("#D97757")]]
+
 ## Action -> Array of physical keycodes.
 var bindings := {}
 var crt := true
 var muted := false
+## Index into CROSSHAIRS.
+var crosshair := 0
 
 
 func _ready() -> void:
@@ -69,6 +92,8 @@ func _ready() -> void:
 				bindings[a] = keys.slice(0, SLOTS)
 		crt = cfg.get_value("video", "crt", true)
 		muted = cfg.get_value("audio", "muted", false)
+		var name: String = str(cfg.get_value("video", "crosshair", "WHITE"))
+		crosshair = maxi(0, CROSSHAIRS.map(func(c: Array) -> String: return c[0]).find(name))
 	apply()
 
 
@@ -89,6 +114,10 @@ func apply() -> void:
 			var e := InputEventKey.new()
 			e.physical_keycode = code
 			InputMap.action_add_event(a, e)
+		for button in MOUSE.get(a, []):
+			var m := InputEventMouseButton.new()
+			m.button_index = button
+			InputMap.action_add_event(a, m)
 
 
 func save() -> void:
@@ -97,6 +126,7 @@ func save() -> void:
 	for a in BINDABLE:
 		cfg.set_value("keys", a, bindings[a])
 	cfg.set_value("video", "crt", crt)
+	cfg.set_value("video", "crosshair", CROSSHAIRS[crosshair][0])
 	cfg.set_value("audio", "muted", muted)
 	cfg.save(path)
 
@@ -152,6 +182,16 @@ func set_muted(on: bool) -> void:
 func set_crt(on: bool) -> void:
 	crt = on
 	save()
+
+
+## The next (`step` 1) or previous (-1) crosshair colour, saved.
+func cycle_crosshair(step := 1) -> void:
+	crosshair = posmod(crosshair + step, CROSSHAIRS.size())
+	save()
+
+
+func crosshair_color() -> Color:
+	return CROSSHAIRS[crosshair][1]
 
 
 ## keyLabel() in src/core/input.ts: arrows as arrows, letters and symbols as themselves, short names for the rest.

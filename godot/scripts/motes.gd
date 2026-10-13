@@ -4,7 +4,7 @@ extends MultiMeshInstance3D
 ## Fireflies / data motes floating in the air of the level, at depths from behind the forest's nearest
 ## trunks to just in front of the gameplay plane: glowing 1-2 px cubes in the theme's light colour that
 ## drift on slow loops and blink. Every few carries a small GlowLight, so they light the terrain they pass.
-## Generated from the level's terrainSeed; dark levels get more of them. Runs on game time, so hitstop
+## Generated from the level's terrainSeed; dark levels get a few more of them (dimmed away from Clawd's lamp). Runs on game time, so hitstop
 ## and pause hold them.
 
 const SHADER := preload("res://shaders/motes.gdshader")
@@ -22,7 +22,7 @@ func setup(seed: int, bounds: Vector2, palette: Dictionary, dark: bool) -> void:
 		l.free()
 	_lights.clear()
 	_motes.clear()
-	var n := int(bounds.x * bounds.y / 4096.0 * DENSITY * (1.8 if dark else 1.0))
+	var n := int(bounds.x * bounds.y / 4096.0 * DENSITY * (1.2 if dark else 1.0))
 	var light: Color = palette.light
 	for i in n:
 		var h := func(k: int) -> float: return DotNoise.hash2(i, k, seed + 77)

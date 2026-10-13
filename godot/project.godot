@@ -106,3 +106,14 @@ next_level={
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.0862745, 0.0862745, 0.0862745, 1)
+
+[shader_globals]
+
+dark_amount={
+"type": "float",
+"value": 0.0
+}
+dark_lamp={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 1)
+}

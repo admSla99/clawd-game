@@ -8,12 +8,14 @@
 // "lights") light the pixels around them in four steps, dithered where the steps meet; on block fronts
 // only the crust near open air takes light, it does not shine into the body. `shadows` (x, floor y, height above it in
 // tiles, radius) put blob shadows on the floor under Clawd and the enemies (Level.set_shadows()). `game_time` is Game.time, so hitstop and pause freeze
-// the animation. Colours are written in sRGB and converted at the end.
+// the animation. In dark levels shaders/darkness.gdshaderinc darkens what neither Clawd's lamp nor the lights
+// reach. Colours are written in sRGB and converted at the end.
 shader_type spatial;
 render_mode unshaded;
 
 #include "res://shaders/oblique.gdshaderinc"
 #include "res://shaders/fog.gdshaderinc"
+#include "res://shaders/darkness.gdshaderinc"
 
 const int MAX_LIGHTS = 32;
 
@@ -330,8 +332,15 @@ void fragment() {
 			}
 		}
 	}
-	col = lit(col, occl > 0.0 ? light_level(lp, lpx) * occl : 0.0);
+	float light = occl > 0.0 ? light_level(lp, lpx) * occl : 0.0;
+	col = lit(col, light);
 	// The back of the blocks (top bands, sides) fades a little into the depth fog.
 	col = apply_fog(col, -wpos.z, SCREEN_UV.y);
+	// In dark levels only Clawd's lamp and the lights show the blocks; the glow of corrupted blocks and spike
+	// tips still shines, so the hazards and what a pound breaks read in the dark (circuit nodes do not: all over
+	// the rock they would read as a starry sky).
+	if (boost <= 1.0 || (mode != 2 && mode != 3)) {
+		col = apply_darkness(col, lp, light, lpx);
+	}
 	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2)) * boost;
 }

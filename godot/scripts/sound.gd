@@ -47,7 +47,9 @@ const TRACKS := {
 
 ## The effects the port uses, rendered at start-up (play() renders any other one on first use).
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
-	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect"]
+	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
+	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
+	"explode", "hit", "typing", "slam", "laser"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -358,6 +360,51 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 				tone(buf, "square", f, f, 0.1, 0.09, i * 0.05)
 		"deflect":
 			tone(buf, "triangle", 2400, 1800, 0.08, 0.08)
+		"shoot":
+			tone(buf, "square", 1400, 500, 0.1, 0.05)
+		"gunToken":
+			tone(buf, "square", 980, 420, 0.06, 0.06)
+		"gunPellet":
+			noise(buf, 0.14, 0.35, 2200, 300, 0, 0.7)
+			tone(buf, "square", 220, 80, 0.1, 0.1)
+		"gunGlyph":
+			# TS picks 1500-2100 Hz at random; the pre-rendered effect uses the middle.
+			tone(buf, "square", 1800, 900, 0.03, 0.035)
+		"gunBeam":
+			tone(buf, "sawtooth", 1800, 1700, 0.08, 0.025)
+		"gunOrb":
+			tone(buf, "sine", 300, 90, 0.35, 0.3)
+			tone(buf, "square", 600, 150, 0.2, 0.06)
+		"overheat":
+			tone(buf, "sawtooth", 700, 120, 0.5, 0.1)
+			noise(buf, 0.5, 0.2, 4000, 500, 0, 2)
+		"explode":
+			tone(buf, "sine", 160, 30, 0.45, 0.5)
+			noise(buf, 0.45, 0.5, 1500, 60, 0, 0.6)
+		"hit":
+			tone(buf, "square", 420, 300, 0.04, 0.05)
+		"bossHit":
+			tone(buf, "sawtooth", 300, 60, 0.4, 0.2)
+			noise(buf, 0.4, 0.4, 4000, 200, 0, 0.8)
+		"bossTeleport":
+			tone(buf, "sine", 200, 1600, 0.3, 0.1)
+			noise(buf, 0.3, 0.12, 6000, 1500, 0, 3)
+		"weaponGet":
+			for i in 7:
+				var f := midi(64 + [0, 4, 7, 12, 16, 19, 24][i])
+				tone(buf, "square", f, f, 0.25, 0.1, i * 0.08)
+		"crush":
+			tone(buf, "sine", 110, 35, 0.35, 0.45)
+			noise(buf, 0.3, 0.35, 400, 60, 0, 0.6)
+		"typing":
+			# TS picks 3000-5000 Hz at random; the pre-rendered effect uses the middle.
+			noise(buf, 0.025, 0.25, 4000, 2000, 0, 3)
+		"slam":
+			tone(buf, "sine", 90, 30, 0.5, 0.6)
+			noise(buf, 0.4, 0.5, 600, 50, 0, 0.5)
+		"laser":
+			tone(buf, "sawtooth", 220, 2200, 0.4, 0.12)
+			noise(buf, 0.4, 0.2, 5000, 800, 0, 1)
 		"heart":
 			for i in 4:
 				var f := midi(72 + [0, 5, 9, 12][i])
@@ -377,6 +424,21 @@ static func _sfx_length(id: String) -> float:
 		"heart": return 3 * 0.06 + 0.15
 		"buy": return 3 * 0.05 + 0.1
 		"deflect": return 0.08
+		"shoot": return 0.1
+		"bossHit": return 0.4
+		"gunToken": return 0.06
+		"gunPellet": return 0.14
+		"gunGlyph": return 0.03
+		"gunBeam": return 0.08
+		"gunOrb": return 0.35
+		"overheat", "explode": return 0.5
+		"hit": return 0.04
+		"bossTeleport": return 0.3
+		"weaponGet": return 6 * 0.08 + 0.25
+		"crush": return 0.35
+		"typing": return 0.025
+		"slam": return 0.5
+		"laser": return 0.4
 		"die": return 0.6
 		"denied": return 0.28
 		"break", "poundLand", "hurt": return 0.3
