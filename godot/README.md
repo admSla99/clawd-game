@@ -454,7 +454,8 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 Per-level sections live in `tools/checks/<id>.gd`, one file per level, run in name order where the 2-1 section
 used to be (`level_sections()`): each has `const TITLE` and `func run(c) -> bool`, with `c` the check script
 (`c.ok()`, `await c.frames()`, `c.current_scene`, `c.enemies_of()`, `c.bugs()`, `await c.drive()`, ...);
-`tools/checks/2-1.gd` is the template; a file that does not load (a parse error) counts as a failure. A run keeps its progress and settings in files named after its process id,
+`tools/checks/2-1.gd` is the template; a file that does not load (a parse error) counts as a failure. A run keeps its progress and settings (from the start to the end of the run, so pressing M or rebinding never
+saves into the player's `settings.cfg`) in files named after its process id,
 so checks in several worktrees of the project (which share `user://`) can run at the same time.
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap

@@ -68,6 +68,11 @@ func _init() -> void:
 	progress.path = "user://progress_check_%d.json" % OS.get_process_id()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.load_file()
+	# The same for the settings: sections that press M or rebind keys save them, and parallel runs writing the
+	# player's settings.cfg left the game muted.
+	var settings = root.get_node("Settings")
+	var real_settings: String = settings.path
+	settings.path = "user://settings_check_%d.cfg" % OS.get_process_id()
 	await section("noise (golden values from src/core/noise.ts)", check_noise)
 	await section("levels match levels/<id>.txt", check_levels)
 	await section("player physics (tests/player.test.ts)", check_physics)
@@ -93,6 +98,8 @@ func _init() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
 	progress.path = real_progress
 	progress.load_file()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.path))
+	settings.path = real_settings
 	print("%s: %d failure(s)" % ["PASS" if failures == 0 else "FAIL", failures])
 	quit(1 if failures else 0)
 
