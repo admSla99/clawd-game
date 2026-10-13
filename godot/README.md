@@ -293,7 +293,10 @@ Output, Attention Beam, Opus Cannon; slots 1-5 in `ORDER`), the gun mods the sho
   muzzle flash.
 
 `scripts/bullet.gd` (`Bullet`, group `bullets`) is `Bullet` from `src/entities/bullets.ts` with the bullet half
-of `checkBullets()`: it flies straight and stops on a solid or corrupted tile; it hits each enemy once (sound
+of `checkBullets()`: it flies straight (swept in 2 px steps) and stops where `Bullet.blocked()`: on a solid or
+corrupted tile as in TS and, in the port (the user's call: platforms are cover), on the 4 px plank of a one-way
+tile from either side and on every platform (group `platforms`: moving platforms, rate limiters, fake platforms);
+it hits each enemy once (sound
 "hit"), stops unless it still pierces, shoots down enemy shots that can be shot down, and ricochets off a shield
 turned towards it (`blocks_direction()`, for the ShieldBot). Kinds, as glowing voxels (their own material at
 1.7× glow): a spinning coin with a trail dot (token), a hot 3 px square (pellet, five in a fan), a code character
@@ -301,7 +304,7 @@ from the pixel font (glyph), and the orb: an orange core with ten dots circling 
 sparks, which explodes where it stops or when its life runs out. `Main.explode()` (`explode()`): 40 px of
 splash damage to every enemy box in reach, enemy shots shot down, corrupted clusters in reach broken (like the
 pound, with debris through the blocks' depth), shake, the explode sound. `Main.fire_beam()` (`fireBeam()`):
-the Attention Beam marches 300 px from the muzzle in 3 px steps until a solid tile and hits everything on the
+the Attention Beam marches 300 px from the muzzle in 2 px steps until `Bullet.blocked()` and hits everything on the
 way, except through a shield; `BeamFx` (`scripts/beam_fx.gd`, a MultiMesh) shows each beam for 0.06 s as a
 jittering line of 2 px dots, cyan with white every 6 px.
 
@@ -499,7 +502,8 @@ tests, rm -rf columns, both hands in phase 2, stomps, SEGFAULT, CODEX HAS BEEN D
 CLEAR and THANKS FOR PLAYING!), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
-cooling, Longer Context, a token stops at the first enemy, the beam pierces, shooting down enemy shots and not the
+cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
+and a token on a platform, shooting down enemy shots and not the
 ones that can't be, next / prev / slot switching and saving, attack shoots instead of spinning, the orb's
 explosion breaking 1-1's corrupted blocks with splash damage, damage numbers adding up and marking the kill, health
 bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), the controls help (shooting lines once a weapon

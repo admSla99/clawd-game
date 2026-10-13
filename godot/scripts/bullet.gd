@@ -3,7 +3,7 @@ extends Node3D
 
 ## A shot of Clawd's gun, from `Bullet` in src/entities/bullets.ts, with the bullet half of checkBullets() in
 ## src/scenes/game.ts: it flies straight, stops on a solid or corrupted tile (an orb explodes there, and when
-## its life runs out), and hits each enemy once: enemy shots that can be shot down vanish with it; otherwise
+## its life runs out) and, unlike TS (the user's call), on platforms too (blocked()), and hits each enemy once: enemy shots that can be shot down vanish with it; otherwise
 ## the enemy takes its damage, and it stops unless it still pierces. A shield turned towards it makes it
 ## ricochet (enemies with blocks_direction()). Lives in the level; `pos` is its centre in level pixels.
 ## Drawn as small glowing voxels: a spinning coin (token), a hot square (pellet), a code character (glyph) or
@@ -14,6 +14,8 @@ const ORANGE := Color("#D97757")
 const ORANGE_LIGHT := Color("#F0A585")
 const GLYPHS := "abcdefghijklmnopqrstuvwxyz{}();=<>/+*01"
 const GLOW := 1.7
+## How high the plank of a one-way tile is (its mesh in tools/build_meshlib.gd is 0.25 m tall at the cell's top).
+const ONEWAY_TOP := 4.0
 
 static var MATERIAL := Voxel.material(GLOW)
 static var _meshes := {}
@@ -94,12 +96,17 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	life -= dt
-	pos += vel * dt
+	# Swept in 2 px steps, so a fast bullet can't skip a one-way plank.
+	var from := pos
+	var to := pos + vel * dt
+	var steps := maxi(1, ceili(from.distance_to(to) / 2.0))
+	for i in steps:
+		pos = from.lerp(to, float(i + 1) / steps)
+		if blocked(level, pos):
+			impact()
+			return
 	if kind == "orb" and randf() < 0.7:
 		Fx.burst(self, pos, {count = 1, speed = 15, life = 0.35, color = [ORANGE, ORANGE_LIGHT]})
-	if level.tile(pos) in [Level.SOLID, Level.CORRUPT]:
-		impact()
-		return
 	if life <= 0:
 		if not splash.is_empty():
 			impact()
@@ -109,6 +116,21 @@ func _physics_process(dt: float) -> void:
 	_check_enemies()
 	if not dead:
 		_update_visual()
+
+
+## Whether Clawd's shots (bullets and the beam) stop at `p` (level px): a solid or corrupted tile as in TS,
+## and in the port also the plank of a one-way tile and every platform (moving, the rate limiters' tops, the
+## Hallucination's fake ones), so platforms are cover from both sides.
+static func blocked(lvl: Level, p: Vector2) -> bool:
+	var tile := lvl.tile(p)
+	if tile in [Level.SOLID, Level.CORRUPT]:
+		return true
+	if tile == Level.ONEWAY and fposmod(p.y, 16.0) < ONEWAY_TOP:
+		return true
+	for plat in lvl.get_tree().get_nodes_in_group("platforms"):
+		if plat.rect().has_point(p):
+			return true
+	return false
 
 
 ## checkBullets() for this bullet.

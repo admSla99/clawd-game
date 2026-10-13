@@ -192,6 +192,9 @@ Things the user asked for on top of the TS game and the tasks above, so we know 
       size is drawn at the normal size.
 - [x] **A heart per 300 tokens** (M12, 2026-10-13): TS gives one per 100 (`Main.TOKENS_PER_HEART`); with 5× tokens
       that made 2-3 extra hearts in every world-2 level.
+- [x] **Platforms are cover** (bug list, 2026-10-13): Clawd's bullets and the beam stop on one-way planks (from
+      either side), moving platforms, rate limiters and fake platforms, not only on solid / corrupted tiles as in
+      TS (`Bullet.blocked()`).
 
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.

@@ -1338,6 +1338,43 @@ func check_gun() -> bool:
 	fresh.hit(&"shot", 100)
 	await frames(2)
 
+	# Platforms are cover (the port, the user's call): shots stop on a one-way plank from below and on a platform.
+	var plank := Vector2i(-1, -1)
+	for c: Vector3i in m.level.oneway.get_used_cells():
+		# GridMap cell y is -(row + 1); the rows under the plank's cell must be open.
+		var below := Vector2(c.x * 16 + 8, (-c.y - 1) * 16 + 16)
+		var open := true
+		for dy in range(4, 68, 8):
+			open = open and m.level.tile(below + Vector2(0, dy)) not in [level_script.SOLID, level_script.CORRUPT, level_script.ONEWAY]
+		if open:
+			plank = Vector2i(c.x, -c.y - 1)
+			break
+	ok(plank.x >= 0, "2-1 has a one-way plank with room under it")
+	var plank_top := Vector2(plank.x * 16 + 8, plank.y * 16)
+	var over_plank = target(m, plank_top + Vector2(0, -20), 10)
+	var cover_b = bullet_script.fire(m.level, plank_top + Vector2(0, 60), -PI / 2, 440, weapons.get_def("blaster"), 2.0)
+	var last := Vector2.ZERO
+	for i in 15:
+		if gone(cover_b): break
+		last = cover_b.pos
+		await physics_frame
+	ok(gone(cover_b) and last.y > plank_top.y and last.y < plank_top.y + 16 and over_plank.hp == 10.0,
+		"a token fired up stops on the one-way plank (last seen at y %.1f, plank %d) and the bug above is safe" % [last.y, plank_top.y])
+	m.fire_beam(plank_top + Vector2(0, 60), -PI / 2, 1.0)
+	ok(over_plank.hp == 10.0, "so does the beam")
+	over_plank.hit(&"shot", 100)
+	var fake = load("res://scripts/fake_platform.gd").create(m.level, at + Vector2(40, -3), 32)
+	var behind = target(m, at + Vector2(100, 0), 10)
+	var cover_b2 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)
+	for i in 15:
+		if gone(cover_b2): break
+		last = cover_b2.pos
+		await physics_frame
+	ok(gone(cover_b2) and last.x < at.x + 44 and behind.hp == 10.0, "a token stops on a platform in its way (x %.1f)" % (last.x - at.x))
+	behind.hit(&"shot", 100)
+	fake.queue_free()
+	await frames(2)
+
 	# Enemy shots that can be shot down vanish with the bullet; the others let it pass.
 	var shot = shot_script.fire(m.level, at + Vector2(80, 0), Vector2(-40, 0), Color.RED, true, 4.0)
 	var b2 = bullet_script.fire(m.level, at, 0.0, 380, weapons.get_def("blaster"), 2.0)

@@ -124,7 +124,7 @@ weapon switching, the HUD weapon panel and crosshair, and the shop's ARMORY and 
 No gamepad support (the user's call).
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
 `godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10; a heart per 300 tokens, not 100) and has 3× its TS hp
-(`Enemy.HP_FACTOR`, not bosses); sparks are a solid glowing star; spikes are a bed across the block depth; hit
+(`Enemy.HP_FACTOR`, not bosses); sparks are a solid glowing star; Clawd's shots stop on platforms too (`Bullet.blocked()`); spikes are a bed across the block depth; hit
 enemies show damage numbers and, once hurt, a health bar (`Overlay`); the shop opens after clearing 1-1 and adds
 Spark Radar, Fortune Haiku, Firewall and Double Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd
 finds a weapon. TS prices stay; the port's own items are priced for the 5× income, and the shop's spark prices

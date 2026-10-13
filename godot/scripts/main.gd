@@ -563,7 +563,8 @@ func explode(at: Vector2, radius: float, damage: float) -> void:
 		Sound.play("break")
 
 
-## fireBeam(): the Attention Beam hits everything along 300 px from the muzzle until a solid tile; shields
+## fireBeam(): the Attention Beam hits everything along 300 px from the muzzle until a solid tile (in the port
+## anything Bullet.blocked(): platforms too); shields
 ## block it, enemy shots it can shoot down vanish.
 func fire_beam(from: Vector2, angle: float, damage: float) -> void:
 	var dir := Vector2(cos(angle), sin(angle))
@@ -572,12 +573,12 @@ func fire_beam(from: Vector2, angle: float, damage: float) -> void:
 	var d := 0.0
 	while d < 300:
 		end = from + dir * d
-		if level.tile(end) in [Level.SOLID, Level.CORRUPT]:
+		if Bullet.blocked(level, end):
 			break
 		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 			if not e.dead and not hit.has(e) and e.rect().has_point(end):
 				hit.append(e)
-		d += 3
+		d += 2
 	for e: Enemy in hit:
 		if e.projectile:
 			if e.cancellable:
