@@ -28,8 +28,9 @@ const LAMP_Z := 1.0
 const DARK_SKY := 0.3
 const ORANGE := Color("#D97757")
 const RED := Color("#E0605A")
-## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts.
-const TOKENS_PER_HEART := 100
+## PLAYER.tokensPerHeart and PLAYER.heartCap in src/config.ts. TS gives a heart per 100 tokens; with every enemy
+## dropping 5× its tokens that would be 2-3 extra hearts in each world-2 level, so the port asks for 300.
+const TOKENS_PER_HEART := 300
 const HEART_CAP := 5
 
 enum Mode { TITLE, MAP, PLAY, SHOP }

@@ -189,6 +189,8 @@ Things the user asked for on top of the TS game and the tasks above, so we know 
 - [x] **Map card fix** (2026-10-12): CLEARED and ARMED overlapped on world-2 cards, and 2-3's name ran out of
       the card: the card is wider, its bottom row is laid out left to right, and a name too long for twice the
       size is drawn at the normal size.
+- [x] **A heart per 300 tokens** (M12, 2026-10-13): TS gives one per 100 (`Main.TOKENS_PER_HEART`); with 5× tokens
+      that made 2-3 extra hearts in every world-2 level.
 
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.

@@ -1530,15 +1530,18 @@ func check_hud() -> bool:
 	await frames(60)
 	ok(hud._hearts == p.MAX_HEARTS, "then the hearts come back")
 
-	# Every 100 tokens give a heart, up to 5, and a checkpoint keeps them.
-	m.tokens = 99
+	# Every 300 tokens give a heart (100 in TS), up to 5, and a checkpoint keeps them.
+	m.tokens = 98
 	m.collect_token(p.pos)
-	ok(p.hearts == p.MAX_HEARTS + 1, "the 100th token gives a heart")
+	ok(p.hearts == p.MAX_HEARTS, "the 100th token gives none (the port asks for 300)")
+	m.tokens = 299
+	m.collect_token(p.pos)
+	ok(p.hearts == p.MAX_HEARTS + 1, "the 300th token gives a heart")
 	await frames(2)
 	ok(hud._slots() == p.MAX_HEARTS + 1, "the HUD grows a slot for it")
 	m.activate_checkpoint(m.level.get_children().filter(func(c): return c.get_script() == load("res://scripts/checkpoint.gd"))[0])
 	ok(p.hearts == p.MAX_HEARTS + 1, "a checkpoint does not take it away")
-	m.tokens = 499
+	m.tokens = 899
 	p.hearts = 5
 	m.collect_token(p.pos)
 	ok(p.hearts == 5, "no more than 5 hearts")

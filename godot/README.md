@@ -470,7 +470,7 @@ respawn), signs (texts, bubble near Clawd, glyphs for every sign text) and exit 
 level), and that a running jump clears
 crossing the 26-tile gap of 1-1 on its two moving platforms (a
 small controller jumps when the next platform comes close), that a tapped jump is a full jump, and the HUD
-(tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 100 tokens up
+(tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 300 tokens up
 to 5), and the menus (pause freezes the world, every pause item, the HUD buttons, rebinding with conflicts,
 clearing, reset, saving to a separate settings file, glyphs for every key name), and the sound (every effect
 renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
@@ -595,8 +595,9 @@ so through hitstop:
   glints and the digits jump 1 px in light orange;
 - it fades out under the level-complete panel.
 
-Like `collectToken()` in TS, every 100th token gives a heart, up to 5 (the HUD grows a slot, "+1 HEART"
-pops up), and a checkpoint refills to 3 without taking those away.
+Like `collectToken()` in TS, every 300th token gives a heart (100th in TS: with 5× tokens that would be 2-3 extra
+hearts in every world-2 level), up to 5 (the HUD grows a slot, "+1 HEART" pops up), and a checkpoint refills to
+3 without taking those away.
 
 Armed (world 2), `_draw_weapon()` is `drawWeaponHud()` and `drawCrosshair()`: bottom left a panel with the
 weapon's name, slots 1-5 (the held one orange, owned ones grey, the rest dark) and the CONTEXT bar of 26 cells
