@@ -45,6 +45,8 @@ var t := 0.0
 ## Selected level index on the map, and where the map's Clawd is (view px).
 var sel := 0
 var clawd_pos := Vector2.ZERO
+## Gun textures for the map's Clawd, per weapon id.
+var _gun_textures := {}
 ## Sub-agents and sparks per level (`A` and `S` in its map).
 var agents_total := {}
 var sparks_total := {}
@@ -224,6 +226,24 @@ func _play(i: int) -> void:
 ## The part of the SubViewport on screen (Main.PAD is cut off on every side).
 func view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
+
+
+## The gun the map's Clawd holds: the equipped weapon while a world-2 level is selected, "" when unarmed.
+func map_gun() -> String:
+	if _world_of(sel) < 2 or Progress.weapons.is_empty():
+		return ""
+	return Progress.equipped if Progress.weapons.has(Progress.equipped) else String(Progress.weapons[0])
+
+
+## The gun in his hands as in a level (Gun._update_visual(), aiming right): 2 px cells, the grip 5 px right of
+## his middle and 9 px over his feet (`feet`, view px).
+func _draw_map_gun(id: String, feet: Vector2) -> void:
+	var tex: ImageTexture = _gun_textures.get(id)
+	if tex == null:
+		tex = Spark._texture(GunSprite.SPRITES[id], GunSprite.PALETTE)
+		_gun_textures[id] = tex
+	var size := tex.get_size() * Gun.CELL
+	draw_texture_rect(tex, Rect2((feet + Vector2(5, -9 + Gun.CELL) - Vector2(0, size.y)).round(), size), false)
 
 
 func _world_of(i: int) -> int:
@@ -510,10 +530,13 @@ func _draw_map() -> void:
 	for i in ids.size():
 		_draw_node(i)
 
-	# Clawd on the selected node.
+	# Clawd on the selected node, armed in world 2 once he has a weapon (TS says so but draws him unarmed).
 	var hop := roundf(absf(sin(t * 4)) * 2)
 	var clawd := ClawdSprite.texture(ClawdSprite.rows({"arms": "mid", "legs": "stand", "eyes": "blink" if fmod(t, 3.0) > 2.85 else "open"}))
 	draw_texture(clawd, (clawd_pos + Vector2(-clawd.get_width() / 2.0, -10 - clawd.get_height() - hop)).round())
+	var gun_id := map_gun()
+	if gun_id != "":
+		_draw_map_gun(gun_id, clawd_pos + Vector2(0, -10 - hop))
 
 	_draw_card()
 	# All sparks found, bottom left (SPARKS FOUND in TS), and the keys.

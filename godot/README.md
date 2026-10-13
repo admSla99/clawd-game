@@ -506,7 +506,8 @@ bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), th
 is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, the spark prices add up
 to the sparks in the levels, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map; with a weapon the ARMORY and
-GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects).
+GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects, the map's Clawd holding the equipped weapon in
+world 2 only).
 
 ## Game clock and camera
 
@@ -655,7 +656,8 @@ moving platforms. The level's own world text, the HUD and the see-through window
   above a row of 24 x 18 px level nodes, high enough that Clawd hopping on a node never covers it; the rows sit at
   32 % and 62 % of the height (30 % / 56 % in TS) to make room. The nodes lie along a dotted path that lifts
   between them, with a light running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
-  game's 1 px Clawd as a 2D sprite); locked levels show a padlock, finished ones an orange corner, bosses a
+  game's 1 px Clawd as a 2D sprite; on a world-2 node, once he has a weapon, he holds the equipped one as in a
+  level, aiming right, `map_gun()`: TS's comment says "armed in world 2" but its code draws him unarmed); locked levels show a padlock, finished ones an orange corner, bosses a
   red-tinted node labelled BOSS. The banked tokens and the sparks not spent sit top right, next to the SHOP
   button (B), which opens once 1-1 is cleared. An
   info card (264 px wide) names the selected level (at twice the size when the name fits, else at the normal

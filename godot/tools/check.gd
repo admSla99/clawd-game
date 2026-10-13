@@ -2046,11 +2046,17 @@ func check_shop() -> bool:
 
 	# The ARMORY opens once Clawd has a weapon (the blaster 1-B drops).
 	var weapons = load("res://scripts/weapons.gd")
+	# A world-2 level picked (world 2 is still locked here, so show_map() would not move there).
+	m.front.sel = 4
+	ok(m.front.map_gun() == "", "without a weapon the map's Clawd is unarmed in world 2")
 	progress.grant_weapon("blaster")
+	ok(m.front.map_gun() == "blaster", "with one he holds it on a world-2 level (levelSelect.ts: armed in world 2)")
+	m.front.sel = 0
 	progress.wallet = 1000
 	progress.sparks_spent = 0
 	m.show_map(0)
 	await frames(3)
+	ok(m.front.map_gun() == "", "and not on a world-1 level")
 	m.front.handle(key(KEY_B))
 	await frames(3)
 	var ids: Array = shop.items.map(func(it): return it.id)
@@ -2070,6 +2076,9 @@ func check_shop() -> bool:
 	shop.handle(key(KEY_ENTER))
 	ok(progress.weapons == ["blaster", "spreader"] and progress.equipped == "spreader" and progress.wallet == 880,
 		"Context Spreader: 120 tokens, held at once")
+	m.front.sel = 4
+	ok(m.front.map_gun() == "spreader", "the map's Clawd holds the equipped weapon")
+	m.front.sel = 0
 	shop.sel = ids.find("stream")
 	shop.handle(key(KEY_ENTER))
 	ok(progress.weapons.has("stream") and progress.wallet == 660 and progress.sparks_available() == 0, "Stream Output: 220 tokens and 3 sparks")

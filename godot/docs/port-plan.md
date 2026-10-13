@@ -170,7 +170,8 @@ M12 waits for all of them. Rules, so they never edit the same lines:
       levels' 35, so nobody could buy everything) and Double Tokens 100 (at 50 it paid back ~5× per world-2 run).
 - [x] `CLAUDE.md` "Godot port status", `docs/scenery-themes.md` and `godot/README.md` (Layout rows, *Checks*)
       brought up to date after the parallel milestones.
-- [ ] Small TS details still missing: Clawd holds his gun on the world map in world 2 (`levelSelect.ts`).
+- [x] Small TS details still missing: Clawd holds his gun on the world map in world 2 (`levelSelect.ts`; its
+      comment says so but its code draws him unarmed, so the port draws the equipped weapon in his hands).
 
 ## Added beyond the plan
 

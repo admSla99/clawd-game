@@ -130,8 +130,6 @@ Spark Radar, Fortune Haiku, Firewall and Double Tokens; world-2 weapons/mods are
 finds a weapon. TS prices stay; the port's own items are priced for the 5× income, and the shop's spark prices
 must add up to the levels' 35 sparks (checked; *Shop* in `godot/README.md` has the token income per level).
 
-Not ported yet: Clawd holding his gun on the world map in world 2 (`levelSelect.ts`, M12).
-
 To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
 change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays
 (`tools/check.gd` section) and looks right (capture screenshots of the real window).
