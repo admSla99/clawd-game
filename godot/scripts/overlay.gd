@@ -158,15 +158,18 @@ func bubble(lines: PackedStringArray, anchor: Vector2, show: float, gap := 8.0) 
 	w += 12
 	var h := lines.size() * PixelFont.LINE + 6
 	var top := roundf(anchor.y - h - gap - (1.0 - show) * 6)
-	var left := roundf(anchor.x - w / 2.0)
+	# Centred over the anchor, but pushed inside the part of the view on screen (a sign near the level's edge).
+	var view := get_viewport_rect().size
+	var left := clampf(roundf(anchor.x - w / 2.0), Main.PAD + 4, maxf(Main.PAD + 4, view.x - Main.PAD - 4 - w))
 	panel(Rect2(left, top, w, h), Color(0.42, 0.42, 0.42, show), Color(0.07, 0.07, 0.07, 0.94 * show))
-	# A small tail pointing at the anchor.
+	# A small tail pointing at the anchor, kept under the bubble.
+	var tail := clampf(roundf(anchor.x), left + 4, left + w - 4)
 	for i in 3:
-		draw_rect(Rect2(roundf(anchor.x) - 2 + i, top + h + i, 5 - i * 2, 1), Color(0.42, 0.42, 0.42, show) if i == 2 else Color(0.07, 0.07, 0.07, 0.94 * show))
+		draw_rect(Rect2(tail - 2 + i, top + h + i, 5 - i * 2, 1), Color(0.42, 0.42, 0.42, show) if i == 2 else Color(0.07, 0.07, 0.07, 0.94 * show))
 	for i in lines.size():
 		var c := TEXT
 		c.a = show
-		PixelFont.draw_centred(self, lines[i], anchor.x, top + 4 + i * PixelFont.LINE, c)
+		PixelFont.draw_centred(self, lines[i], left + w / 2.0, top + 4 + i * PixelFont.LINE, c)
 
 
 func _draw_results() -> void:

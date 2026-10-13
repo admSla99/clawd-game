@@ -454,7 +454,7 @@ godot --headless --script tools/check.gd     # exits non-zero on failure
 Per-level sections live in `tools/checks/<id>.gd`, one file per level, run in name order where the 2-1 section
 used to be (`level_sections()`): each has `const TITLE` and `func run(c) -> bool`, with `c` the check script
 (`c.ok()`, `await c.frames()`, `c.current_scene`, `c.enemies_of()`, `c.bugs()`, `await c.drive()`, ...);
-`tools/checks/2-1.gd` is the template. A run keeps its progress and settings in files named after its process id,
+`tools/checks/2-1.gd` is the template; a file that does not load (a parse error) counts as a failure. A run keeps its progress and settings in files named after its process id,
 so checks in several worktrees of the project (which share `user://`) can run at the same time.
 
 Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
@@ -540,7 +540,8 @@ atlas with nearest filtering on whole view pixels, 8 px per line like the 2D gam
 `PixelFont.rows()` returns the same glyphs as text-grid rows for `Voxel.mesh()` (the checkpoint screen).
 `scripts/overlay.gd` (`Overlay`, `View/SubViewport/World/Ui`, a CanvasLayer above the colour grade) draws text
 over the 3D view in SubViewport pixels: rising popups (`Overlay.popup()`), the text of nodes in the group
-`world_text` (they implement `overlay_draw(overlay)`) and panels like `panel()` in `src/render/shapes.ts`.
+`world_text` (they implement `overlay_draw(overlay)`; a sign's bubble, `Overlay.bubble()`, is pushed inside the
+part of the view on screen, its tail still pointing at the sign) and panels like `panel()` in `src/render/shapes.ts`.
 `Overlay.to_view()` maps a level position (and depth) through the camera and the oblique projection.
 
 Added in the port (not in TS), for every enemy:

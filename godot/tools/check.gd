@@ -40,7 +40,13 @@ func level_sections() -> void:
 	var files := Array(DirAccess.get_files_at("res://tools/checks")).filter(func(f: String) -> bool: return f.ends_with(".gd"))
 	files.sort()
 	for f in files:
-		var level_check = load("res://tools/checks/" + f).new()
+		# A file that does not parse loads as a script that cannot be instanced: a failure, not a silent skip.
+		var script: GDScript = load("res://tools/checks/" + f)
+		if script == null or not script.can_instantiate():
+			print("tools/checks/" + f)
+			ok(false, "tools/checks/%s loads (a parse error above?)" % f)
+			continue
+		var level_check = script.new()
 		await section(level_check.TITLE, level_check.run.bind(self))
 
 
