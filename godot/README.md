@@ -1,8 +1,13 @@
-# CLAWD — Godot 2.5D port
+# CLAWD — the Godot 2.5D game
 
-Godot 4.7.2 port of the game in `../src`, rebuilt in 3D with a side camera (2.5D): all nine levels of both
-worlds, both bosses, shooting and the shop, playable from the title to the end of 2-B. The 2D port is on the
-`godot-2d-port` branch. GDScript; Forward+ renderer on desktop, Compatibility (WebGL 2) on the web export.
+CLAWD in Godot 4.7.2, in 3D with a side camera (2.5D): all nine levels of worlds 1 and 2, both bosses, shooting
+and the shop, playable from the title to the end of 2-B; world 3 is planned in `docs/world3-plan.md`. GDScript;
+Forward+ renderer on desktop, Compatibility (WebGL 2) on the web export.
+
+The game began as a port of a TypeScript browser game (`src/`, `tests/`), which is kept on the `ts-legacy` branch
+and is no longer developed; the 2D port is on the `godot-2d-port` branch. Scripts that port TS code still name the
+TS file or function they come from (`src/...` paths refer to that branch), and `docs/port-plan.md` is the
+finished plan of the port. This repository is the game now: new levels and features are made here directly.
 
 ## Setup on a new machine (Linux x86_64)
 
@@ -10,7 +15,6 @@ worlds, both bosses, shooting and the shop, playable from the title to the end o
 cd godot
 ./tools/install_godot.sh                                # editor + web export templates (resumes if cut off)
 godot --headless --script tools/build_meshlib.gd        # regenerates tiles/terrain_meshlib.tres
-node tools/export_levels.mjs                            # run from repo root: src levels -> levels/*.txt
 godot --headless --script tools/convert_level.gd        # levels/*.txt -> levels/*.tscn
 godot --headless --import                               # first import, creates .godot/
 godot --editor --path .
@@ -39,27 +43,46 @@ not start in `--headless` mode. Its `_mcp_game_helper` autoload also runs in exp
 
 ## Levels
 
-Levels stay authored in `../src/world/levels/*.ts`. After changing one, regenerate:
+A level is an ASCII map, `levels/<id>.txt` (one map row per line, 16 px per character), plus its entry in
+`levels/index.json`; both are edited by hand (they were exported from the TS game's `src/world/levels/*.ts`). After
+changing a map, convert it and check that it can be completed:
 
 ```bash
-node godot/tools/export_levels.mjs                      # from the repo root
-cd godot && godot --headless --script tools/convert_level.gd -- 1-1   # ids optional; none = all
+godot --headless --script tools/convert_level.gd -- 1-1   # levels/<id>.txt -> levels/<id>.tscn; ids optional, none = all
+godot --headless --script tools/reach.gd -- 1-1           # its exit, sparks and sub-agents are reachable
 ```
 
-`export_levels.mjs` writes each level's `map` rows to `levels/<id>.txt` and the id/name list to
-`levels/index.json`. `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
-(`#` `=` `^` `X`, same as `TILE_CHARS` in `src/world/tiles.ts`) as GridMap cells and adds a child per spawn:
+Map legend:
+
+| Character | What |
+|---|---|
+| `#` `=` `^` `X` | Tiles: rock, one-way platform, spikes, corrupted (ground-pound or blast it) |
+| `@` `G` `C` `?` | Start, exit, checkpoint, sign (texts in `signs`, in map order) |
+| `o` `S` `A` | Token, spark, sub-agent |
+| `M` `V` | Moving platform, horizontal / vertical |
+| `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
+| `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
+| `B` | Where `Main` places the level's boss |
+
+`index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
+`theme` (palette, scenery and motif), `music`, `signs`, the optional `dark`, `risingVoid` (`speed` px/s, `delay`
+s) and `boss` (`hallucination`, `codex`), `index` (its position) and `terrainSeed` (`7 + index * 13`).
+
+`convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
+(`#` `=` `^` `X`) as GridMap cells and adds a child per spawn:
 `@` → `Start` marker, `E` → `scenes/bug.tscn`, `o` → `scenes/token.tscn`, `C` → `Checkpoint`, `G` → `Goal`,
 `?` → `Sign` (numbered in map order like `Spawn.index`), `M` / `V` → `MovingPlatform`, `A` → `SubAgent`,
 `S` → `Spark` (both numbered like the signs), `F` → `SpamBot`, `R` → `RateLimiter`, `T` / `Y` → `Turret`
 (on the floor / under the ceiling), `D` → `Drone`, `H` → `ShieldBot`, `I` → `Injector`, `B` → a `Boss` marker
 (`Main` puts the level's `boss` there). Every spawned node keeps
-its map character in the meta `spawn`. Other spawn characters are skipped (tools/check.gd lists them per level).
-All nine levels are converted with every spawn ported so far.
-
-`export_levels.mjs` merges `levels/overrides.json` (fields per level id) into `index.json`, for metadata where
-the port differs from the TS game: 1-1's sign texts, since the port has no variable jump height.
+its map character in the meta `spawn`. Other characters are skipped (tools/check.gd lists them per level).
 The result is saved as `levels/<id>.tscn`.
+
+`tools/reach.gd` replaces the TS game's `tests/reachability.test.ts`: from every place Clawd can stand it tries
+walks and jumps with and without hover (every jump a full one, on a tile model of `scripts/player.gd` that reads
+its constants) and reports the exit, sparks and sub-agents it can't reach. Enemies are ignored, moving platforms
+and rate limiters are sampled as static platforms along their path, corrupted blocks count as pounded through,
+and boss levels are skipped. Every level takes 5-12 s.
 
 One tile is 1 m; tile `(x, y)` of the map fills `x..x+1` × `-(y+1)..-y`, so the level's top-left corner is the
 origin and y points up. Blocks are 3 m deep, centred on the gameplay plane z = 0. One-way platforms (`=`) sit in
@@ -455,6 +478,7 @@ the exit, the results and the motif.
 
 ```bash
 godot --headless --script tools/check.gd     # exits non-zero on failure
+godot --headless --script tools/reach.gd     # after editing a map, see Levels
 ```
 
 Per-level sections live in `tools/checks/<id>.gd`, one file per level, run in name order where the 2-1 section
@@ -464,7 +488,7 @@ used to be (`level_sections()`): each has `const TITLE` and `func run(c) -> bool
 saves into the player's `settings.cfg`) in files named after its process id,
 so checks in several worktrees of the project (which share `user://`) can run at the same time.
 
-Compares the noise functions with values computed from `src/core/noise.ts`, every converted level's GridMap
+Compares the noise functions with values computed from `src/core/noise.ts` (TS sources: branch `ts-legacy`), every converted level's GridMap
 cells and spawns with its `.txt` map (each ported spawn character placed as often as in the map, one start, one
 exit except in boss levels; spawns not ported yet are listed), the player's jump height and gap/step limits with the level-design rules in
 `tests/player.test.ts`, the title (logo, drift, Space) and the world map (locking, unlocking, keys, mouse,
@@ -963,9 +987,8 @@ without COOP/COEP headers.
 | `shaders/oblique.gdshaderinc`, `shaders/fog.gdshaderinc`, `shaders/reveal.gdshaderinc` | Shader includes: the oblique projection (every 3D material), depth fog, the foreground's see-through dither around Clawd |
 | `scripts/game.gd`, `scripts/game_camera.gd`, `scripts/noise.gd` | Autoload `Game` (game time, hitstop, pause); the camera (`src/core/camera.ts`); `DotNoise`, bit-exact noise ports |
 | `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
-| `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |
-| `levels/overrides.json` | Port-specific level metadata merged into `index.json` (1-1's sign texts) |
+| `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps and metadata (edited by hand), and the 3D level scenes converted from them |
 | `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |
-| `tools/export_levels.mjs`, `tools/convert_level.gd` | Level pipeline, see *Levels* |
+| `tools/convert_level.gd`, `tools/reach.gd` | Level pipeline: map → scene, reachability, see *Levels* |
 | `addons/godot_ai/` | godot-ai editor plugin (MCP) |

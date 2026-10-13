@@ -1,4 +1,4 @@
-# Converts levels/<id>.txt (written by export_levels.mjs) into levels/<id>.tscn with Level.build()
+# Converts levels/<id>.txt (the hand-edited map) into levels/<id>.tscn with Level.build()
 # (scripts/level.gd): Terrain and OneWay GridMaps, a Start marker, bugs and tokens. Other spawn
 # characters are skipped for now.
 # Run from godot/: godot --headless --script tools/convert_level.gd [-- <id>...]   (no ids = all)
@@ -17,7 +17,7 @@ func _init() -> void:
 	for id in ids:
 		var txt := "res://levels/%s.txt" % id
 		if not FileAccess.file_exists(txt):
-			push_error("%s not found; run tools/export_levels.mjs first" % txt)
+			push_error("%s not found; write the map first" % txt)
 			failed = true
 			continue
 		var level: Node3D = level_script.build(FileAccess.get_file_as_string(txt).trim_suffix("\n").split("\n"))

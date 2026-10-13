@@ -12,12 +12,6 @@
       "HOLD SPACE IN THE AIR\nTO HOVER — the jet hurts too",
       "IN THE AIR:  S  or  ↓  =  GROUND POUND\nit breaks corrupted data"
     ],
-    "touchSigns": [
-      "LEFT THUMB MOVES      TAP JUMP\nhold JUMP longer to jump higher",
-      "BUGS!  jump on them\nor tap SPIN",
-      "HOLD JUMP IN THE AIR\nTO HOVER — the jet hurts too",
-      "IN THE AIR:  ↓  =  GROUND POUND\nit breaks corrupted data"
-    ],
     "index": 0,
     "terrainSeed": 7
   },
@@ -76,11 +70,6 @@
       "LINT TURRETS TRACK YOU\nshoot them before they shoot you",
       "SHIELD BOTS BLOCK SHOTS FROM THE FRONT\njump over them, or hit them from above",
       "CORRUPTED DATA: ↓ in the air\n(the Opus Cannon blasts it too)"
-    ],
-    "touchSigns": [
-      "HOLD FIRE TO SHOOT · it aims at the nearest enemy\ndrag FIRE to aim by hand",
-      null,
-      null
     ],
     "index": 4,
     "terrainSeed": 59

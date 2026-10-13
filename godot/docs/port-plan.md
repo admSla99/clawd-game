@@ -1,5 +1,10 @@
 # Port plan: all levels, shooting and weapons
 
+> **Finished (2026-10-13).** Every milestone below is done and the TS game is retired: it is kept on the
+> `ts-legacy` branch, `main` holds the Godot game, levels are edited in `levels/*.txt` directly and
+> `tools/reach.gd` replaced the TS reachability tests. This file is the history of the port; new work is planned
+> in `world3-plan.md`.
+
 Goal: every level of the TS game (`src/world/levels/`, 1-1 … 2-B) playable in the Godot 2.5D port, with its
 enemies, level features, bosses, a scenery motif per theme, and world 2's shooting and weapons. World 1, shooting,
 the world-2 enemies and 2-1 are done (M0-M7, see `../README.md`). Tick the boxes in the commit that finishes a task.
@@ -74,7 +79,7 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 
 ### M0 Groundwork
 - [x] This plan, linked from `CLAUDE.md`.
-- [ ] Godot-only map overrides in `export_levels.mjs` (only once a level needs one; none so far).
+- [x] ~~Godot-only map overrides in `export_levels.mjs`~~ (never needed; the TS pipeline is gone, maps are edited directly).
 - [x] Generic per-level check in `tools/check.gd`: every converted level loads, has a start and a goal, and its
       spawn counts match its `.txt`.
 - [x] All nine levels re-converted with every spawn ported so far.
