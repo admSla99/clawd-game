@@ -60,6 +60,7 @@ Map legend:
 | `@` `G` `C` `?` | Start, exit, checkpoint, sign (texts in `signs`, in map order) |
 | `o` `S` `A` | Token, spark, sub-agent |
 | `+` | Anchor for the Tool Call (world 3) |
+| `P` | Parser (world 3) |
 | `M` `V` | Moving platform, horizontal / vertical |
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
@@ -511,13 +512,43 @@ which no longer spins) throws it from his hand (the gun's pivot) along his aim: 
   hookCatch (a clink), hookMiss (a clank) and zip, synthesized like the rest.
 
 `scripts/anchor.gd` (`Anchor`, `+` in a map, group `anchors`): an API endpoint in the middle of its tile, a 7 x 7
-voxel ring of cyan round a white and orange core (1 px cells) that turns slowly, with a small GlowLight that
-pulses; `point()` is where the hook catches it, `active` lets timeout anchors switch off (W7).
+voxel ring of cyan round a white and orange core in 2 px cells (14 px across, so it reads among the scenery; it
+bobs a pixel instead of turning, which would hide it edge-on), with a small GlowLight that pulses; `point()` is
+where the hook catches it, `active` lets timeout anchors switch off (W7).
 
 `tools/reach.gd` knows the Tool Call: from where Clawd stands and at the top of a full jump he zips to every
 anchor in reach and sight, and from an anchor he drifts down (with and without hover, to either side or none) or
 zips on to the next one 12 frames into his hop, so chains of anchors over a chasm count; anchors 6 tiles apart
 chain, 8 apart do not.
+
+### Parser
+
+`scripts/parser.gd` (`Parser`, `P`): an armoured crawler, 18 x 8 px, 4 hp (× 3 like every enemy), 20 tokens. It
+patrols at 24 px/s, turning at walls and ledges (Enemy's `move_x()` / `move_y()`, no physics body). While
+`armoured`, `blocks_direction()` is true from every side, so bullets ricochet and the beam stops as on a shield
+bot's shield, and `hit()` refuses everything with a clank (deflect, a white flash): stomps still bounce Clawd (he
+bounces whatever `hit()` says), spins and the jet do nothing. The Tool Call's `hook_hit()` tears the shell off
+(break, a burst of plates), once: bare, it is a pink grub that scurries at 50 px/s and takes damage normally.
+Touching it hurts either way. A voxel model in 1 px cells: steel plates with dark seams and a cyan eye over a dark
+underside, or the bare grub, each on two leg frames.
+
+### 3-1 Endpoint Canopy
+
+232 x 26 tiles, the Tool Call's tutorial. A wall 8 tiles high right after the start (the TOOL CALL sign: jump, aim
+up, zip), an anchor chain over a spike chasm with a spark on a one-way ledge low in it (out again by the middle
+anchor), stairs down to bugs and the first parser (its sign) and a checkpoint; then a pillar climbed by a vertical
+chain of three anchors to a spark on its top, a high canopy walkway (one-way segments, a solid branch with a shield
+bot, anchors over the gaps, a sub-agent on a perch above) over a low road with parsers, a bug, a spam bot and a
+turret; a second checkpoint, a long spike chasm crossed by seven anchors at varying heights (a spark over one, a
+sub-agent on an island), and a last stretch with parsers, a shield bot, a turret and a spark on a ledge only an
+anchor reaches. 5 sparks, 2 sub-agents, 39 tokens, 19 anchors; `tools/reach.gd` passes with the anchors and fails
+without them (the first wall). Theme `canopy`, music `canopy`.
+
+**Motif** (`shaders/motif_canopy.gdshader`, found by its name): two ranges of giant trees (the far one hazier and
+slower) whose lacy crowns close into a canopy in the upper third; vines hang from it with a dim endpoint lantern
+at each end (lanterns, not rings, so they never pass for anchors). Every few seconds a request runs down a vine as
+a light pulse, the lantern flashes, and its reply (OK, GET, PUT, POST in the swamp's 3 x 5 font) floats up and
+dithers away.
 
 ## Checks
 
@@ -575,7 +606,9 @@ and pickup, the exit, WORLD 2 CLEAR and TOOL CALL FOUND · WORLD 3 UNLOCKED, an 
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), the Tool Call (its keys, `+` anchors, nothing
 without it, the aim assist's pick, the throw, catch and zip with their sounds, the hop and fresh hover on arrival,
 no pick out of reach or behind a block, a clank on a block, a bug struck, a shield bot's shield torn off, letting go
-by jump / tool / a hit, the controls help line), shooting (fire rate and damage
+by jump / tool / a hit, the controls help line), 3-1 Endpoint Canopy (theme, motif, its enemies, anchors and
+signs, the real player climbing the first wall with a jump, the hook straight up and a zip; a parser's shell
+stopping shots and stomps, torn off once by the hook, then hurt and fast), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1001,6 +1034,8 @@ without COOP/COEP headers.
 | `scripts/code_shot.gd`, `scripts/column_beam.gd`, `scripts/codex_paint.gd` | Codex's code-character shots and shockwaves, its rm -rf columns; flat boxes redrawn each frame (its face, telegraphs) |
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
+| `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
+| `shaders/motif_canopy.gdshader` | Canopy motif (3-1): giant trees, vines with endpoint lanterns, requests and replies |
 | `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |
 | `scripts/gun.gd` | `Gun`: firing, context heat and overflow, aiming (mouse polling, keys), switching, the gun in Clawd's hands |
 | `scripts/bullet.gd`, `scripts/beam_fx.gd` | Clawd's bullets (token, pellet, glyph, orb); the Attention Beam's flashes |

@@ -132,7 +132,9 @@
     "theme": "canopy",
     "music": "canopy",
     "signs": [
-      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+      "ZIP ACROSS: every hop off an endpoint\nrefills your hover · JUMP lets go early",
+      "TOOL CALL:  SHIFT · F · RIGHT CLICK\njump, aim at an endpoint and zip up",
+      "PARSERS: shots bounce off their shell\nhook it off first, then shoot"
     ],
     "index": 9,
     "terrainSeed": 124

@@ -1035,6 +1035,16 @@ func check_tool_call() -> bool:
 	progress.tools.clear()
 	m.load_level("3-1")
 	await frames(3)
+	# A flat test ground: the level emptied, a floor two tiles thick under row 15 from column 0 to 63.
+	for e in get_nodes_in_group("enemies"):
+		e.remove()
+	for n in get_nodes_in_group("anchors"):
+		n.free()
+	m.level.terrain.clear()
+	m.level.oneway.clear()
+	for x in 64:
+		for y in [16, 17]:
+			m.level.terrain.set_cell_item(Vector3i(x, -y - 1, 0), 0)
 	# Keys aim, not the mouse.
 	m.gun.mouse_moved = -1_000_000
 	var floor_y: float = 15 * TILE + TILE
@@ -2185,10 +2195,13 @@ func check_shop() -> bool:
 			spark_prices += s
 	for w in load("res://scripts/weapons.gd").WEAPONS.values():
 		spark_prices += w.sparks
+	# World 3's sparks go to the System Prompts (docs/world3-plan.md, W9); until they are in the shop the prices
+	# match worlds 1 and 2.
 	var level_sparks := 0
 	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
-		level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
-	ok(spark_prices == level_sparks, "the shop's spark prices add up to the sparks in the levels (%d / %d)" % [spark_prices, level_sparks])
+		if int(l.world) < 3:
+			level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
+	ok(spark_prices == level_sparks, "the shop's spark prices add up to the sparks in worlds 1 and 2 (%d / %d)" % [spark_prices, level_sparks])
 
 	# Extra Heart: 100 tokens.
 	shop.sel = 0

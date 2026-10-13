@@ -20,4 +20,9 @@ parallax, haze, perspective), the theme palette in `scripts/themes.gd`, animatio
 | `forge` (2-2 GPU Forge) | **Server racks and GPU monoliths** — done (`shaders/motif_forge.gdshader`) | Racks with blinking LEDs, heat sinks, glowing hot dies, fans, thick power cables between them; embers already rise in this theme. |
 | `swamp` (2-3 Prompt Injection Swamp) | **Corrupted data pools** — done (`shaders/motif_swamp.gdshader`) | Tangled cables sinking into murky pools that reflect the haze; injected strings floating up as bubbles of text. |
 | `towers` (2-4 The Diff Towers) | **Transformer stacks** — done (`shaders/motif_towers.gdshader`) | Tall columns of stacked translucent plates (layers) with light running up the residual stream; green / red diff stripes on the plates. |
+| `canopy` (3-1 Endpoint Canopy) | **Endpoint canopy** — done (`shaders/motif_canopy.gdshader`) | Giant trees whose crowns close into a canopy, vines with endpoint lanterns; requests run down them as pulses and replies (OK, GET, PUT, POST) float up. |
+| `cliffs` (3-2 Webhook Cliffs) | **Webhook cliffs** (W5) | Sheer cliffs with callback arrows looping between them, messages bouncing back. |
+| `sandbox` (3-3 The Sandbox) | **Container stacks** (W6) | Stacked containers being built and torn down, scaffolding, everything temporary. |
+| `ravine` (3-4 Timeout Ravine) | **Clocks and spinners** (W7) | Loading spinners and clock faces deep in the ravine walls, hourglasses running out. |
+| `router` (3-B The Router) | **Network topology** (W8) | A graph of nodes and links with packets routed along them. |
 | `codex` (2-B Codex) | **Code monoliths** — done (`scripts/codex_motif.gd`, `shaders/codex_monolith.gdshader`) | Monoliths covered in scrolling code (the theme already draws code lines), cursor blinks, syntax colours in the theme's cyan. |

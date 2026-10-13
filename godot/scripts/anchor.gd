@@ -2,9 +2,10 @@ class_name Anchor
 extends Node3D
 
 ## An API endpoint (`+` in a world-3 map): a glowing node in the middle of its tile that the Tool Call
-## (scripts/tool_call.gd) catches and zips Clawd to. A voxel ring round a white core that turns slowly and pulses,
-## lit by a small GlowLight; while it is the hook's aim-assist pick, the Overlay draws orange brackets round it,
-## and a caught one flashes. Group "anchors"; the origin is the tile's bottom middle like every spawn.
+## (scripts/tool_call.gd) catches and zips Clawd to. A voxel ring round a white core (2 px cells, 14 px across, so
+## it reads at a glance among the scenery) that bobs a pixel and pulses, lit by a small GlowLight (it does not turn:
+## edge-on it would vanish); while it is the hook's aim-assist pick, the Overlay draws orange brackets round it, and
+## a caught one glows brighter. Group "anchors"; the origin is the tile's bottom middle like every spawn.
 
 const ROWS := ["..LhL..", ".h...h.", "L..W..L", "h.WOW.h", "L..W..L", ".h...h.", "..LhL.."]
 const PALETTE := {"W": Color("#F2FFFF"), "O": Color("#FFB28F"), "L": Color("#7FE8F0"), "h": Color("#3F9AA6")}
@@ -12,7 +13,7 @@ const CYAN := Color("#7FE8F0")
 const ORANGE_LIGHT := Color("#F0A585")
 
 static var MATERIAL := Voxel.material(1.8)
-static var MESH := Voxel.mesh(ROWS, PALETTE, {"W": 2, "O": 4, "L": 2, "h": 2}, Px.M, MATERIAL)
+static var MESH := Voxel.mesh(ROWS, PALETTE, {"W": 2, "O": 4, "L": 2, "h": 2}, 2 * Px.M, MATERIAL)
 
 var t := 0.0
 ## Can the hook catch it now (timeout anchors switch this off for a while).
@@ -34,7 +35,7 @@ func _ready() -> void:
 	add_child(_pivot)
 	_mesh = MeshInstance3D.new()
 	_mesh.mesh = MESH
-	_mesh.position.y = -3.5 * Px.M
+	_mesh.position.y = -7 * Px.M
 	_pivot.add_child(_mesh)
 	_pivot.position.y = 8 * Px.M
 	_glow = GlowLight.new()
@@ -63,9 +64,8 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	caught_flash = maxf(0.0, caught_flash - dt)
-	# Turns slowly about its middle, a little faster and brighter while aimed at or just caught.
-	_pivot.rotation.y = t * (2.4 if targeted else 0.9)
-	_pivot.scale = Vector3.ONE * (1.25 if caught_flash > 0 else 1.0)
+	# Bobs a whole pixel now and then.
+	_pivot.position.y = (8 + (1 if sin(t * 2.2) > 0.3 else 0)) * Px.M
 	_mesh.visible = active
 	_glow.energy = 0.0 if not active else 0.45 + 0.15 * sin(t * 3) + (0.4 if targeted or caught_flash > 0 else 0.0)
 
@@ -75,7 +75,7 @@ func overlay_draw(o: Overlay) -> void:
 	if not targeted or not active:
 		return
 	var v := o.to_view(point()).round()
-	var r := 7 + roundf(absf(sin(t * 6)))
+	var r := 10 + roundf(absf(sin(t * 6)))
 	var c := Color(ORANGE_LIGHT, 0.9)
 	for sx in [-1, 1]:
 		for sy in [-1, 1]:

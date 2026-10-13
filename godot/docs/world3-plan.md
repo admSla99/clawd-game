@@ -104,7 +104,10 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - The TS game is retired (branch `ts-legacy`); world 3 is made directly in Godot. Maps are hand-written
   `levels/<id>.txt`, `tools/reach.gd` replaces the TS reachability tests.
 - Same rules as before: full jumps only, enemies 3× hp and 5× tokens, prices tuned to that income, spark prices
-  add up to all the levels' sparks (55 with world 3).
+  add up to all the levels' sparks (55 with world 3; until the System Prompts are in the shop, W9, the check
+  counts worlds 1 and 2).
+- Anchors that lift Clawd onto a ledge hang a tile over its top and at most two tiles out from its edge (the hop
+  off an anchor rises only ~22 px); chained anchors are at most 6 tiles apart (`reach.gd`).
 - Each level: 5 sparks, 2 sub-agents, a checkpoint or two, a motif and music of its own.
 - Rhythm: milestone by milestone; after each one `tools/check.gd`, `tools/reach.gd` for changed maps, README,
   commit + push to `main`.
@@ -130,8 +133,8 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] `reach.gd` zips to anchors; checks.
 
 ### W3 3-1 Endpoint Canopy
-- [ ] Parser (`P`).
-- [ ] The map, signs, sparks, sub-agents; canopy motif and music; `tools/checks/3-1.gd`.
+- [x] Parser (`P`).
+- [x] The map, signs, sparks, sub-agents; canopy motif and music; `tools/checks/3-1.gd`.
 
 ### W4 Sub-agents
 - [ ] `agent` action, the 3 s recording, the echo (replay, stand, plate, decoy, fade, recall), slots from rescued
