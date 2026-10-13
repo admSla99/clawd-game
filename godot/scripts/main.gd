@@ -767,8 +767,11 @@ func _update_complete(dt: float) -> void:
 	if was < 0.6 and complete_t >= 0.6:
 		var tw := create_tween()
 		tw.tween_property(player.visual, "scale", Vector3(0.15, 1.7, 0.15), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		# His gun goes with him (a port addition: TS has no pull, so its gun never stays behind).
+		tw.parallel().tween_property(gun, "shrink", 0.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.tween_callback(func() -> void:
 			player.visual.visible = false
+			gun._update_visual()
 			particles.emit(goal.feet() + Vector2(0, -Goal.CENTRE_Y), {count = 30, speed = 90, life = 0.6, color = [Color("#F0A585"), Color.WHITE], drag = 3}))
 	if was < 2.0 and complete_t >= 2.0:
 		var secs: float = get_meta("time")

@@ -1444,6 +1444,20 @@ func check_gun() -> bool:
 	ok(m.level.tile(block) != level_script.CORRUPT, "and breaks the corrupted cluster")
 	ok(victim.hp == 12.0, "an enemy in the blast takes its 8 splash damage (hp %s)" % victim.hp)
 	victim.hit(&"shot", 100)
+
+	# Pulled into the exit, Clawd takes his gun with him (bug list #6: it stayed hanging in front of the gate).
+	m.load_level("2-1")
+	await frames(3)
+	var g2 = m.gun
+	var goal = m.level.get_node("Goal")
+	m.player.pos = goal.feet()
+	await frames(20)
+	ok(m.complete_t >= 0 and g2._hand.visible and g2.shrink == 1.0, "at the exit Clawd still holds his gun")
+	await frames(60)
+	ok(not m.player.visual.visible and not g2._hand.visible and g2.shrink == 0.0, "pulled in, the gun vanishes with him")
+	m.load_level("2-1")
+	await frames(3)
+	ok(g2._hand.visible and g2.shrink == 1.0 and m.player.visual.visible, "and the next level hands it back")
 	m.load_level("1-1")
 	await frames(3)
 	return true

@@ -208,7 +208,8 @@ swirl on whole pixels (`shaders/portal.gdshader`, a quad on the gameplay plane),
 orange LEDs, a pulsing GlowLight, sparks drifting up and "EXIT" above (Overlay world text). Clawd walks into
 it, since it stands on the gameplay plane. Touching its inner 16 x 40 px calls `Main.reach_goal()`: a burst,
 Clawd stops (`Player.frozen`) and cheers, drifts to the middle, after 0.6 s stretches into a thin beam and
-vanishes; after 2 s the results panel (sparks, rescued sub-agents, tokens collected / in the level, time, and on a first
+vanishes, his gun shrinking towards his middle with him (`Gun.shrink`; the gun shows only while his body does);
+after 2 s the results panel (sparks, rescued sub-agents, tokens collected / in the level, time, and on a first
 clear the level it unlocked) fades in over the level, and jump goes back to the map on the next level. The run is
 recorded the moment the exit is touched (`Progress.record_run()`).
 
@@ -503,7 +504,7 @@ CLEAR and THANKS FOR PLAYING!), aiming with the mouse (world 2 armed, mouse moti
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
-and a token on a platform, shooting down enemy shots and not the
+and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
 ones that can't be, next / prev / slot switching and saving, attack shoots instead of spinning, the orb's
 explosion breaking 1-1's corrupted blocks with splash damage, damage numbers adding up and marking the kill, health
 bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), the controls help (shooting lines once a weapon

@@ -31,6 +31,8 @@ var cooldown := 0.0
 var flash := 0.0
 var recoil := 0.0
 var shot_count := 0
+## Size of the gun in his hands: Main shrinks it to 0 while Clawd is pulled into the exit (a port addition).
+var shrink := 1.0
 ## Seconds the weapon's name still shows over Clawd.
 var label_t := 0.0
 ## Last mouse position in the window's view pixels (= level pixels from the camera's top-left; the SubViewport is
@@ -66,6 +68,7 @@ func arm(on: bool, id := "blaster") -> void:
 	cooldown = 0.0
 	flash = 0.0
 	recoil = 0.0
+	shrink = 1.0
 	label_t = 2.5 if on else 0.0
 	set_weapon(id if Weapons.WEAPONS.has(id) else "blaster")
 	_update_visual()
@@ -209,9 +212,10 @@ func fire(dt: float, trigger: bool) -> bool:
 
 
 ## The gun in Clawd's hands (drawArmedExtras()): turned to the aim about its grip at the pivot, upside down
-## when aiming left, kicked back by the recoil; hidden while he spins.
+## when aiming left, kicked back by the recoil; hidden while he spins and whenever his body is (pulled into the
+## exit), shrunk towards his middle by `shrink`.
 func _update_visual() -> void:
-	_hand.visible = armed and player.state != &"spin"
+	_hand.visible = armed and player.state != &"spin" and player.visual.visible and shrink > 0
 	_flash.visible = _hand.visible and flash > 0
 	if not _hand.visible:
 		return
@@ -221,7 +225,7 @@ func _update_visual() -> void:
 	var basis := Basis(Vector3.BACK, -a)
 	if cos(a) < 0:
 		basis = basis * Basis(Vector3.RIGHT, PI)
-	_hand.transform = Transform3D(basis, Vector3(player.facing * 5, 9 + FRONT / 3, FRONT) * Px.M)
+	_hand.transform = Transform3D(basis.scaled(Vector3.ONE * maxf(shrink, 0.01)), Vector3(player.facing * 5 * shrink, 9 + FRONT / 3, FRONT) * Px.M)
 	_gun.position = Vector3(w / 2 - recoil * 2.5, CELL - rows * CELL, 0) * Px.M
 	var m := Vector2(cos(a), sin(a)) * 17
 	_flash.position = Vector3(player.facing * 5 + roundf(m.x), 9 - roundf(m.y) - 2 + FRONT / 3, FRONT) * Px.M
