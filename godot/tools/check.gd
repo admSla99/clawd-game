@@ -1948,9 +1948,10 @@ func check_sparks() -> bool:
 	var grid: Array = spark_script.rows(4)
 	ok(grid.size() == 21 and grid[10][10] == "W" and grid[10][19] == "h" and grid[10][15] == "O" and grid[1][10] == "h"
 		and grid[11][12] == "O" and grid[14][14] == "h", "the spark is a solid star: white core, tapering rays, diagonals")
-	var dotted: Array = spark_script.rows(3, true)
-	ok(spark_script.rows(3)[10][19] == "." and spark_script.rows(3)[10][17] == "h" and dotted[10].count("O") + dotted[10].count("L") < spark_script.rows(3)[10].count("O") + spark_script.rows(3)[10].count("L"),
-		"its rays flicker between 7 and 9 px; a ghost is drawSpark()'s dotted star")
+	var ghost_rows: Array = spark_script.rows(4, true)
+	ok(spark_script.rows(3)[10][19] == "." and spark_script.rows(3)[10][17] == "h" and ghost_rows[10][10] == "W"
+		and ghost_rows[10][16] == "h" and ghost_rows[10][17] == "." and ghost_rows[14][14] == "." and ghost_rows[13][13] == "O",
+		"its rays flicker between 7 and 9 px; a ghost is the same solid star, its rays 3 px shorter")
 
 	snd.played.clear()
 	var sp = sparks[1]

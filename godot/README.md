@@ -220,8 +220,9 @@ flicker between 7 and 9 px long (drawSpark()'s 3 / 4 dots), short diagonal rays,
 bobbing 2 px, in front of a dithered orange halo (`shaders/halo.gdshader`, the 2D glow circle, 15 px and bright
 in the middle) that breathes, with a GlowLight and small embers drifting up. Touching it (14 x 14
 px box) calls `Main.collect_spark()`: the spark sound, 0.05 s hitstop, a 40-particle burst and "SPARK n/total";
-the HUD's spark counter flashes. One found on an earlier run is a ghost: drawSpark()'s dotted star with every other
-dot, muted orange, no halo or embers, still collectible. The results list the level's sparks one by one (a tick for each found one, NEW under the
+the HUD's spark counter flashes. One found on an earlier run is a ghost, still collectible: the same solid star with
+rays 3 px shorter, in muted greyish orange with a soft glow, no halo, light or embers (TS's ghost, drawSpark()'s
+dotted star at 55 %, all but vanished in the port's darker, busier levels: bug list #1). The results list the level's sparks one by one (a tick for each found one, NEW under the
 first finds), the map card shows found / total and the map's bottom left all sparks found.
 
 Sub-agents (`scripts/sub_agent.gd`, `A`): `SubAgent` from `src/entities/collectibles.ts`, a small Clawd, the 2D

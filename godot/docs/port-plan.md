@@ -195,6 +195,8 @@ Things the user asked for on top of the TS game and the tasks above, so we know 
 - [x] **Platforms are cover** (bug list, 2026-10-13): Clawd's bullets and the beam stop on one-way planks (from
       either side), moving platforms, rate limiters and fake platforms, not only on solid / corrupted tiles as in
       TS (`Bullet.blocked()`).
+- [x] **Readable found sparks** (bug list, 2026-10-13): a spark found on an earlier run is the solid star, smaller
+      and muted with a soft glow, instead of TS's dotted star at 55 %, which all but vanished in the port's levels.
 
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.
