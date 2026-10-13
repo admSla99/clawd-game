@@ -25,7 +25,7 @@ var fortune: Array = []
 ## Weapon ids owned, in the order found (save.weapons), and the one in Clawd's hands (save.equipped).
 var weapons: Array = []
 var equipped := ""
-## World 3's tools owned: "hook" (the Tool Call, dropped by Codex).
+## World 3's tools owned: "hook" (the Tool Call, dropped by Codex), "agents" (sending sub-agents, from clearing 3-1).
 var tools: Array = []
 
 
@@ -61,6 +61,8 @@ func load_file() -> void:
 		# Codex beaten before it dropped the Tool Call (saves from before world 3): the hook is Clawd's.
 		if progress_for("2-B").completed and not tools.has("hook"):
 			tools.append("hook")
+		if progress_for("3-1").completed and not tools.has("agents"):
+			tools.append("agents")
 
 
 func save() -> void:
@@ -103,6 +105,14 @@ func total_sparks() -> int:
 	var n := 0
 	for id in levels:
 		n += count(progress_for(id).sparks)
+	return n
+
+
+## Sub-agents rescued in every level.
+func total_agents() -> int:
+	var n := 0
+	for id in levels:
+		n += count(progress_for(id).agents)
 	return n
 
 

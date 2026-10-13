@@ -60,7 +60,8 @@ const TRACKS := {
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
 	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
-	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip"]
+	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip", "agentSend", "agentGone",
+	"plateOn", "plateOff", "gateOpen", "gateShut"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -429,6 +430,23 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 		"zip":
 			tone(buf, "sawtooth", 300, 900, 0.2, 0.05)
 			noise(buf, 0.2, 0.15, 800, 2500, 0, 1.2)
+		# World 3's sub-agents, plates and gates (not in TS).
+		"agentSend":
+			for i in 3:
+				var f := midi(72 + [0, 4, 7][i])
+				tone(buf, "triangle", f, f * 1.02, 0.09, 0.1, i * 0.05)
+		"agentGone":
+			tone(buf, "triangle", 600, 280, 0.16, 0.07)
+		"plateOn":
+			tone(buf, "square", 520, 760, 0.05, 0.07)
+		"plateOff":
+			tone(buf, "square", 420, 300, 0.05, 0.06)
+		"gateOpen":
+			noise(buf, 0.3, 0.18, 300, 2200, 0, 1.2)
+			tone(buf, "sawtooth", 200, 420, 0.25, 0.05)
+		"gateShut":
+			tone(buf, "sine", 140, 60, 0.22, 0.3)
+			noise(buf, 0.15, 0.25, 900, 200, 0, 0.8)
 		"heart":
 			for i in 4:
 				var f := midi(72 + [0, 5, 9, 12][i])
@@ -474,6 +492,11 @@ static func _sfx_length(id: String) -> float:
 		"hookCatch": return 0.11
 		"hookMiss": return 0.06
 		"zip": return 0.2
+		"agentSend": return 2 * 0.05 + 0.09
+		"agentGone": return 0.16
+		"plateOn", "plateOff": return 0.05
+		"gateOpen": return 0.3
+		"gateShut": return 0.22
 	return 0.2
 
 

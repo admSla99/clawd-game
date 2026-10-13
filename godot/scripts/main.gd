@@ -79,10 +79,13 @@ var motif_3d: Node3D = null
 ## The level's boss while it lives (1-B, 2-B), or null; and whether this run found a weapon.
 var boss: Enemy = null
 var weapon_found_run := false
+## This run unlocked sending sub-agents (the first clear of 3-1).
+var agents_unlocked_run := false
 ## Clawd's weapon (armed in world 2) and the Attention Beam's flashes.
 var gun: Gun
-## World 3's hook (once Codex dropped it).
+## World 3's hook (once Codex dropped it) and sub-agents (once 3-1 is cleared).
 var tool_call: ToolCall
+var echoes: EchoControl
 var beams: BeamFx
 
 @onready var view: SubViewportContainer = $View
@@ -121,6 +124,10 @@ func _ready() -> void:
 	tool_call.name = "ToolCall"
 	world.add_child(tool_call)
 	tool_call.setup(self, player)
+	echoes = EchoControl.new()
+	echoes.name = "Echoes"
+	world.add_child(echoes)
+	echoes.setup(self, player)
 	beams = BeamFx.new()
 	beams.name = "Beams"
 	world.add_child(beams)
@@ -224,6 +231,7 @@ func load_level(id: String) -> void:
 	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
 	boss = _spawn_boss()
 	weapon_found_run = false
+	agents_unlocked_run = false
 	level.set_param("row_z", GameCamera.ROW_Z)
 	level.set_param("ambient", Themes.vec(Themes.palette(info.theme).light))
 	for key in ["top", "mid", "haze"]:
@@ -279,6 +287,7 @@ func load_level(id: String) -> void:
 		Progress.grant_weapon("blaster")
 	gun.arm(armed, Progress.equipped)
 	tool_call.reset()
+	echoes.reset()
 	# World 2's bugs and spam bots are tougher (`tough` in spawnEntities()), and every enemy has HP_FACTOR
 	# times its TS hit points in the port (bosses keep theirs, projectiles have none to speak of).
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
@@ -456,6 +465,8 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			# respawn() in TS puts the rising void back below the checkpoint.
 			if rising_void:
 				rising_void.reset(player.spawn_point.y)
+			# The sub-agents' recording starts over where he comes back; the ones out stay.
+			echoes.reset(false)
 		&"shield":
 			# The Firewall broke instead of a heart: a white and orange ring and it leaves the stock.
 			particles.emit(at + Vector2(0, -9), {count = 24, speed = 120, life = 0.45, color = [Color.WHITE, Color("#F0A585")], drag = 3})
@@ -752,6 +763,10 @@ func reach_goal(goal: Goal) -> void:
 	# recordRun(): the level counts as finished (and what it unlocks opens) as soon as Clawd is through.
 	first_clear = not Progress.progress_for(level_id).completed
 	Progress.record_run(level_id, sparks, agents, Game.time, tokens)
+	# Clearing 3-1 lets Clawd send sub-agents.
+	if level_id == "3-1" and not Progress.has_tool("agents"):
+		Progress.grant_tool("agents")
+		agents_unlocked_run = true
 	# A Double Tokens is used up by a cleared level.
 	if double_tokens:
 		Progress.use_stock("double")
@@ -803,6 +818,7 @@ func _update_complete(dt: float) -> void:
 			# The first clear names the level it opened (ResultsScene).
 			"note": "THANKS FOR PLAYING!" if last \
 				else "TOOL CALL FOUND · WORLD 3 UNLOCKED" if weapon_found_run and first_clear and info.get("boss") == "codex" \
+				else "SUB-AGENTS JOIN YOU · %s SENDS ONE" % Settings.keys_text([&"agent"]) if agents_unlocked_run \
 				else "TOKEN BLASTER FOUND · WORLD 2 UNLOCKED" if weapon_found_run and first_clear \
 				else "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
 			"note_text": "Codex has been deprecated. In its wreck Clawd finds a Tool Call… the agents are waiting." if info.get("boss") == "codex" \

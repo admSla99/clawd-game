@@ -40,14 +40,15 @@ Five levels, each with its own theme, motif and music:
 ### Sub-agents (echoes)
 *Prince of Persia: The Lost Crown, The Swapper, Braid.*
 
-- Action `agent`: **G / middle mouse button**. Clawd's last 3 s are always recorded; `agent` sends out a
-  sub-agent that **replays those 3 s** from where Clawd was and then stays where Clawd stood when it was sent, for
-  8 s: it holds plates, can be stood on, draws enemy fire (3 hits) and then fades. Press again to recall the oldest.
+- Action `agent`: **G / middle mouse button**, from clearing 3-1 on. Clawd's last 3 s are always recorded; `agent`
+  sends out a sub-agent that **replays those 3 s** from where Clawd was and then stays where Clawd stood when it was
+  sent, for 8 s: it holds plates, can be stood on, lets Clawd's shots through, and then fades. Sending one more than
+  the slots allow calls the oldest home. (Drawing enemy fire is left for later.)
 - How many at once depends on the sub-agents rescued (in every world): 1, 2 from 10 rescued, 3 from 18 rescued
   (22 in the game once world 3 is in). The HUD's sub-agent counter shows the free ones.
 - **Plates and gates**: plates are digits `1`–`9` on the floor, gates are the letters `a`–`i` (`a` ↔ `1`, …): a
-  gate (solid, a column of its letter) is open while every plate of its digit is held by Clawd, a sub-agent or a
-  crate. Some plates time out: a gate stays open for a while after its plate is let go (per level metadata).
+  gate (solid, every cell of its letter) is open while every plate of its digit is held by Clawd or a sub-agent.
+  A plate can have a hold (`plateHold` in the level's metadata): it stays pressed that long after it is let go.
 
 ### System Prompts (builds)
 *Hollow Knight's charms.*
@@ -137,9 +138,9 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The map, signs, sparks, sub-agents; canopy motif and music; `tools/checks/3-1.gd`.
 
 ### W4 Sub-agents
-- [ ] `agent` action, the 3 s recording, the echo (replay, stand, plate, decoy, fade, recall), slots from rescued
+- [x] `agent` action, the 3 s recording, the echo (replay, stand, plate, fade, recall), slots from rescued
       sub-agents, HUD.
-- [ ] Plates `1`–`9` and gates `a`–`i`; checks.
+- [x] Plates `1`–`9` and gates `a`–`i` (and `z`, opened by W6's Retry Loops); checks.
 
 ### W5 3-2 Webhook Cliffs
 - [ ] Webhook (`W`).

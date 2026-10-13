@@ -11,6 +11,12 @@ const SOLID := 0
 const ONEWAY := 1
 const SPIKE := 2
 const CORRUPT := 3
+## A shut gate's cells (world 3, scripts/gate.gd): MeshLibrary item 4, solid but drawn by the gate; tile() calls it
+## SOLID, so everything treats it as rock.
+const GATE := 4
+## Plates (a run of one digit is one plate) and gates (every cell of one letter is one gate) in world-3 maps.
+const PLATE_CHARS := "123456789"
+const GATE_CHARS := "abcdefghiz"
 const MESH_LIBRARY := "res://tiles/terrain_meshlib.tres"
 ## Depth of a block in metres; blocks are centred on the gameplay plane z = 0.
 const DEPTH := 3.0
@@ -37,6 +43,8 @@ const SHIELDBOT := "res://scripts/shield_bot.gd"
 const INJECTOR := "res://scripts/injector.gd"
 const ANCHOR := "res://scripts/anchor.gd"
 const PARSER := "res://scripts/parser.gd"
+const PLATE := "res://scripts/plate.gd"
+const GATE_SCRIPT := "res://scripts/gate.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
 # 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
@@ -101,7 +109,9 @@ func tile(p: Vector2) -> int:
 		return SOLID
 	var c := Px.cell(p)
 	var item := oneway.get_cell_item(c)
-	return item if item != GridMap.INVALID_CELL_ITEM else terrain.get_cell_item(c)
+	if item == GridMap.INVALID_CELL_ITEM:
+		item = terrain.get_cell_item(c)
+	return SOLID if item == GATE else item
 
 
 ## Fills the blocks' cell texture (shaders/terrain_pixels.gdshader), one texel per 4 px cell:
@@ -264,12 +274,28 @@ static func build(rows: PackedStringArray) -> Level:
 	var agents := 0
 	var sparks := 0
 	var platform_phase := 0.0
+	var gate_cells := {}
 	for y in rows.size():
 		for x in rows[y].length():
 			var ch := rows[y][x]
 			var item := TILE_CHARS.find(ch)
 			if item >= 0:
 				maps[int(item == ONEWAY)].set_cell_item(Vector3i(x, -y - 1, 0), item)
+			elif PLATE_CHARS.contains(ch):
+				# A plate per run of the same digit, at the run's bottom middle.
+				if x > 0 and rows[y][x - 1] == ch:
+					continue
+				var w := 1
+				while x + w < rows[y].length() and rows[y][x + w] == ch:
+					w += 1
+				var plate := _add_spawn(level, "plate", Vector2(x * 16 + w * 8, (y + 1) * 16))
+				plate.set("digit", int(ch))
+				plate.set("cells", w)
+				plate.set_meta("spawn", ch)
+			elif GATE_CHARS.contains(ch):
+				if not gate_cells.has(ch):
+					gate_cells[ch] = []
+				gate_cells[ch].append(Vector2i(x, y))
 			elif SPAWNS.has(ch):
 				var node := _add_spawn(level, SPAWNS[ch], Vector2(x * 16 + 8, (y + 1) * 16))
 				node.set_meta("spawn", ch)
@@ -285,6 +311,11 @@ static func build(rows: PackedStringArray) -> Level:
 				elif SPAWNS[ch].begins_with("platform"):
 					node.set("phase", platform_phase)
 					platform_phase += 1.3
+	for ch in gate_cells:
+		var gate := _add_spawn(level, "gate", Vector2.ZERO)
+		gate.set("letter", ch)
+		gate.set("cells", Array(gate_cells[ch], TYPE_VECTOR2I, "", null))
+		gate.set_meta("spawn", ch)
 	return level
 
 
@@ -342,6 +373,12 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"parser":
 			node = load(PARSER).new()
 			node.name = "Parser"
+		"plate":
+			node = load(PLATE).new()
+			node.name = "Plate"
+		"gate":
+			node = load(GATE_SCRIPT).new()
+			node.name = "Gate"
 		"platform_h", "platform_v":
 			node = load(PLATFORM).new()
 			node.name = "Platform"

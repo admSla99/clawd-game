@@ -1,5 +1,7 @@
 # Generates tiles/terrain_meshlib.tres, the MeshLibrary of the level GridMaps. Item id = tile id from
-# src/world/tiles.ts minus one, in the order of Level.TILE_CHARS ('#' '=' '^' 'X').
+# src/world/tiles.ts minus one, in the order of Level.TILE_CHARS ('#' '=' '^' 'X'), then item 4: a closed gate
+# (world 3, scripts/gate.gd puts it where its cells are while it is shut): a solid box with no mesh, as the gate
+# draws its own bars.
 # Every block is a box with shaders/terrain_pixels.gdshader (one material each, `mode` 0..3);
 # Level.bake_cells() fills their cell texture.
 # Run from godot/: godot --headless --script tools/build_meshlib.gd
@@ -46,6 +48,12 @@ func _init() -> void:
 			shape.size.y = 0.25
 			at.origin.y = 0.375
 		lib.set_item_shapes(i, [shape, at])
+
+	lib.create_item(4)
+	lib.set_item_name(4, "gate")
+	var gate := BoxShape3D.new()
+	gate.size = Vector3(1, 1, DEPTH)
+	lib.set_item_shapes(4, [gate, Transform3D.IDENTITY])
 
 	var err := ResourceSaver.save(lib, "res://tiles/terrain_meshlib.tres")
 	print("terrain_meshlib.tres saved: ", error_string(err))

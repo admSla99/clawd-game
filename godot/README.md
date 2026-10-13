@@ -60,6 +60,7 @@ Map legend:
 | `@` `G` `C` `?` | Start, exit, checkpoint, sign (texts in `signs`, in map order) |
 | `o` `S` `A` | Token, spark, sub-agent |
 | `+` | Anchor for the Tool Call (world 3) |
+| `1`-`9` · `a`-`i` `z` | Pressure plate (a run of one digit is one plate) · gate (all cells of a letter; `a` opens with plates `1`, ...; `z` with the Retry Loops gone) |
 | `P` | Parser (world 3) |
 | `M` `V` | Moving platform, horizontal / vertical |
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
@@ -68,7 +69,7 @@ Map legend:
 
 `index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
 `theme` (palette, scenery and motif), `music`, `signs`, the optional `dark`, `risingVoid` (`speed` px/s, `delay`
-s) and `boss` (`hallucination`, `codex`), `index` (its position) and `terrainSeed` (`7 + index * 13`).
+s), `boss` (`hallucination`, `codex`) and `plateHold` (seconds a plate of a digit stays pressed, `{"1": 3.0}`), `index` (its position) and `terrainSeed` (`7 + index * 13`).
 
 `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`) as GridMap cells and adds a child per spawn:
@@ -521,6 +522,36 @@ anchor in reach and sight, and from an anchor he drifts down (with and without h
 zips on to the next one 12 frames into his hop, so chains of anchors over a chasm count; anchors 6 tiles apart
 chain, 8 apart do not.
 
+### Sub-agents, plates and gates
+
+Clearing 3-1 the first time gives Clawd the "agents" tool (`Progress.tools`; the results say "SUB-AGENTS JOIN
+YOU · G SENDS ONE"; an older save with 3-1 cleared gets it when loaded). `scripts/echo_control.gd`
+(`EchoControl`, `Main.echoes`, run after the player) records his feet and facing every physics frame for the last
+`REPLAY` (3) seconds; the `agent` action (G / the middle mouse button) sends out a sub-agent on that recording
+(agentSend, a burst where it starts). How many can be out at once: 1, 2 from 10 sub-agents rescued in all levels,
+3 from 18 (`slots()`; the Delegate prompt adds one, W9); sending one more calls the oldest home. A respawn starts
+the recording over; a new level sends them all home. The HUD shows an AGENTS panel next to the weapon panel (or in
+its place) with a box per slot, cyan while free.
+
+`scripts/echo.gd` (`Echo`, group `echoes`): it replays the recording, one entry a physics frame, from where Clawd
+was, then stands where he was when he sent it for 8 s and fades (0.5 s, agentGone). Standing it is a platform (group
+`platforms`, the MovingPlatform interface), so Clawd can stand on it to reach higher; his shots pass through it
+(`Bullet.blocked()` skips it). Its feet press plates whether it replays or stands. Drawn as Clawd tinted cyan
+(the voxel shader's `tint`), its pose from how it moves; it flickers like a hologram while it replays, in its last
+second and as it fades.
+
+`scripts/plate.gd` (`Plate`, group `plates`; digits `1`-`9`, a run of one digit in a row is one plate): a slab on
+the floor under its cells in its digit's colour (`Plate.COLORS`), pressed while Clawd stands on it or a sub-agent's
+feet are on it (plateOn / plateOff); its top lights and it sinks a pixel. The level's `plateHold` (seconds per
+digit in `index.json`) keeps it pressed that long after it is let go, blinking faster as the time runs out.
+
+`scripts/gate.gd` (`Gate`, group `gates`; letters `a`-`i` and `z`, all cells of one letter are one gate): shut, its
+cells are MeshLibrary item 4 (`Level.GATE`, a box shape with no mesh) in the Terrain GridMap, and `Level.tile()`
+calls them SOLID, so Clawd, enemies, shots and the hook treat them as rock; it draws three glowing bars per cell
+in its plates' colour. `a` opens while every plate of digit 1 is pressed, `b` for 2, and so on (gateOpen); its
+cells empty and the bars slide up into the cell's top. `z` opens once the level's Retry Loops are gone (W6). A
+gate that should shut waits while Clawd or a sub-agent is in it (gateShut).
+
 ### Parser
 
 `scripts/parser.gd` (`Parser`, `P`): an armoured crawler, 18 x 8 px, 4 hp (× 3 like every enemy), 20 tokens. It
@@ -608,7 +639,10 @@ without it, the aim assist's pick, the throw, catch and zip with their sounds, t
 no pick out of reach or behind a block, a clank on a block, a bug struck, a shield bot's shield torn off, letting go
 by jump / tool / a hit, the controls help line), 3-1 Endpoint Canopy (theme, motif, its enemies, anchors and
 signs, the real player climbing the first wall with a jump, the hook straight up and a zip; a parser's shell
-stopping shots and stomps, torn off once by the hook, then hurt and fast), shooting (fire rate and damage
+stopping shots and stomps, torn off once by the hook, then hurt and fast), sub-agents (their keys, none before 3-1
+is cleared, 1-3 slots by rescued sub-agents, sending one on the last 3 s, replay, standing as a platform Clawd stands
+on, shots passing through, a plate opening its gate for Clawd or a sub-agent, Clawd walking through, a gate not
+shutting on him, a plate's hold, a full slot calling the oldest home, the controls help line), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1035,6 +1069,8 @@ without COOP/COEP headers.
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
+| `scripts/echo_control.gd`, `scripts/echo.gd` | World 3's sub-agents: the recording, sending, slots; a sub-agent replaying and standing |
+| `scripts/plate.gd`, `scripts/gate.gd` | World 3's pressure plates (`1`-`9`) and the gates they open (`a`-`i`, `z`) |
 | `shaders/motif_canopy.gdshader` | Canopy motif (3-1): giant trees, vines with endpoint lanterns, requests and replies |
 | `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |
 | `scripts/gun.gd` | `Gun`: firing, context heat and overflow, aiming (mouse polling, keys), switching, the gun in Clawd's hands |
@@ -1078,7 +1114,7 @@ without COOP/COEP headers.
 | `scripts/game.gd`, `scripts/game_camera.gd`, `scripts/noise.gd` | Autoload `Game` (game time, hitstop, pause); the camera (`src/core/camera.ts`); `DotNoise`, bit-exact noise ports |
 | `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps and metadata (edited by hand), and the 3D level scenes converted from them |
-| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
+| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3); 4 is a shut gate (a shape, no mesh). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |
 | `tools/convert_level.gd`, `tools/reach.gd` | Level pipeline: map → scene, reachability, see *Levels* |
 | `addons/godot_ai/` | godot-ai editor plugin (MCP) |

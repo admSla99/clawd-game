@@ -128,7 +128,8 @@ static func blocked(lvl: Level, p: Vector2) -> bool:
 	if tile == Level.ONEWAY and fposmod(p.y, 16.0) < ONEWAY_TOP:
 		return true
 	for plat in lvl.get_tree().get_nodes_in_group("platforms"):
-		if plat.rect().has_point(p):
+		# Clawd's own sub-agents let his shots through.
+		if plat.rect().has_point(p) and not plat is Echo:
 			return true
 	return false
 

@@ -392,6 +392,7 @@ func _draw() -> void:
 
 	_draw_boss_bar()
 	_draw_weapon()
+	_draw_agents()
 
 	# Top right: CONTROLS, pause and mute buttons, then the level label (like the 2D HUD).
 	var b := buttons()
@@ -456,6 +457,26 @@ func _draw_weapon() -> void:
 		PixelFont.draw_centred(self, label, v.x, v.y, Color(ORANGE_LIGHT, minf(1.0, gun.label_t * 2)))
 	if crosshair():
 		draw_crosshair(self, (gun.mouse_view + Vector2.ONE * Main.PAD).round(), RED if hot else Settings.crosshair_color())
+
+
+## World 3's sub-agents (once Clawd can send them): a panel next to the weapon panel (or in its place) with a
+## box per slot, cyan while free, dark while that sub-agent is out.
+func _draw_agents() -> void:
+	var main := get_tree().get_first_node_in_group("main")
+	if main == null or not main.echoes.available():
+		return
+	var view := get_viewport_rect().size - Vector2.ONE * Main.PAD * 2
+	var x := Main.PAD + 8.0 + (154.0 if main.gun.armed else 0.0)
+	var y := Main.PAD + view.y - 30
+	var slots: int = main.echoes.slots()
+	var free: int = main.echoes.free_slots()
+	var w := 12.0 + PixelFont.width("AGENTS") + slots * 10
+	panel(self, Rect2(x, y, w, 22), BORDER)
+	PixelFont.draw(self, "AGENTS", Vector2(x + 6, y + 4), TEXT)
+	PixelFont.draw(self, Settings.keys_text([&"agent"]).split(" ")[0], Vector2(x + 6, y + 13), TEXT_DIM)
+	for i in slots:
+		var sx := x + 8 + PixelFont.width("AGENTS") + i * 10
+		draw_rect(Rect2(sx, y + 6, 8, 10), Echo.TINT if i < free else Color("#24363A"))
 
 
 ## drawCrosshair(): four arms of two 1 px dots (4 and 6 px out) around a dot at `at`, in `col` (TS: orange;

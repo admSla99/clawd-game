@@ -90,6 +90,7 @@ func _init() -> void:
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
 	await section("the Tool Call: hook, anchors, zip (world 3)", check_tool_call)
+	await section("sub-agents, plates and gates (world 3)", check_echoes)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1152,6 +1153,157 @@ func check_tool_call() -> bool:
 	ok(m.menu.control_lines().any(func(l): return String(l[1]).begins_with("Tool Call")), "the controls help lists the Tool Call")
 	progress.tools = tools0
 	p.invuln = 0.0
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+## Empties the current level and lays a flat floor two tiles thick under row 15 from column 0 to 63.
+func flat_ground(m: Node) -> void:
+	for e in get_nodes_in_group("enemies"):
+		e.remove()
+	for g in ["anchors", "plates", "gates", "echoes"]:
+		for n in get_nodes_in_group(g):
+			n.free()
+	m.level.terrain.clear()
+	m.level.oneway.clear()
+	for x in 64:
+		for y in [16, 17]:
+			m.level.terrain.set_cell_item(Vector3i(x, -y - 1, 0), 0)
+
+
+func check_echoes() -> bool:
+	var m = current_scene
+	var p = m.player
+	var ec = m.echoes
+	var progress = root.get_node("Progress")
+	var settings = root.get_node("Settings")
+	var snd = root.get_node("Sound")
+	ok(settings.DEFAULTS[&"agent"] == [KEY_G] and settings.MOUSE[&"agent"] == [MOUSE_BUTTON_MIDDLE], "a sub-agent is sent with G or the middle mouse button")
+	ok(level_script.PLATE_CHARS == "123456789" and level_script.GATE_CHARS == "abcdefghiz", "digits are plates, letters a-i and z gates")
+	var tools0: Array = progress.tools.duplicate()
+	var levels0: Dictionary = progress.levels.duplicate(true)
+	progress.tools = ["hook"]
+	m.load_level("3-1")
+	await frames(3)
+	flat_ground(m)
+	var floor_y := 16.0 * TILE
+	p.invuln = 1000
+	p.pos = Vector2(5 * TILE + 8, floor_y)
+	p.vel = Vector2.ZERO
+	await frames(5)
+	await drive(func(i): return ["agent"] if i < 2 else (null if i > 4 else []), 10)
+	ok(not ec.available() and get_nodes_in_group("echoes").is_empty(), "before 3-1 is cleared Clawd can't send any")
+	progress.grant_tool("agents")
+	progress.levels = {}
+	ok(ec.available() and ec.slots() == 1 and ec.free_slots() == 1, "then one at a time")
+	for id in ["1-1", "1-2", "1-3", "2-1", "2-2"]:
+		progress.levels[id] = {"completed": true, "sparks": [], "agents": [true, true], "best_time": null}
+	ok(ec.slots() == 2, "two from 10 rescued sub-agents")
+	for id in ["2-3", "2-4", "3-1", "3-2"]:
+		progress.levels[id] = {"completed": true, "sparks": [], "agents": [true, true], "best_time": null}
+	ok(ec.slots() == 3, "three from 18")
+	progress.levels = {}
+
+	# Clawd walks right for a second and sends one: it starts where he was, replays his walk, stands where he is.
+	ec.reset()
+	var from: Vector2 = p.pos
+	await drive(func(i): return ["right"] if i < 60 else null, 70)
+	await frames(10)
+	var at: Vector2 = p.pos
+	snd.played.clear()
+	await drive(func(i): return ["agent"] if i < 2 else null, 3)
+	var e = get_nodes_in_group("echoes")[0] if not get_nodes_in_group("echoes").is_empty() else null
+	ok(e != null and "agentSend" in snd.played and e.path[0][0].distance_to(from) < 4 and e.path[-1][0].distance_to(at) < 4,
+		"G sends a sub-agent on the last %d s of his moves (agentSend)" % ec.REPLAY)
+	ok(e != null and e.replaying() and not e.active and ec.free_slots() == 0, "it replays them, taking the slot")
+	for i in 200:
+		await physics_frame
+		if e and not e.replaying():
+			break
+	ok(e.feet.distance_to(at) < 4 and e.active and e.is_in_group("platforms"), "then stands where Clawd was, a platform")
+	ok(not load("res://scripts/bullet.gd").blocked(m.level, e.rect().get_center()), "his shots pass through it")
+	# Stand on it.
+	p.pos = e.feet + Vector2(0, -40)
+	p.vel = Vector2.ZERO
+	for i in 40:
+		await physics_frame
+		if p.on_ground:
+			break
+	ok(p.on_ground and absf(p.pos.y - (e.feet.y - 18.0)) < 0.6 and p.riding == e, "Clawd can stand on it")
+	p.pos = Vector2(5 * TILE + 8, floor_y)
+	await frames(5)
+
+	# A plate (1) and its gate (a): the gate opens while the plate is pressed.
+	var plate = load("res://scripts/plate.gd").new()
+	plate.digit = 1
+	plate.cells = 2
+	plate.position = Px.to3(Vector2(20 * TILE, floor_y))
+	m.level.add_child(plate)
+	var gate = load("res://scripts/gate.gd").new()
+	gate.letter = "a"
+	gate.cells = [Vector2i(30, 13), Vector2i(30, 14), Vector2i(30, 15)] as Array[Vector2i]
+	m.level.add_child(gate)
+	await frames(2)
+	var cell := Vector2(30 * TILE + 8, 15 * TILE + 8)
+	ok(m.level.tile(cell) == level_script.SOLID and not gate.open, "a shut gate is solid")
+	e.recall()
+	await frames(40)
+	p.pos = Vector2(20 * TILE, floor_y)
+	p.vel = Vector2.ZERO
+	await frames(4)
+	ok(plate.pressed and gate.open and m.level.tile(cell) == -1 and "plateOn" in snd.played and "gateOpen" in snd.played,
+		"Clawd on its plate opens it (plateOn, gateOpen)")
+	p.pos = Vector2(10 * TILE, floor_y)
+	await frames(4)
+	ok(not plate.pressed and not gate.open and m.level.tile(cell) == level_script.SOLID, "off the plate it shuts")
+	# A sub-agent left on the plate holds the gate open while Clawd walks through.
+	ec.reset()
+	p.pos = Vector2(14 * TILE, floor_y)
+	await frames(3)
+	await drive(func(i): return ["right"] if i < 40 and p.pos.x < 20 * TILE else (null if i > 50 else []), 60)
+	await drive(func(i): return ["agent"] if i < 2 else null, 3)
+	var e2 = ec.out()[-1]
+	for i in 220:
+		await physics_frame
+		if not e2.replaying():
+			break
+	p.pos = Vector2(26 * TILE, floor_y)
+	await frames(4)
+	ok(plate.pressed and gate.open, "a sub-agent standing on the plate holds it")
+	await drive(func(i): return ["right"] if p.pos.x < 34 * TILE else null, 120)
+	ok(p.pos.x >= 34 * TILE, "and Clawd walks through the gate")
+	# A shutting gate waits while Clawd is in it.
+	p.pos = Vector2(30 * TILE + 8, floor_y)
+	await frames(2)
+	e2.recall()
+	await frames(40)
+	ok(gate.open, "a gate does not shut on Clawd")
+	p.pos = Vector2(36 * TILE, floor_y)
+	await frames(4)
+	ok(not gate.open, "it shuts once he is out")
+	# A plate with a hold stays pressed for a while.
+	plate.hold = 1.0
+	p.pos = Vector2(20 * TILE, floor_y)
+	await frames(4)
+	p.pos = Vector2(10 * TILE, floor_y)
+	await frames(30)
+	var mid_hold: bool = gate.open and plate.held_t > 0
+	await frames(50)
+	ok(mid_hold and not gate.open, "with a hold of 1 s it stays pressed that long after Clawd steps off")
+	# A full slot: sending another recalls the oldest.
+	ec.reset()
+	await drive(func(i): return ["agent"] if i < 2 else null, 3)
+	await frames(5)
+	var first = ec.out()[0]
+	await drive(func(i): return ["agent"] if i < 2 else null, 3)
+	await frames(2)
+	ok(not first.alive() and ec.out().size() == 1, "with one slot, sending another calls the first one home")
+	ok(m.menu.control_lines().any(func(l): return String(l[1]).begins_with("Sub-agent")), "the controls help lists it")
+	ec.reset()
+	progress.tools = tools0
+	progress.levels = levels0
+	p.invuln = 0
 	m.load_level("1-1")
 	await frames(3)
 	return true

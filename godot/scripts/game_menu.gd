@@ -348,6 +348,8 @@ func control_lines() -> Array:
 		])
 	if Progress.has_tool("hook"):
 		lines.append([k.call([&"tool"]) + " / RMB", "Tool Call: zip to endpoints, rip shields"])
+	if Progress.has_tool("agents"):
+		lines.append([k.call([&"agent"]) + " / MMB", "Sub-agent: replays your last 3 s, holds plates"])
 	lines.append_array([
 		[k.call([&"shop"]) + " (MAP)", "Shop"],
 		[k.call([&"pause"]) + " / ESC · " + k.call([&"mute"]) + " · " + k.call([&"controls"]), "Pause · mute · this help"],

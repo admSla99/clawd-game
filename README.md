@@ -31,6 +31,7 @@ godot --headless --script tools/reach.gd         # every level's exit, sparks an
 | X / J · left mouse button | World 1: spin · World 2: shoot |
 | C / L | Spin |
 | Shift / F · right mouse button | World 3: Tool Call (hook to endpoints, zip there) |
+| G · middle mouse button | World 3: send a sub-agent (replays your last 3 s, holds plates) |
 | ↓ / S in the air | Ground pound (breaks purple "corrupted" blocks) |
 | ↓ + Space | Drop through a platform |
 | Mouse | World 2: aim (↑ / ↓ + X aims without a mouse) |

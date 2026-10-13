@@ -10,7 +10,7 @@ extends Node
 var path := "user://settings.cfg"
 const SLOTS := 3
 ## Actions the player can rebind, in the order the keybinding menu lists them.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"agent", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -20,6 +20,7 @@ const LABELS := {
 	&"attack": "ATTACK (SPIN / SHOOT)",
 	&"spin": "SPIN",
 	&"tool": "TOOL CALL (HOOK)",
+	&"agent": "SEND SUB-AGENT",
 	&"prev": "PREV WEAPON",
 	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
@@ -36,6 +37,7 @@ const DEFAULTS := {
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
 	&"tool": [KEY_SHIFT, KEY_F],
+	&"agent": [KEY_G],
 	&"prev": [KEY_Q],
 	&"next": [KEY_E],
 	&"pause": [KEY_P],
@@ -61,6 +63,7 @@ const FIXED := {
 const MOUSE := {
 	&"attack": [MOUSE_BUTTON_LEFT],
 	&"tool": [MOUSE_BUTTON_RIGHT],
+	&"agent": [MOUSE_BUTTON_MIDDLE],
 	&"next": [MOUSE_BUTTON_WHEEL_DOWN],
 	&"prev": [MOUSE_BUTTON_WHEEL_UP],
 }
