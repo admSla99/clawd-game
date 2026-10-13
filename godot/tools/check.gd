@@ -345,7 +345,7 @@ func check_scenes() -> bool:
 	ok(m.mode == m.Mode.PLAY and m.level_id == "1-2" and m.player.collision_layer == 2 and m.player.can_process()
 		and m.hud.visible and not front.visible and m.player.pos.distance_to(_start(m)) < 1, "Enter plays it, with Clawd on '@'")
 	m.menu.handle(key(KEY_P))
-	for i in 5:
+	for i in m.menu.PAUSE_ITEMS.find("QUIT TO MAP"):
 		m.menu.handle(key(KEY_DOWN))
 	m.menu.handle(key(KEY_ENTER))
 	await frames(3)
@@ -1678,6 +1678,25 @@ func check_menus() -> bool:
 	ok(menu.state == menu.NONE and m.tokens == 0, "RESTART LEVEL reloads the level")
 	await frames(3)
 
+	# CROSSHAIR (the port's): its colour, white by default; Enter and left / right cycle it, saved.
+	var cross0: int = settings.crosshair
+	settings.crosshair = 0
+	ok(settings.CROSSHAIRS[0][0] == "WHITE" and settings.crosshair_color() == Color.WHITE, "the crosshair is white by default")
+	menu.handle(key(KEY_P))
+	for i in menu.PAUSE_ITEMS.find("CROSSHAIR"):
+		menu.handle(key(KEY_DOWN))
+	menu.handle(key(KEY_ENTER))
+	ok(menu.state == menu.PAUSE and settings.crosshair == 1, "Enter on CROSSHAIR picks the next colour and keeps the menu open")
+	menu.handle(key(KEY_LEFT))
+	menu.handle(key(KEY_LEFT))
+	ok(settings.crosshair == settings.CROSSHAIRS.size() - 1, "left / right cycle it (%s)" % settings.CROSSHAIRS[settings.crosshair][0])
+	cfg.load(settings.path)
+	ok(cfg.get_value("video", "crosshair") == settings.CROSSHAIRS[settings.crosshair][0], "and it is saved by name")
+	settings.crosshair = cross0
+	settings.save()
+	menu.close()
+	await frames(3)
+
 	# The HUD buttons, at the usual 480 x 270 view (the headless window is smaller).
 	var vp_size: Vector2i = m.subviewport.size
 	m.subviewport.size = Vector2i(480, 270) + Vector2i.ONE * m.PAD * 2
@@ -1752,7 +1771,8 @@ func check_menus() -> bool:
 	# Every text the menus draw is in the font.
 	var texts: Array = menu.PAUSE_ITEMS + ["PAUSED", "CONTROLS", "KEYBINDINGS", "RESET DEFAULTS", "BACK", "...", ">",
 		"ENTER — CHANGE KEYS", "PRESS A KEY · ESC CANCEL · BKSP CLEAR", "↑↓ ROW · ←→ SLOT · ENTER REBIND",
-		"↑↓ SELECT · ENTER OK · ESC RESUME", "ON", "OFF", "ALREADY BOUND TO"] + settings.LABELS.values()
+		"↑↓ SELECT · ENTER OK · ESC RESUME", "↑↓ SELECT · ←→ COLOUR · ESC RESUME", "ON", "OFF", "ALREADY BOUND TO"] \
+		+ settings.LABELS.values() + settings.CROSSHAIRS.map(func(c): return c[0])
 	for row in lines:
 		texts += row
 	for code in [KEY_A, KEY_Z, KEY_0, KEY_9, KEY_SEMICOLON, KEY_COMMA, KEY_PERIOD, KEY_SLASH, KEY_APOSTROPHE, KEY_QUOTELEFT, KEY_BACKSLASH, KEY_BRACKETLEFT, KEY_MINUS, KEY_EQUAL, KEY_SHIFT, KEY_TAB, KEY_F1, KEY_KP_1]:

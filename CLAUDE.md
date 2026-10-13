@@ -97,7 +97,7 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
   is `TITLE`, `MAP`, `SHOP` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the player
   parked) or `PLAY`. Ported TS scenes map to: `title.ts`/`levelSelect.ts` → `scripts/front_end.gd`, `shop.ts` →
   `scripts/shop_screen.gd` + `scripts/shop.gd`, results → `Overlay`, pause/controls/keybinds → `scripts/game_menu.gd`.
-- **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute →
+- **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute, crosshair colour →
   `user://settings.cfg`), `Sound` (synthesizes `src/core/audio.ts` effects/music offline into AudioStreamWAVs; every
   `Sound.play("x")` needs `x` in `Sound.PRELOAD`, checked), `Progress` (the level part of `src/save.ts` plus shop
   state → `user://progress.json`).

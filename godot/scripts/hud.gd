@@ -455,11 +455,18 @@ func _draw_weapon() -> void:
 		var label := String(gun.weapon.name)
 		PixelFont.draw_centred(self, label, v.x, v.y, Color(ORANGE_LIGHT, minf(1.0, gun.label_t * 2)))
 	if crosshair():
-		var m := (gun.mouse_view + Vector2.ONE * Main.PAD).round()
-		var col := RED if hot else ORANGE
-		for o in [Vector2(-6, 0), Vector2(-4, 0), Vector2(4, 0), Vector2(6, 0), Vector2(0, -6), Vector2(0, -4), Vector2(0, 4), Vector2(0, 6)]:
-			draw_rect(Rect2(m + o, Vector2.ONE), col)
-		draw_rect(Rect2(m, Vector2.ONE), Color.WHITE)
+		draw_crosshair(self, (gun.mouse_view + Vector2.ONE * Main.PAD).round(), RED if hot else Settings.crosshair_color())
+
+
+## drawCrosshair(): four arms of two 1 px dots (4 and 6 px out) around a dot at `at`, in `col` (TS: orange;
+## here the player's colour, Settings.crosshair_color()). The port puts a dark 1 px outline around every dot, so it
+## reads on bright and dark levels alike (bug list #2), and the centre is the colour lightened.
+static func draw_crosshair(ci: CanvasItem, at: Vector2, col: Color) -> void:
+	var dots := [Vector2.ZERO, Vector2(-6, 0), Vector2(-4, 0), Vector2(4, 0), Vector2(6, 0), Vector2(0, -6), Vector2(0, -4), Vector2(0, 4), Vector2(0, 6)]
+	for o in dots:
+		ci.draw_rect(Rect2(at + o - Vector2.ONE, Vector2(3, 3)), Color(0.04, 0.035, 0.05, 0.85))
+	for o in dots:
+		ci.draw_rect(Rect2(at + o, Vector2.ONE), col.lerp(Color.WHITE, 0.6) if o == Vector2.ZERO else col)
 
 
 ## drawBossBar() in src/render/hud.ts: the boss's name over a 150 px bar near the bottom of the view; up to 5 hp

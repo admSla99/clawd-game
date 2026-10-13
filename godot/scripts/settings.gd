@@ -1,7 +1,7 @@
 extends Node
 
-## Autoload "Settings": the player's key bindings, the CRT filter and mute, saved in user://settings.cfg (like
-## `save.keys` and `renderer.crt` in src/app.ts). Bindings follow src/core/input.ts: every action the player
+## Autoload "Settings": the player's key bindings, the CRT filter, mute and the crosshair's colour, saved in
+## user://settings.cfg (like `save.keys` and `renderer.crt` in src/app.ts; the crosshair colour is the port's). Bindings follow src/core/input.ts: every action the player
 ## can rebind has up to SLOTS keys (physical keycodes, so the layout of the keyboard does not matter), applied
 ## to the InputMap actions of the same name; a few keys always do the same thing (FIXED) and cannot be
 ## rebound. W may serve both jump and up, as in the default layout; any other key belongs to one action.
@@ -69,10 +69,17 @@ const SHORT := {
 	KEY_HOME: "HOME", KEY_END: "END", KEY_PAGEUP: "PGUP", KEY_PAGEDOWN: "PGDN", KEY_META: "META",
 }
 
+## The crosshair's colours, [name, colour], picked in the pause menu (a port addition: TS's orange dots got lost
+## against the orange and red levels). White, with the crosshair's dark outline, reads on every level.
+const CROSSHAIRS := [["WHITE", Color("#FFFFFF")], ["CYAN", Color("#5FF2FF")], ["LIME", Color("#B4FF4D")],
+	["MAGENTA", Color("#FF5CDB")], ["YELLOW", Color("#FFE45C")], ["ORANGE", Color("#D97757")]]
+
 ## Action -> Array of physical keycodes.
 var bindings := {}
 var crt := true
 var muted := false
+## Index into CROSSHAIRS.
+var crosshair := 0
 
 
 func _ready() -> void:
@@ -85,6 +92,8 @@ func _ready() -> void:
 				bindings[a] = keys.slice(0, SLOTS)
 		crt = cfg.get_value("video", "crt", true)
 		muted = cfg.get_value("audio", "muted", false)
+		var name: String = str(cfg.get_value("video", "crosshair", "WHITE"))
+		crosshair = maxi(0, CROSSHAIRS.map(func(c: Array) -> String: return c[0]).find(name))
 	apply()
 
 
@@ -117,6 +126,7 @@ func save() -> void:
 	for a in BINDABLE:
 		cfg.set_value("keys", a, bindings[a])
 	cfg.set_value("video", "crt", crt)
+	cfg.set_value("video", "crosshair", CROSSHAIRS[crosshair][0])
 	cfg.set_value("audio", "muted", muted)
 	cfg.save(path)
 
@@ -172,6 +182,16 @@ func set_muted(on: bool) -> void:
 func set_crt(on: bool) -> void:
 	crt = on
 	save()
+
+
+## The next (`step` 1) or previous (-1) crosshair colour, saved.
+func cycle_crosshair(step := 1) -> void:
+	crosshair = posmod(crosshair + step, CROSSHAIRS.size())
+	save()
+
+
+func crosshair_color() -> Color:
+	return CROSSHAIRS[crosshair][1]
 
 
 ## keyLabel() in src/core/input.ts: arrows as arrows, letters and symbols as themselves, short names for the rest.

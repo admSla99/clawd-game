@@ -476,7 +476,8 @@ level), and that a running jump clears
 crossing the 26-tile gap of 1-1 on its two moving platforms (a
 small controller jumps when the next platform comes close), that a tapped jump is a full jump, and the HUD
 (tokens fly to the counter and are counted when they land, hearts break and refill, +1 heart per 300 tokens up
-to 5), and the menus (pause freezes the world, every pause item, the HUD buttons, rebinding with conflicts,
+to 5), and the menus (pause freezes the world, every pause item, the crosshair colour (white by default, cycling,
+saved), the HUD buttons, rebinding with conflicts,
 clearing, reset, saving to a separate settings file, glyphs for every key name), and the sound (every effect
 renders, is audible and does not clip, the pitches of token / jump / checkpoint, track loop lengths, and that
 the game's events play their sounds, the jet hisses while hovering, M mutes, the exit and results switch the
@@ -609,8 +610,11 @@ hearts in every world-2 level), up to 5 (the HUD grows a slot, "+1 HEART" pops u
 Armed (world 2), `_draw_weapon()` is `drawWeaponHud()` and `drawCrosshair()`: bottom left a panel with the
 weapon's name, slots 1-5 (the held one orange, owned ones grey, the rest dark) and the CONTEXT bar of 26 cells
 (orange, red over three quarters; blinking red with OVERFLOW while overflowed); the weapon's name over Clawd
-after a switch; and while aiming with the mouse a dotted crosshair at the mouse (orange, red while overflowed),
-which hides the system cursor (`Input.MOUSE_MODE_HIDDEN`, not in headless runs).
+after a switch; and while aiming with the mouse a dotted crosshair at the mouse (`Hud.draw_crosshair()`; red while
+overflowed), which hides the system cursor (`Input.MOUSE_MODE_HIDDEN`, not in headless runs). TS draws it in
+orange, which got lost against the orange and red world-2 levels (bug list #2): the port puts a dark 1 px outline
+around every dot and takes its colour from the pause menu's CROSSHAIR (white by default; cyan, lime, magenta,
+yellow or TS's orange; `Settings.crosshair`, saved in `settings.cfg`).
 
 ## Sound and music
 
@@ -724,7 +728,8 @@ size, the selected row as a faint orange bar with a bright left edge and a `>` p
   weapon is found it adds attack as spin / shoot, spin on the right mouse button, aiming with the mouse or the
   keys, and switching weapons. Enter (or its button) opens the keybindings.
 - **Pause** (`pause` key, P, or Escape; or the HUD's pause button): RESUME, RESTART FROM CHECKPOINT, RESTART
-  LEVEL, CRT FILTER: ON/OFF, KEYBINDINGS, QUIT TO MAP (the world map, on the current level).
+  LEVEL, CRT FILTER: ON/OFF, CROSSHAIR: its colour (the port's; Enter or left / right cycle it, with a preview at
+  the row's end), KEYBINDINGS, QUIT TO MAP (the world map, on the current level).
 - **Keybindings**: every bindable action with 3 key slots drawn as keycaps. Enter (or a click) on a slot
   listens for the next key: Escape cancels, Backspace clears the slot (the last key of an action stays), a
   key that belongs to another action is refused with "X ALREADY BOUND TO ..." (W may be both jump and up, as

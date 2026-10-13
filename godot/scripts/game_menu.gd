@@ -6,7 +6,8 @@ extends Node2D
 ## - CONTROLS help (the `controls` key or the HUD button; drawControlsOverlay() in src/render/hud.ts): what
 ##   every key does, from the current bindings; confirm opens the keybindings.
 ## - PAUSE (the `pause` key, Escape or the HUD button): RESUME, RESTART FROM CHECKPOINT, RESTART LEVEL,
-##   CRT FILTER, KEYBINDINGS, QUIT TO MAP.
+##   CRT FILTER, CROSSHAIR (the port's: its colour, confirm or left / right cycle it, with a preview), KEYBINDINGS,
+##   QUIT TO MAP.
 ## - KEYBINDINGS (KeybindMenu): every bindable action with SLOTS key slots; confirm on a slot listens for the
 ##   next key (Escape cancels, Backspace clears the slot), a key bound to another action is refused with a
 ##   message, RESET DEFAULTS and BACK. Changes go to Settings, which saves them.
@@ -16,7 +17,7 @@ extends Node2D
 
 enum { NONE, CONTROLS, PAUSE, KEYS }
 
-const PAUSE_ITEMS := ["RESUME", "RESTART FROM CHECKPOINT", "RESTART LEVEL", "CRT FILTER", "KEYBINDINGS", "QUIT TO MAP"]
+const PAUSE_ITEMS := ["RESUME", "RESTART FROM CHECKPOINT", "RESTART LEVEL", "CRT FILTER", "CROSSHAIR", "KEYBINDINGS", "QUIT TO MAP"]
 const BORDER := Color("#4A4A4A")
 const SLOT_BORDER := Color("#2C2C2C")
 const PANEL_FILL := Color(0.075, 0.07, 0.085, 0.97)
@@ -139,6 +140,9 @@ func handle(event: InputEvent) -> bool:
 			elif _pressed(event, "up"):
 				pause_index = (pause_index + PAUSE_ITEMS.size() - 1) % PAUSE_ITEMS.size()
 				Sound.play("select")
+			elif PAUSE_ITEMS[pause_index] == "CROSSHAIR" and (_pressed(event, "left") or _pressed(event, "right")):
+				Settings.cycle_crosshair(1 if _pressed(event, "right") else -1)
+				Sound.play("select")
 			elif event.is_action_pressed("confirm"):
 				_activate_pause()
 			return true
@@ -167,6 +171,8 @@ func _activate_pause() -> void:
 		"CRT FILTER":
 			Settings.set_crt(not Settings.crt)
 			main.crt.visible = Settings.crt
+		"CROSSHAIR":
+			Settings.cycle_crosshair()
 		"KEYBINDINGS":
 			open_keys()
 		"QUIT TO MAP":
@@ -355,7 +361,7 @@ func layout() -> Dictionary:
 	var out := {"rows": [], "slots": [], "reset": Rect2(), "back": Rect2(), "change": Rect2()}
 	match state:
 		PAUSE:
-			var w := 184.0
+			var w := 200.0
 			var h := 28.0 + PAUSE_ITEMS.size() * 13 + 18
 			out.panel = Rect2(roundf(c.x - w / 2), roundf(c.y - h / 2), w, h)
 			for i in PAUSE_ITEMS.size():
@@ -432,12 +438,16 @@ func _draw_pause(l: Dictionary) -> void:
 		var label: String = PAUSE_ITEMS[i]
 		if label == "CRT FILTER":
 			label += ": " + ("ON" if Settings.crt else "OFF")
+		if label == "CROSSHAIR":
+			label += ": " + Settings.CROSSHAIRS[Settings.crosshair][0]
+			# A preview at the row's right end.
+			Hud.draw_crosshair(self, Vector2(r.end.x - 12, r.position.y + 6), Settings.crosshair_color())
 		if sel:
 			_highlight(r)
 			# The marker nudges right and back, like a blinking prompt.
 			PixelFont.draw(self, ">", r.position + Vector2(6 + (1 if fmod(_t, 0.8) < 0.4 else 0), 3), Hud.ORANGE)
 		PixelFont.draw(self, label, r.position + Vector2(16, 3), Hud.TEXT if sel else Hud.TEXT_DIM)
-	_hint(p, "↑↓ SELECT · ENTER OK · ESC RESUME")
+	_hint(p, "↑↓ SELECT · ←→ COLOUR · ESC RESUME" if PAUSE_ITEMS[pause_index] == "CROSSHAIR" else "↑↓ SELECT · ENTER OK · ESC RESUME")
 
 
 func _draw_controls(l: Dictionary) -> void:

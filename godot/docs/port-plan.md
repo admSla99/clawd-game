@@ -197,6 +197,8 @@ Things the user asked for on top of the TS game and the tasks above, so we know 
       TS (`Bullet.blocked()`).
 - [x] **Readable found sparks** (bug list, 2026-10-13): a spark found on an earlier run is the solid star, smaller
       and muted with a soft glow, instead of TS's dotted star at 55 %, which all but vanished in the port's levels.
+- [x] **Crosshair colour** (bug list, 2026-10-13): the crosshair has a dark outline and the colour the player picks
+      under CROSSHAIR in the pause menu (white by default; TS's orange is one of the choices), saved in settings.
 
 ## Open points (decide when we get there)
 - Gamepad: decided in M5, not added (the user's call). The port is keyboard and mouse only.
