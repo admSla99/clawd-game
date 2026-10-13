@@ -144,8 +144,10 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M9 2-3 Prompt Injection Swamp
-- [ ] Convert, spawns. Swamp motif: corrupted data pools and text bubbles.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Convert, spawns. Swamp motif: corrupted data pools and text bubbles. Full jumps fit (no override: no
+      ceilings; the check drives the pillar pits, the one-way steps, the spike bed on its moving platforms and
+      the corrupted pocket). Injectors out of range no longer flatten until their mesh fails.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M10 2-4 The Diff Towers
 - [ ] Convert, spawns. Towers motif: transformer stacks with light in the residual stream.

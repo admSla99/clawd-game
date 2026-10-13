@@ -341,7 +341,27 @@ while Clawd is invulnerable; before, half the frames after a hit could not take 
 
 ### 2-3 Prompt Injection Swamp
 
-Not ported yet (M9): the swamp motif.
+Armed, with the TS sign, 8 injectors, 4 spam bots, a drone, a turret and a shield bot. Full jumps fit the map,
+so it has no override: no ceilings, and `tools/checks/2-3.gd` drives the real player across the five pits
+between the pillars (columns 44-79), up the one-way steps to the spark (92-108), over the spike bed (136-173)
+on its two moving platforms and the ledge, and out of the spark's pocket under the corrupted floor (214-217).
+
+Swamp motif: `shaders/motif_swamp.gdshader`, corrupted data pools, in view pixels like the mesa. Two ranges of
+murky flats (the far one at 0.07 of the camera's speed, its water line at 52 % of the view's height and
+hazier; the near one at 0.13 and 60 %), mud with low tussocks and reeds, and in it a pool per 220 / 300 px
+cell, half an ellipse below the water line. A pool mirrors the haze of the rows above it (in the haze
+shader's dithered steps) and whatever stands over it, with a lit surface line, a dark rim and darker towards
+the far shore; its data is corrupted: bands of rows of the reflection tear sideways a few times a second,
+dead pixels blink in the injector's magenta or the ray colour, and 1 px ripples drift across. Two cables per
+pool hang from above the view and sink into it, steep where they go in, swaying a little; light pulses run
+down them into the water and rings spread where they enter. From the near pools injected strings rise as
+bubbles of text, two slots per pool half a life (~12 s) apart: a small round bubble grows into a speech
+bubble with two trailing bubbles, a phrase ("IGNORE ALL", "SUDO JUMP", "NEW RULES:", "DROP TABLE", ...) types
+in with a 3×5 pixel font, one letter at a time flickers to magenta, and near the top of the view the bubble
+pops into pixels. Opaque where there is mud or water, sinking into the haze below the pools.
+
+Injectors waiting out of Clawd's range keep their hop squash (`Injector._update_visual()`): in TS the squash
+grows without end while the timer runs out, in the port the flattened blob made building its mesh fail.
 
 ### 2-4 The Diff Towers
 

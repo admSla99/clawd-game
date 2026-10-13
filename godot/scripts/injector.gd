@@ -90,9 +90,11 @@ func _die(_kind: StringName) -> void:
 	queue_free()
 
 
-## Squashed wide just before a hop, stretched tall in the air (`squash` in the 2D draw()).
+## Squashed wide just before a hop, stretched tall in the air (`squash` in the 2D draw()). The squash stops
+## at its hop value while the timer runs out with Clawd out of range (in TS it grows without end, a pancake;
+## here the blob would get too flat for its ">_").
 func _update_visual() -> void:
-	var squash := 1 + maxf(0.0, 0.4 - timer) * 0.6 if grounded else 0.9
+	var squash := 1 + clampf(0.4 - timer, 0.0, 0.4) * 0.6 if grounded else 0.9
 	var w := 2 * roundi(SIZE.x / 2 * squash)
 	var h := roundi(SIZE.y / squash)
 	_body.mesh = mesh(w, h, fmod(Game.time, 1.0) < 0.5)
