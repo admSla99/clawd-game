@@ -1803,10 +1803,13 @@ func check_sound() -> bool:
 	await frames(3)
 	ok("die" in snd.played, "falling out plays die")
 
+	# Relative to the player's own settings (this section runs on them, and several worktrees share them): two
+	# presses leave them as they were.
+	var was_muted: bool = root.get_node("Settings").muted
 	m.menu.handle(key(KEY_M))
-	ok(root.get_node("Settings").muted and AudioServer.is_bus_mute(0), "M mutes")
+	ok(root.get_node("Settings").muted != was_muted and AudioServer.is_bus_mute(0) != was_muted, "M mutes (unmutes if muted)")
 	m.menu.handle(key(KEY_M))
-	ok(not root.get_node("Settings").muted and not AudioServer.is_bus_mute(0), "and unmutes")
+	ok(root.get_node("Settings").muted == was_muted and AudioServer.is_bus_mute(0) == was_muted, "and a second M undoes it")
 
 	var goal = m.level.get_node("Goal")
 	p.pos = goal.feet()
