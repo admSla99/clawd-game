@@ -369,7 +369,57 @@ Not ported yet (M10): the towers motif.
 
 ### 2-B Codex
 
-Not ported yet (M11): the boss Codex (`src/entities/boss/codex.ts`), its arena and the codex motif.
+`Main._spawn_boss()` puts the level's `boss` (`codex`) at its `Boss` marker, like the `boss` spawn in
+`spawnEntities()`: centred on the marker's column, 150 px over the first solid floor below it, in an arena as wide
+as the level (40 tiles). `Codex` (`scripts/codex.gd`, from `src/entities/boss/codex.ts`) is an `Enemy` with 90 hp
+(no `HP_FACTOR`, no enemy bar: the HUD's boss bar shows `TITLE`, 50 cells for so many hit points). It types
+"> codex --ship-it" (typing, 3.2 s, untouchable) under the card "CODEX / a rival model has entered the chat", then
+drifts above the arena (a sine across all but 110 px of each side, faster each phase) and runs its phase's pattern
+of attacks, resting 1.2 s (less each phase) after each:
+
+- **burst**: 3 + phase volleys 0.5 s apart of five code characters (`{}();=<>[]`) fanned at Clawd's middle at
+  120 px/s (20 % faster a phase), every other volley turned a little; they can be shot down or spun away.
+- **slam**: the cursor hand nearer Clawd (`CodexHand`, `scripts/codex_hand.gd`, invincible, hurts on contact)
+  tracks him 120 px over the floor for 0.85 s under a blinking red target on the floor's top, drops at 650 px/s,
+  sticks for 0.8 s (slam, shake, dust) and sends a "≈" shockwave each way at 165 px/s; in phase 2 the other hand
+  slams 0.7 s later.
+- **wall**: "autocompleting...": a column of ghost text 9 px apart sweeps from the side away from Clawd at 95 px/s
+  (+15 a phase) with one 44 px gap; neither it nor the shockwaves can be shot down, and both pass through walls.
+- **tests** (phases 1 and 2): "npm test → n failing": 2 + phase world-2 bugs (2 hp × `HP_FACTOR`, like every bug
+  in the port) drop in from the top of the arena; their tokens are added to the level's total.
+- **rm -rf** (phase 2): "rm -rf ./clawd": three `ColumnBeam`s (`scripts/column_beam.gd`) 0.75 s apart where Clawd
+  stands: 0.85 s of blinking warning, then 0.35 s of beam (laser, shake) whose middle 12 px hurt; bullets pass
+  through them.
+
+Only the monitor takes damage (shots, stomps, spins, pounds, the jet; there is no immunity after a hit, as in TS),
+with damage numbers over it like every enemy. At 2/3 and 1/3 of its hp it refactors ("REFACTORING...", "ENABLING
+--YOLO MODE": bossHit, shake, hitstop, 1.8 s untouchable) into the next phase, whose pattern starts over; its
+screen cracks and glitches. At 0 hp: "SEGFAULT", the hands retire, it sinks for 2.8 s in bursts and explosions,
+then `Main.boss_defeated()`: "CODEX HAS BEEN DEPRECATED", leftover projectiles vanish, the map tune plays and the
+exit opens in the middle of the arena. The results say "WORLD 2 CLEAR" and, as the last level, "THANKS FOR
+PLAYING!" with `results.ts`'s closing line under it (`note_text`, drawn by `Overlay`).
+
+The 2.5D look: Codex is a voxel CRT monitor, the 2D bezel of 2 px dots standing proud of a dark casing whose
+tapered back reaches 29 px into the depth; its face (scrolling code, eyes looking at Clawd, mouth, cracks, the
+intro prompt with its cursor, x_x, the name plate) is painted every frame on the recessed screen by
+`CodexPaint` (`scripts/codex_paint.gd`, flat boxes in a MultiMesh), its eyes and prompt glowing. The model sits
+9 px in front of the gameplay plane, lifted 3 px against the oblique shift, so the screen lands where the 2D one
+was; a GlowLight on the screen lights the platforms it drifts over and rims Clawd. The hands are the 2D cursor
+sprite in voxels (2 px cells, the outline deeper than the fill), pointing down while they slam. Codex's shots are
+`CodeShot`s (`scripts/code_shot.gd`, a `Shot` with a glyph): the character in bold glowing voxels with a dark
+outline (PixelFont, plus braces and the wave); the shockwave repeats its lower tilde in three dimmer bands across
+the floor's top. The rm -rf warning comes down as red dashes onto a square of dashes on the floor; the beam is a
+column 18 px deep, translucent red round a glowing white core, with a GlowLight on the floor. New sounds:
+`typing`, `slam`, `laser`.
+
+**Motif** (`scripts/codex_motif.gd`, found by its name): code monoliths in three layers of depth (-24, -13 and
+-7.5 m) behind the forest's nearer layers, tall dark slabs rising from below the view; `shaders/codex_monolith.gdshader`
+covers their fronts with code scrolling up in syntax colours of the theme's cyan (keywords, pale identifiers, dim
+comments, white and now and then orange literals), a blinking cursor at the line being typed and a scanline
+glinting down; their tops show a lit rim.
+
+`tools/checks/2-B.gd` checks the spawn, the intro, every attack, the phases, a blaster hit and a stomp, the death,
+the exit, the results and the motif.
 
 ## Checks
 

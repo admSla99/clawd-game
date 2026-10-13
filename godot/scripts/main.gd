@@ -75,7 +75,7 @@ var dark_lamp := Vector4.ZERO
 var rising_void: RisingVoid = null
 ## The theme's 3D motif among the scenery (MOTIFS_3D), or null.
 var motif_3d: Node3D = null
-## The level's boss while it lives (1-B), or null; and whether this run found a weapon.
+## The level's boss while it lives (1-B, 2-B), or null; and whether this run found a weapon.
 var boss: Enemy = null
 var weapon_found_run := false
 ## Clawd's weapon (armed in world 2) and the Attention Beam's flashes.
@@ -672,14 +672,23 @@ func _spawn_boss() -> Enemy:
 	match info.boss:
 		"hallucination":
 			return Hallucination.create(level, at + Vector2(0, -8), floor_top, level.pixel_size.x)
+		"codex":
+			return Codex.create(level, at.x, floor_top, level.pixel_size.x)
 	return null
 
 
-## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster drops into the middle of the arena,
-## leftover shots vanish and the map tune plays.
+## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster drops into the middle of the arena (1-B)
+## or the exit opens there (2-B), leftover shots vanish and the map tune plays.
 func boss_defeated(_b: Enemy, at: Vector2) -> void:
-	overlay.popup("THE HALLUCINATION HAS BEEN GROUNDED", at + Vector2(0, -70), Color("#F0A585"), 3.0)
-	WeaponPickup.create(level, level.pixel_size.x / 2, at.y)
+	if info.boss == "codex":
+		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
+		var goal: Goal = load("res://scripts/goal.gd").new()
+		goal.name = "Goal"
+		goal.position = Px.to3(Vector2(level.pixel_size.x / 2, at.y))
+		level.add_child(goal, true)
+	else:
+		overlay.popup("THE HALLUCINATION HAS BEEN GROUNDED", at + Vector2(0, -70), Color("#F0A585"), 3.0)
+		WeaponPickup.create(level, level.pixel_size.x / 2, at.y)
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 		if e.projectile:
 			e.remove()
@@ -764,6 +773,8 @@ func _update_complete(dt: float) -> void:
 		# The results scene plays the map tune (src/scenes/results.ts).
 		Sound.play_music("map")
 		var i := level_ids.find(level_id)
+		# The last level thanks the player (ResultsScene), whether or not it is the first clear.
+		var last := i == level_ids.size() - 1
 		overlay.results = {
 			"title": "WORLD %d CLEAR" % info.world if info.has("boss") else "LEVEL COMPLETE",
 			"subtitle": "%s · %s" % [level_id, info.name],
@@ -772,7 +783,9 @@ func _update_complete(dt: float) -> void:
 			"prev_sparks": prev_sparks.duplicate(),
 			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", Progress.format_time(secs)]],
 			# The first clear names the level it opened (ResultsScene).
-			"note": "TOKEN BLASTER FOUND · WORLD 2 UNLOCKED" if weapon_found_run and first_clear \
+			"note": "THANKS FOR PLAYING!" if last \
+				else "TOKEN BLASTER FOUND · WORLD 2 UNLOCKED" if weapon_found_run and first_clear \
 				else "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
+			"note_text": "Codex has been deprecated. Clawd ships the fix. The benchmarks are safe… for now." if last else "",
 			"t": 0.0,
 		}

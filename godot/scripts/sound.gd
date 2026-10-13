@@ -49,7 +49,7 @@ const TRACKS := {
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
 	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
-	"explode", "hit"]
+	"explode", "hit", "typing", "slam", "laser"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -396,6 +396,15 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 		"crush":
 			tone(buf, "sine", 110, 35, 0.35, 0.45)
 			noise(buf, 0.3, 0.35, 400, 60, 0, 0.6)
+		"typing":
+			# TS picks 3000-5000 Hz at random; the pre-rendered effect uses the middle.
+			noise(buf, 0.025, 0.25, 4000, 2000, 0, 3)
+		"slam":
+			tone(buf, "sine", 90, 30, 0.5, 0.6)
+			noise(buf, 0.4, 0.5, 600, 50, 0, 0.5)
+		"laser":
+			tone(buf, "sawtooth", 220, 2200, 0.4, 0.12)
+			noise(buf, 0.4, 0.2, 5000, 800, 0, 1)
 		"heart":
 			for i in 4:
 				var f := midi(72 + [0, 5, 9, 12][i])
@@ -427,6 +436,9 @@ static func _sfx_length(id: String) -> float:
 		"bossTeleport": return 0.3
 		"weaponGet": return 6 * 0.08 + 0.25
 		"crush": return 0.35
+		"typing": return 0.025
+		"slam": return 0.5
+		"laser": return 0.4
 		"die": return 0.6
 		"denied": return 0.28
 		"break", "poundLand", "hurt": return 0.3

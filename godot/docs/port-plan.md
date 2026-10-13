@@ -154,10 +154,10 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 - [ ] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M11 2-B Codex
-- [ ] Arena; port `src/entities/boss/codex.ts` as a big voxel model; "CODEX HAS BEEN DEPRECATED", "WORLD 2
+- [x] Arena; port `src/entities/boss/codex.ts` as a big voxel model; "CODEX HAS BEEN DEPRECATED", "WORLD 2
       CLEAR!" and the last level's results text ("THANKS FOR PLAYING!", `results.ts`).
-- [ ] Codex motif: code monoliths with scrolling code.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Codex motif: code monoliths with scrolling code.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M12 Finish
 - [ ] Full playthrough title → 2-B; balance check of token income vs. ARMORY prices (with 5× tokens and 3× hp).

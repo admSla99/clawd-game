@@ -217,5 +217,10 @@ func _draw_results() -> void:
 	var note: String = results.get("note", "")
 	if note != "":
 		PixelFont.draw_centred(self, note, cx, top + h + 8, Color(ORANGE_LIGHT, k))
+	# A line of text under the note (the last level's thanks).
+	var note_text: String = results.get("note_text", "")
+	if note_text != "":
+		PixelFont.draw_centred(self, note_text, cx, top + h + 18, Color(TEXT, k))
+	var press_y := top + h + (32 if note_text != "" else 22 if note != "" else 14)
 	if t > 1.0 and floori(t * 1.6) % 2 == 0:
-		PixelFont.draw_centred(self, "PRESS SPACE", cx, top + h + (22 if note != "" else 14), Color(TEXT, k))
+		PixelFont.draw_centred(self, "PRESS SPACE", cx, press_y, Color(TEXT, k))
