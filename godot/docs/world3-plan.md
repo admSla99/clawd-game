@@ -119,9 +119,9 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] `godot-2.5d` merged into `main`; work continues on `main`.
 
 ### W1 Skeleton
-- [ ] `index.json` entries for 3-1 … 3-B with placeholder maps; WORLD 3 on the world map (third row, name, lock
-      hint); the five themes' palettes and parallax.
-- [ ] Codex drops the Tool Call (pickup), WORLD 2 CLEAR opens world 3 instead of the end screen.
+- [x] `index.json` entries for 3-1 … 3-B with placeholder maps; WORLD 3 on the world map (third row, name, lock
+      hint); the five themes' palettes, parallax and music.
+- [x] Codex drops the Tool Call (pickup), WORLD 2 CLEAR opens world 3 instead of the end screen.
 
 ### W2 Tool Call
 - [ ] `tool` action and binding (right mouse button moves from spin), owned flag in `Progress`.

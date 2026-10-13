@@ -118,7 +118,7 @@ func check_noise() -> bool:
 
 func check_levels() -> bool:
 	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
-	ok(index.size() == 9, "9 levels in index.json")
+	ok(index.size() == 14 and index.filter(func(l): return int(l.world) == 3).size() == 5, "14 levels in index.json, 5 of them in world 3")
 	var spawns: Dictionary = level_script.SPAWNS
 	for l in index:
 		var rows := FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).replace("\r", "").trim_suffix("\n").split("\n")
@@ -328,6 +328,14 @@ func check_scenes() -> bool:
 	ok(front._dots.size() == 312 and placed == 312, "the logo's dots have flown into place (%d / %d)" % [placed, front._dots.size()])
 	ok(front.handle(key(KEY_SPACE)) and m.mode == m.Mode.MAP and snd.track == "map", "Space opens the world map")
 	ok(front.sel == 0, "a new game starts on 1-1")
+	# Three worlds in three rows, far enough apart in the 270 px high view for Clawd hopping on a node (32 px up,
+	# the rows wave 6 px), the card under them (headless, the view is smaller: the layout is checked at 480 x 270).
+	var row_ys: Array = front.ROW_Y.map(func(f): return f * 270.0)
+	var card_y := minf(row_ys[2] + 30, 270 - 60)
+	ok(front._indices_of(3).size() == 5 and row_ys[1] - row_ys[0] >= 50 and row_ys[2] - row_ys[1] >= 50
+		and card_y > row_ys[2] + 6 + 9 + 4 and card_y + 46 <= 270 - 12,
+		"the map has three world rows (at %s px of 270), the card below them" % [row_ys])
+	ok(front.WORLD_NAMES[3] == "AGENT MODE" and front.WORLD_HINTS[3].contains("Codex"), "world 3 is AGENT MODE, opened by beating Codex")
 	front.handle(key(KEY_RIGHT))
 	ok(front.sel == 0 and "denied" in snd.played, "1-2 is locked until 1-1 is cleared")
 	progress.record_run("1-1", [], [true, false], 61.25, 30)
@@ -373,11 +381,12 @@ func check_scenes() -> bool:
 	m = current_scene
 	ok(m.mode == m.Mode.PLAY and m.player.is_on_floor() and m.player.pos.is_equal_approx(_start(m)), "1-1: player stands on '@'")
 	var seen := []
-	for i in 9:
+	for i in 14:
 		m.next_level()
 		await frames(2)
 		seen.append(m.level_id)
-	ok(seen == ["1-2", "1-3", "1-B", "2-1", "2-2", "2-3", "2-4", "2-B", "1-1"], "next_level cycles all 9 levels")
+	ok(seen == ["1-2", "1-3", "1-B", "2-1", "2-2", "2-3", "2-4", "2-B", "3-1", "3-2", "3-3", "3-4", "3-B", "1-1"],
+		"next_level cycles all 14 levels")
 	return true
 
 
@@ -2123,6 +2132,8 @@ func check_shop() -> bool:
 	ok(m.front.map_gun() == "", "without a weapon the map's Clawd is unarmed in world 2")
 	progress.grant_weapon("blaster")
 	ok(m.front.map_gun() == "blaster", "with one he holds it on a world-2 level (levelSelect.ts: armed in world 2)")
+	m.front.sel = m.level_ids.find("3-1")
+	ok(m.front.map_gun() == "blaster", "and on a world-3 level")
 	m.front.sel = 0
 	progress.wallet = 1000
 	progress.sparks_spent = 0

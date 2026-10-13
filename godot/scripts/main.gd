@@ -267,15 +267,15 @@ func load_level(id: String) -> void:
 	_apply_loadout()
 	player.enter_level(level, start, camera.bounds.y)
 	beams.clear()
-	# World 2 is armed; a level started there without a weapon gets the blaster (the TS dev shortcut).
-	var armed: bool = mode == Mode.PLAY and int(info.world) == 2
+	# Worlds 2 and 3 are armed; a level started there without a weapon gets the blaster (the TS dev shortcut).
+	var armed: bool = mode == Mode.PLAY and int(info.world) >= 2
 	if armed and Progress.weapons.is_empty():
 		Progress.grant_weapon("blaster")
 	gun.arm(armed, Progress.equipped)
 	# World 2's bugs and spam bots are tougher (`tough` in spawnEntities()), and every enemy has HP_FACTOR
 	# times its TS hit points in the port (bosses keep theirs, projectiles have none to speak of).
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
-		if int(info.world) == 2:
+		if int(info.world) >= 2:
 			if e is Bug:
 				e.hp = 2.0
 			elif e is SpamBot:
@@ -679,15 +679,12 @@ func _spawn_boss() -> Enemy:
 	return null
 
 
-## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster drops into the middle of the arena (1-B)
-## or the exit opens there (2-B), leftover shots vanish and the map tune plays.
+## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster (1-B) or the Tool Call (2-B; TS opens the
+## exit there) drops into the middle of the arena, leftover shots vanish and the map tune plays.
 func boss_defeated(_b: Enemy, at: Vector2) -> void:
 	if info.boss == "codex":
 		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
-		var goal: Goal = load("res://scripts/goal.gd").new()
-		goal.name = "Goal"
-		goal.position = Px.to3(Vector2(level.pixel_size.x / 2, at.y))
-		level.add_child(goal, true)
+		WeaponPickup.create(level, level.pixel_size.x / 2, at.y, "hook")
 	else:
 		overlay.popup("THE HALLUCINATION HAS BEEN GROUNDED", at + Vector2(0, -70), Color("#F0A585"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y)
@@ -699,16 +696,21 @@ func boss_defeated(_b: Enemy, at: Vector2) -> void:
 
 
 ## onWeaponFound(): the blaster is Clawd's (saved), a fanfare, and the exit opens 6 tiles right of the middle.
+## The Tool Call (2-B) is a tool, not a weapon, and opens world 3.
 func weapon_found(p: WeaponPickup) -> void:
-	Progress.grant_weapon(p.weapon)
+	var tool := p.weapon == "hook"
+	if tool:
+		Progress.grant_tool(p.weapon)
+	else:
+		Progress.grant_weapon(p.weapon)
 	weapon_found_run = true
 	Sound.play("weaponGet")
 	Game.hitstop(0.3)
 	shake(0.4)
 	var at := p.feet() + Vector2(0, -18)
 	particles.emit(at, {count = 90, speed = 200, life = 1.1, color = [ORANGE, Color("#F0A585"), Color.WHITE], drag = 2, size = 1.5})
-	overlay.popup("TOKEN BLASTER ACQUIRED!", at + Vector2(0, -30), Color("#F0A585"), 3.5)
-	overlay.popup("world 2 unlocked", at + Vector2(0, -18), Color("#9A9A9A"), 3.5)
+	overlay.popup("TOOL CALL ACQUIRED!" if tool else "TOKEN BLASTER ACQUIRED!", at + Vector2(0, -30), Color("#F0A585"), 3.5)
+	overlay.popup("world 3 unlocked" if tool else "world 2 unlocked", at + Vector2(0, -18), Color("#9A9A9A"), 3.5)
 	var gx := floori(level.pixel_size.x / 2 / 16) + 6
 	var goal: Goal = load("res://scripts/goal.gd").new()
 	goal.name = "Goal"
@@ -789,8 +791,10 @@ func _update_complete(dt: float) -> void:
 			"rows": [["TOKENS", "%d / %d" % [tokens, tokens_total]], ["TIME", Progress.format_time(secs)]],
 			# The first clear names the level it opened (ResultsScene).
 			"note": "THANKS FOR PLAYING!" if last \
+				else "TOOL CALL FOUND · WORLD 3 UNLOCKED" if weapon_found_run and first_clear and info.get("boss") == "codex" \
 				else "TOKEN BLASTER FOUND · WORLD 2 UNLOCKED" if weapon_found_run and first_clear \
 				else "%s UNLOCKED" % String(levels[i + 1].name).to_upper() if first_clear and i + 1 < levels.size() else "",
-			"note_text": "Codex has been deprecated. Clawd ships the fix. The benchmarks are safe… for now." if last else "",
+			"note_text": "Codex has been deprecated. In its wreck Clawd finds a Tool Call… the agents are waiting." if info.get("boss") == "codex" \
+				else "The Router is down. Every request goes through Clawd now." if last else "",
 			"t": 0.0,
 		}

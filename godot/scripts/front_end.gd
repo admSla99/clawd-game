@@ -8,16 +8,22 @@ extends Node2D
 ##   MultiMesh, so the bloom picks them up), "L A T E N T   S P A C E" and a subtitle fade in, Clawd stands on a
 ##   hovering platform with a token spinning beside him (voxels at twice the size), "PRESS SPACE TO START"
 ##   blinks. Space / Enter / jump or a click opens the map; H and M work as in the game (GameMenu).
-## - Map: one dotted path of level nodes per world with a light running along the open stretches; the selected
-##   node has an orange border and Clawd hopping on it; locked ones show a padlock, finished ones an orange
-##   corner. An info card names the level with its rescued sub-agents and best time (Progress), and is a PLAY
+## - Map: one dotted path of level nodes per world (three rows, the world's number and name in a column on their
+##   left) with a light running along the open stretches; the selected node has an orange border and Clawd
+##   hopping on it; locked ones show a padlock, finished ones an orange corner; a locked world says over its row
+##   how to open it. An info card names the level with its rescued sub-agents and best time (Progress), and is a PLAY
 ##   button too. Left / right pick a level, up / down a world, Space plays, Escape goes back to the title; the
 ##   mouse picks and plays nodes.
 ## Everything uses the HUD's panel look and the pixel font, on whole view pixels.
 
 enum { CLOSED, TITLE, MAP }
 
-const WORLD_NAMES := {1: "LATENT SPACE", 2: "BENCHMARK WARS"}
+const WORLD_NAMES := {1: "LATENT SPACE", 2: "BENCHMARK WARS", 3: "AGENT MODE"}
+## What opens a locked world, said over its row.
+const WORLD_HINTS := {2: "— defeat the Hallucination to find a weapon —", 3: "— defeat Codex to find the Tool Call —"}
+## The rows' heights (fractions of the view) and the label column left of them (view px).
+const ROW_Y := [0.27, 0.47, 0.67]
+const LABEL_W := 100
 const LOGO_FONT := {
 	"C": [".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."],
 	"L": ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
@@ -228,7 +234,7 @@ func view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
 
 
-## The gun the map's Clawd holds: the equipped weapon while a world-2 level is selected, "" when unarmed.
+## The gun the map's Clawd holds: the equipped weapon while a world-2 or world-3 level is selected, "" when unarmed.
 func map_gun() -> String:
 	if _world_of(sel) < 2 or Progress.weapons.is_empty():
 		return ""
@@ -258,23 +264,30 @@ func _indices_of(world: int) -> Array:
 	return out
 
 
-## nodePos(): nodes spread over up to 380 px, gently waving. The worlds' rows sit at 32 % and 62 % of the
-## height (30 % and 56 % in TS), leaving room above each row for its heading.
+## nodePos(): nodes spread over up to 380 px right of the label column, gently waving (6 px). The worlds' rows sit
+## at ROW_Y of the height, far enough apart that Clawd hopping on a node (he reaches 32 px up) stays clear of the
+## row above.
 func node_pos(i: int) -> Vector2:
 	var v := view()
 	var world := _world_of(i)
 	var row := _indices_of(world)
 	var k := row.find(i)
-	var span := minf(v.size.x - 90, 380)
-	var x := v.position.x + v.size.x / 2 - span / 2 + span * k / maxf(1, row.size() - 1)
-	var y := v.position.y + v.size.y * (0.32 if world == 1 else 0.62)
-	return Vector2(x, y + sin(k * 1.7 + world) * 10).round()
+	var left := v.position.x + 12 + LABEL_W
+	var span := minf(v.end.x - 26 - left, 380)
+	var x := left + span * k / maxf(1, row.size() - 1)
+	return Vector2(x, row_y(world) + sin(k * 1.7 + world) * 6).round()
+
+
+## The middle of world `world`'s row (view px).
+func row_y(world: int) -> float:
+	var v := view()
+	return v.position.y + v.size.y * ROW_Y[clampi(world - 1, 0, ROW_Y.size() - 1)]
 
 
 func _card_rect() -> Rect2:
 	var v := view()
 	var w := 264.0
-	var y := maxf(v.position.y + v.size.y * 0.7, v.position.y + v.size.y * 0.62 + 42)
+	var y := minf(row_y(3) + 30, v.end.y - 60)
 	return Rect2(roundf(v.get_center().x - w / 2), roundf(y), w, 46)
 
 
@@ -473,8 +486,17 @@ func _draw_title() -> void:
 func _draw_map() -> void:
 	var v := view()
 	var ids: Array = main.level_ids
-	# The level stays alive behind the map, but dimmed so the paths and nodes read.
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.02, 0.02, 0.04, 0.5))
+	# The level stays alive behind the map, but dimmed so the paths and nodes read; more so from the middle down,
+	# where world 3's row lies over the backdrop's lit ground.
+	var full := get_viewport_rect().size
+	draw_rect(Rect2(Vector2.ZERO, full), Color(0.02, 0.02, 0.04, 0.5))
+	var y0 := v.position.y + v.size.y * 0.5
+	var y1 := v.position.y + v.size.y * 0.6
+	var clear := Color(0.02, 0.02, 0.04, 0.0)
+	var dark := Color(0.02, 0.02, 0.04, 0.6)
+	draw_polygon(PackedVector2Array([Vector2(0, y0), Vector2(full.x, y0), Vector2(full.x, y1), Vector2(0, y1)]),
+		PackedColorArray([clear, clear, dark, dark]))
+	draw_rect(Rect2(0, y1, full.x, full.y - y1), dark)
 	_big("WORLD MAP", v.position + Vector2(14, 8), Hud.TEXT)
 	# Shop button, then the wallet: banked tokens and sparks not spent (top right, like the TS map).
 	var sr := _shop_rect()
@@ -492,29 +514,23 @@ func _draw_map() -> void:
 	_text(wallet, Vector2(wx, v.position.y + 12), Hud.TEXT)
 	draw_texture(Hud._coin_tex[8], Vector2(wx - 12, v.position.y + 11))
 
-	for world in [1, 2]:
+	for world in WORLD_NAMES:
 		var row := _indices_of(world)
+		if row.is_empty():
+			continue
 		var open := Progress.is_unlocked(ids, row[0])
 		var first := node_pos(row[0])
 		var last := node_pos(row[-1])
-		# The world's heading sits above its whole row, clear of Clawd hopping on any node (he reaches 32 px up),
-		# with a dotted rule out to the last node.
-		var top := first.y
-		for i in row:
-			top = minf(top, node_pos(i).y)
-		var hy := top - 42
-		var world_name: String = WORLD_NAMES[world]
-		_text("WORLD %d" % world, Vector2(first.x - 12, hy), Hud.ORANGE if open else DIM)
-		var nx := first.x - 12 + PixelFont.width("WORLD %d" % world) + 8
-		_text(world_name, Vector2(nx, hy), Hud.TEXT_DIM if open else Color("#444444"))
-		var rule_x := nx + PixelFont.width(world_name) + 8
-		if not open:
-			# A locked world says how to open it in its heading (the TS hint under the row).
-			var hint := "— defeat the Hallucination to find a weapon —"
-			_text(hint, Vector2(rule_x, hy), Color("#6A6A6A"))
-			rule_x += PixelFont.width(hint) + 8
-		for x in range(int(rule_x), int(last.x + 12), 3):
-			draw_rect(Rect2(x, hy + 3, 1, 1), Color(0.35, 0.35, 0.35) if open else Color(0.2, 0.2, 0.2))
+		# The world's number and name in the label column, a dotted rule from the name to the first node.
+		var lx := v.position.x + 12
+		var ly := roundf(row_y(world))
+		_text("WORLD %d" % world, Vector2(lx, ly - 9), Hud.ORANGE if open else DIM)
+		_text(WORLD_NAMES[world], Vector2(lx, ly + 2), Hud.TEXT_DIM if open else Color("#444444"))
+		for x in range(int(lx + PixelFont.width("WORLD %d" % world) + 6), int(first.x - 16), 3):
+			draw_rect(Rect2(x, ly - 6, 1, 1), Color(0.35, 0.35, 0.35) if open else Color(0.2, 0.2, 0.2))
+		if not open and WORLD_HINTS.has(world):
+			# A locked world says how to open it over its row (the TS hint under the row); Clawd is never there.
+			_text(WORLD_HINTS[world], Vector2((first.x + last.x) / 2, ly - 25), Color("#6A6A6A"), true)
 		# Dotted path, lifted in the middle; a light runs along the open stretches.
 		for n in row.size() - 1:
 			var p0 := node_pos(row[n])
@@ -530,7 +546,7 @@ func _draw_map() -> void:
 	for i in ids.size():
 		_draw_node(i)
 
-	# Clawd on the selected node, armed in world 2 once he has a weapon (TS says so but draws him unarmed).
+	# Clawd on the selected node, armed in worlds 2 and 3 once he has a weapon (TS says so but draws him unarmed).
 	var hop := roundf(absf(sin(t * 4)) * 2)
 	var clawd := ClawdSprite.texture(ClawdSprite.rows({"arms": "mid", "legs": "stand", "eyes": "blink" if fmod(t, 3.0) > 2.85 else "open"}))
 	draw_texture(clawd, (clawd_pos + Vector2(-clawd.get_width() / 2.0, -10 - clawd.get_height() - hop)).round())
@@ -608,7 +624,7 @@ func _draw_card() -> void:
 	var tags := []
 	if prog.completed:
 		tags.append(["CLEARED", Hud.ORANGE_LIGHT])
-	if def.world == 2:
+	if def.world >= 2:
 		tags.append(["ARMED", Hud.ORANGE])
 	for tag in tags:
 		PixelFont.draw(self, tag[0], Vector2(x, y), tag[1])

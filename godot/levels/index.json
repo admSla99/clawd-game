@@ -123,5 +123,68 @@
     "boss": "codex",
     "index": 8,
     "terrainSeed": 111
+  },
+  {
+    "id": "3-1",
+    "world": 3,
+    "name": "Endpoint Canopy",
+    "subtitle": "every branch is an API",
+    "theme": "canopy",
+    "music": "canopy",
+    "signs": [
+      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+    ],
+    "index": 9,
+    "terrainSeed": 124
+  },
+  {
+    "id": "3-2",
+    "world": 3,
+    "name": "Webhook Cliffs",
+    "subtitle": "it calls you back. eventually.",
+    "theme": "cliffs",
+    "music": "cliffs",
+    "signs": [
+      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+    ],
+    "index": 10,
+    "terrainSeed": 137
+  },
+  {
+    "id": "3-3",
+    "world": 3,
+    "name": "The Sandbox",
+    "subtitle": "nothing here is permanent",
+    "theme": "sandbox",
+    "music": "sandbox",
+    "signs": [
+      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+    ],
+    "index": 11,
+    "terrainSeed": 150
+  },
+  {
+    "id": "3-4",
+    "world": 3,
+    "name": "Timeout Ravine",
+    "subtitle": "respond within 1.2 seconds",
+    "theme": "ravine",
+    "music": "ravine",
+    "signs": [
+      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+    ],
+    "index": 12,
+    "terrainSeed": 163
+  },
+  {
+    "id": "3-B",
+    "world": 3,
+    "name": "The Router",
+    "subtitle": "all requests go through me",
+    "theme": "router",
+    "music": "router",
+    "boss": "router",
+    "index": 13,
+    "terrainSeed": 176
   }
 ]

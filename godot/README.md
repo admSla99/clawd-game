@@ -449,8 +449,12 @@ with damage numbers over it like every enemy. At 2/3 and 1/3 of its hp it refact
 --YOLO MODE": bossHit, shake, hitstop, 1.8 s untouchable) into the next phase, whose pattern starts over; its
 screen cracks and glitches. At 0 hp: "SEGFAULT", the hands retire, it sinks for 2.8 s in bursts and explosions,
 then `Main.boss_defeated()`: "CODEX HAS BEEN DEPRECATED", leftover projectiles vanish, the map tune plays and the
-exit opens in the middle of the arena. The results say "WORLD 2 CLEAR" and, as the last level, "THANKS FOR
-PLAYING!" with `results.ts`'s closing line under it (`note_text`, drawn by `Overlay`).
+**Tool Call** drops in the middle of the arena (TS opens the exit there; the game goes on into world 3): a
+`WeaponPickup` with id `hook` (`GunSprite`'s claw launcher). Touching it calls `Main.weapon_found()`, which gives
+the tool (`Progress.grant_tool()`, saved in `tools`; it is not a weapon), pops "TOOL CALL ACQUIRED!" and "world 3
+unlocked" and opens the exit 6 tiles right of the middle. The results say "WORLD 2 CLEAR", on the first clear
+"TOOL CALL FOUND · WORLD 3 UNLOCKED", and a closing line under it (`note_text`, drawn by `Overlay`). A save from
+before world 3 with 2-B cleared gets the Tool Call when it is loaded.
 
 The 2.5D look: Codex is a voxel CRT monitor, the 2D bezel of 2 px dots standing proud of a dark casing whose
 tapered back reaches 29 px into the depth; its face (scrolling code, eyes looking at Clawd, mouth, cracks, the
@@ -525,8 +529,8 @@ injectors, the one-way steps to a spark, the moving platforms, the pocket and th
 Diff Towers (the towers motif over the parallax's own towers, its enemies, the full-jump climb to the exit, a
 fall onto the platform two rows down, both sub-agents), 2-B Codex (the arena and its tune, the code monoliths,
 the spawn, 90 hp on the boss bar, the intro, the hands, bursts, slams and shockwaves, the refactor phases, failing
-tests, rm -rf columns, both hands in phase 2, stomps, SEGFAULT, CODEX HAS BEEN DEPRECATED, the exit, WORLD 2
-CLEAR and THANKS FOR PLAYING!), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
+tests, rm -rf columns, both hands in phase 2, stomps, SEGFAULT, CODEX HAS BEEN DEPRECATED, the Tool Call drop
+and pickup, the exit, WORLD 2 CLEAR and TOOL CALL FOUND · WORLD 3 UNLOCKED, an old save getting the Tool Call), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
@@ -655,6 +659,7 @@ WebAudio nodes:
   seamless loop of the whole pattern (128 sixteenths with a lead, 64 without; notes that ring past the end wrap
   to the start), in a thread the first time a track plays (~0.35 s for plains). Each level plays its `music`
   from `levels/index.json`; the title plays `title`, the map and the results panel `map`; the exit stops the music.
+  World 3's tracks (`canopy`, `cliffs`, `sandbox`, `ravine`, `router`) are new patterns for the same sequencer.
 - The hover jet: the looping bandpassed noise with `hoverUpdate()`'s 40 rad/s wobble baked into 6 periods,
   faded in and out while `Player.hovering` (stopped while paused).
 
@@ -686,17 +691,19 @@ moving platforms. The level's own world text, the HUD and the see-through window
   them a fraction of a pixel off the view's rounding, and they jittered), at `FRONT_Z` = 9 m, in front of the
   scenery's foreground layer (6 m), lifted by the 3 m the oblique projection moves a point at that depth down. Space / Enter / jump or a click opens the
   map; H and M work as in the game.
-- **Map**: per world a heading (WORLD n, its name and a dotted rule; a locked world puts the TS hint there)
-  above a row of 24 x 18 px level nodes, high enough that Clawd hopping on a node never covers it; the rows sit at
-  32 % and 62 % of the height (30 % / 56 % in TS) to make room. The nodes lie along a dotted path that lifts
+- **Map**: one row of 24 x 18 px level nodes per world, at 27 %, 47 % and 67 % of the height (`ROW_Y`; TS has
+  two rows), far enough apart that Clawd hopping on a node never reaches the row above; the world's number and
+  name (`WORLD_NAMES`: LATENT SPACE, BENCHMARK WARS, AGENT MODE) stand in a 100 px column left of its row, with a
+  dotted rule out to the first node, and a locked world says over its row what opens it (`WORLD_HINTS`, the TS
+  hint). The backdrop is dimmed, more so from the middle down where world 3's row lies over its lit ground. The nodes lie along a dotted path that lifts
   between them, with a light running along the open stretches; the selected node has the orange tab and border and Clawd hops on it (the
-  game's 1 px Clawd as a 2D sprite; on a world-2 node, once he has a weapon, he holds the equipped one as in a
+  game's 1 px Clawd as a 2D sprite; on a world-2 or world-3 node, once he has a weapon, he holds the equipped one as in a
   level, aiming right, `map_gun()`: TS's comment says "armed in world 2" but its code draws him unarmed); locked levels show a padlock, finished ones an orange corner, bosses a
   red-tinted node labelled BOSS. The banked tokens and the sparks not spent sit top right, next to the SHOP
   button (B), which opens once 1-1 is cleared. An
   info card (264 px wide) names the selected level (at twice the size when the name fits, else at the normal
-  size, like 2-3's) with its subtitle, then left to right its sparks, rescued sub-agents, CLEARED and, in world 2,
-  ARMED, and the best time on the right; it doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
+  size, like 2-3's) with its subtitle, then left to right its sparks, rescued sub-agents, CLEARED and, in worlds 2
+  and 3, ARMED, and the best time on the right; it doubles as a PLAY button. Left / right pick a level (locked: the denied sound), up / down a world, Space or
   Enter plays, Escape goes back to the title; the mouse picks a node and plays it on a second click.
 
 `scripts/progress.gd` (autoload `Progress`) is the level part of `src/save.ts`, saved as JSON in
@@ -812,7 +819,10 @@ only adds glow (HDR threshold 0.9; colours above 1.0 glow), and `shaders/crt.gds
 vignette of `Renderer.postFx()` over the window.
 
 Each theme has a palette in `scripts/themes.gd` (`Themes.PALETTES`): haze gradient, ray colour and a light
-colour for the background. The level blocks keep their black / white / orange look in every theme.
+colour for the background. The level blocks keep their black / white / orange look in every theme. World 3's
+themes are new: `canopy` (turquoise dawn), `cliffs` (cold blue-grey), `sandbox` (warm sand), `ravine` (plum and
+pink) and `router` (night-blue network), each with parallax layers of the existing kinds (ridges, terraces,
+columns) on new seeds.
 
 Back to front:
 
@@ -959,7 +969,7 @@ without COOP/COEP headers.
 | `scripts/sub_agent.gd`, `shaders/beam.gdshader` | Sub-agent (`A`), its HELP bubble and rescue beam |
 | `scripts/spark.gd`, `shaders/halo.gdshader` | Spark (`S`), its icon and its halo |
 | `scripts/front_end.gd` | Title screen and world map |
-| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state, weapons |
+| `scripts/progress.gd` | Saved progress: cleared levels, found sparks, rescued sub-agents, best times, wallet, shop state, weapons, world 3's tools |
 | `scripts/shop.gd`, `scripts/shop_screen.gd` | The shop: items, prices, fortunes, the ARMORY; its screen and HAIKU |
 | `scripts/moving_platform.gd` | Moving platform (`M`, `V`) |
 | `scripts/pixel_font.gd`, `scripts/overlay.gd` | Bitmap font; text over the 3D view (popups, world text, panels) |

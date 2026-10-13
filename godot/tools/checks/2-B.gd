@@ -187,7 +187,7 @@ func run(c) -> bool:
 			break
 	c.ok(absf(b.hp - (hp0 - 4.0)) < 0.01 and p.vel.y < 0, "a stomp on it takes 4 hp and bounces Clawd")
 
-	# Death: SEGFAULT, the hands go, it sinks in bursts, then the exit opens in the middle of the arena.
+	# Death: SEGFAULT, the hands go, it sinks in bursts, then the Tool Call drops in the middle of the arena.
 	b.mode = &"idle"
 	b.timer = 10.0
 	p.pos = Vector2(5 * TILE + 8, 15 * TILE)
@@ -200,22 +200,39 @@ func run(c) -> bool:
 		await c.physics_frame
 		if m.boss == null:
 			break
-	var goal = m.level.get_node_or_null("Goal")
+	var pick = m.level.get_node_or_null("WeaponPickup")
 	c.ok(m.boss == null and m.overlay.popups.any(func(q): return q.text == "CODEX HAS BEEN DEPRECATED"),
 		"after 2.8 s it bursts: CODEX HAS BEEN DEPRECATED")
 	c.ok(not is_instance_valid(shots_left) or shots_left.dead, "leftover projectiles vanish")
-	c.ok(goal != null and absf(goal.feet().x - 20 * TILE) < 0.01 and absf(goal.feet().y - 15 * TILE) < 0.01 and snd.track == "map",
-		"the exit opens in the middle of the arena and the map tune plays")
+	c.ok(pick != null and pick.weapon == "hook" and absf(pick.feet().x - 20 * TILE) < 0.01 and absf(pick.feet().y - 15 * TILE) < 0.01
+		and m.level.get_node_or_null("Goal") == null and snd.track == "map",
+		"the Tool Call drops in the middle of the arena (no exit yet) and the map tune plays")
+	var weapons0: Array = progress.weapons.duplicate()
+	progress.tools.erase("hook")
+	p.pos = pick.feet()
+	await c.frames(3)
+	c.ok(progress.has_tool("hook") and progress.weapons == weapons0 and "weaponGet" in snd.played
+		and m.overlay.popups.any(func(q): return q.text == "TOOL CALL ACQUIRED!"),
+		"touching it gives Clawd the Tool Call (a tool, saved; his weapons stay)")
+	var goal = m.level.get_node_or_null("Goal")
+	c.ok(goal != null and absf(goal.feet().x - (26 * TILE + 8)) < 0.01, "and the exit opens 6 tiles right of the middle")
+	# A first clear names what it opened.
+	progress.levels.erase("2-B")
 	m.reach_goal(goal)
 	for i in 180:
 		await c.physics_frame
 		if not m.overlay.results.is_empty():
 			break
 	var res: Dictionary = m.overlay.results
-	c.ok(res.get("title", "") == "WORLD 2 CLEAR" and res.get("note", "") == "THANKS FOR PLAYING!"
+	c.ok(res.get("title", "") == "WORLD 2 CLEAR" and res.get("note", "") == "TOOL CALL FOUND · WORLD 3 UNLOCKED"
 		and String(res.get("note_text", "")).begins_with("Codex has been deprecated."),
-		"the results: WORLD 2 CLEAR, THANKS FOR PLAYING! and the closing line")
-	c.ok(progress.progress_for("2-B").completed, "2-B counts as finished")
+		"the results: WORLD 2 CLEAR, TOOL CALL FOUND · WORLD 3 UNLOCKED and the closing line")
+	c.ok(progress.progress_for("2-B").completed and progress.is_unlocked(m.level_ids, m.level_ids.find("3-1")),
+		"2-B counts as finished and world 3 is open")
+	progress.tools.clear()
+	progress.save()
+	progress.load_file()
+	c.ok(progress.has_tool("hook"), "a save from before world 3 with Codex beaten gets the Tool Call when loaded")
 	m.load_level("1-1")
 	await c.frames(3)
 	p.invuln = 0

@@ -59,6 +59,22 @@ func setup(level_theme: String, cam: GameCamera, level_palette: Dictionary) -> v
 			_layer(85, _bake_ridge(83, 70, 30, 12, 85, 4, false), 0.3, 0.12, 0.98)
 		"towers":
 			_layer(60, _bake_columns(91, 260, 60, 34), 0.2, 0.2, 1.0)
+		# World 3: a rolling canopy, sheer cliffs, flat sandbox terraces, ravine walls from above and below, and a
+		# low skyline under the router's sky.
+		"canopy":
+			_layer(64, _bake_ridge(101, 170, 110, 40, 64, 5, false), 0.12, 0.05, 0.84)
+			_layer(96, _bake_ridge(103, 120, 70, 30, 96, 4, false), 0.3, 0.12, 0.92)
+		"cliffs":
+			_layer(60, _bake_columns(111, 240, 60, 60), 0.15, 0.15, 1.0)
+			_layer(90, _bake_ridge(113, 140, 100, 20, 90, 4, false), 0.3, 0.2, 1.0)
+		"sandbox":
+			_layer(62, _bake_ridge(121, 150, 70, 30, 62, 5, false, 8), 0.12, 0.05, 0.9)
+			_layer(98, _bake_ridge(123, 110, 50, 20, 98, 4, false, 6), 0.3, 0.12, 0.96)
+		"ravine":
+			_layer(52, _bake_ridge(131, 120, 80, 10, 52, 5, true), 0.15, 0.08, 0.0, true)
+			_layer(80, _bake_ridge(133, 120, 80, 20, 80, 4, false), 0.3, 0.12, 1.0)
+		"router":
+			_layer(56, _bake_columns(141, 120, 56, 30), 0.12, 0.0, 1.0)
 	# Far layers sit close to the haze, near ones a little towards the light, like the Scenery layers.
 	for i in layers.size():
 		var l: Dictionary = layers[i]
@@ -179,9 +195,9 @@ func _draw() -> void:
 	var view := get_viewport_rect().size
 	var cam := camera.top_left
 	var t := Game.time
-	if theme in ["plains", "boss", "mesa", "codex"]:
+	if theme in ["plains", "boss", "mesa", "codex", "canopy", "cliffs", "router"]:
 		_draw_stars(cam, view, t)
-	if theme in ["window", "towers"]:
+	if theme in ["window", "towers", "router"]:
 		_draw_data_rain(cam, view, t)
 	if theme == "codex":
 		_draw_code(view, t)

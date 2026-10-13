@@ -43,6 +43,17 @@ const TRACKS := {
 		lead = [7, -1, 5, -1, 3, -1, 2, -1, 3, 5, -1, 7, -1, 10, -1, -1], drums = true},
 	"boss": {bpm = 150, roots = [45, 45, 46, 44], minor = [true, true, false, false], arp = [0, 0, 2, 0, 3, 0, 2, 1],
 		lead = [12, 11, 12, -1, 15, -1, 12, -1, 10, -1, 8, -1, 7, -1, -1, -1], drums = true},
+	# World 3 (not in TS): the same sequencer, new patterns.
+	"canopy": {bpm = 132, roots = [53, 50, 46, 48], minor = [false, true, false, false], arp = [0, 2, 1, 2, 3, 1, 2, 1],
+		lead = [12, -1, 14, 12, -1, 9, -1, 7, 9, -1, 12, -1, 10, -1, 9, -1], drums = true},
+	"cliffs": {bpm = 124, roots = [55, 52, 48, 50], minor = [false, true, false, false], arp = [0, 1, 2, 3, 2, 3, 1, 2],
+		lead = [7, -1, -1, 9, -1, 11, -1, 12, -1, -1, 11, -1, 9, -1, 7, -1], drums = true},
+	"sandbox": {bpm = 140, roots = [48, 48, 53, 55], minor = [false, false, false, false], arp = [0, 2, 1, 3, 0, 2, 1, 3],
+		lead = [12, -1, 12, 11, 12, -1, 7, -1, 9, -1, 7, -1, 4, -1, 7, -1], drums = true},
+	"ravine": {bpm = 152, roots = [49, 49, 52, 47], minor = [true, true, false, true], arp = [0, 0, 2, 0, 1, 0, 3, 2],
+		lead = [12, -1, 11, -1, 12, 15, -1, 12, 11, -1, 8, -1, 7, -1, 8, -1], drums = true},
+	"router": {bpm = 164, roots = [44, 44, 47, 42], minor = [true, true, false, false], arp = [0, 3, 0, 2, 0, 3, 1, 2],
+		lead = [12, 12, 15, -1, 12, -1, 17, 15, -1, 12, -1, 10, 12, -1, -1, -1], drums = true},
 }
 
 ## The effects the port uses, rendered at start-up (play() renders any other one on first use).

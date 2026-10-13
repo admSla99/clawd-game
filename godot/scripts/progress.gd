@@ -25,6 +25,8 @@ var fortune: Array = []
 ## Weapon ids owned, in the order found (save.weapons), and the one in Clawd's hands (save.equipped).
 var weapons: Array = []
 var equipped := ""
+## World 3's tools owned: "hook" (the Tool Call, dropped by Codex).
+var tools: Array = []
 
 
 func _ready() -> void:
@@ -41,6 +43,7 @@ func load_file() -> void:
 	fortune = []
 	weapons = []
 	equipped = ""
+	tools = []
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -54,13 +57,17 @@ func load_file() -> void:
 		fortune = data.get("fortune", [])
 		weapons = data.get("weapons", [])
 		equipped = data.get("equipped", "")
+		tools = data.get("tools", [])
+		# Codex beaten before it dropped the Tool Call (saves from before world 3): the hook is Clawd's.
+		if progress_for("2-B").completed and not tools.has("hook"):
+			tools.append("hook")
 
 
 func save() -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
-			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped}))
+			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools}))
 
 
 ## progressFor(): a level's progress, or an empty one.
@@ -125,6 +132,17 @@ func grant_weapon(id: String) -> void:
 		weapons.append(id)
 	equipped = id
 	save()
+
+
+## Owns world 3's tool `id` from now on (saved).
+func grant_tool(id: String) -> void:
+	if not tools.has(id):
+		tools.append(id)
+	save()
+
+
+func has_tool(id: String) -> bool:
+	return tools.has(id)
 
 
 func is_unlocked(ids: Array, index: int) -> bool:

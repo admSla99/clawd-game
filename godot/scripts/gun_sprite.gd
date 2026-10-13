@@ -10,6 +10,8 @@ const SPRITES := {
 	"stream": [".GGGGGGGO", "GGOGOGOGG", "Gg......."],
 	"beam": ["GGGGGGGCCC", "GgggGGGCCC", "Gg........"],
 	"cannon": [".OOOOOOOOO.", "GGGGGGGGGOO", "GGGGGGGGGOO", "Gg.gg......"],
+	# World 3's Tool Call: a launcher with a three-pronged claw (not a weapon; Codex drops it).
+	"hook": ["....OO..", "GGGO..C.", "GgGOOOOC", "GGGO..C.", "....OO.."],
 }
 const PALETTE := {
 	"G": Color("#CFCFCF"),

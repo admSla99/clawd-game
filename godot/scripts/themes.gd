@@ -20,6 +20,16 @@ const PALETTES := {
 	# Diff green.
 	"towers": {"top": Color8(6, 10, 9), "mid": Color8(10, 28, 22), "haze": Color8(20, 60, 46), "ray": Color8(84, 194, 134), "light": Color8(92, 204, 144)},
 	"codex": {"top": Color8(5, 7, 9), "mid": Color8(8, 22, 28), "haze": Color8(16, 48, 58), "ray": Color8(95, 208, 216), "light": Color8(95, 208, 216)},
+	# World 3. Turquoise dawn under the endpoint canopy.
+	"canopy": {"top": Color8(6, 12, 13), "mid": Color8(14, 40, 42), "haze": Color8(34, 86, 88), "ray": Color8(140, 230, 210), "light": Color8(120, 220, 196)},
+	# Cold blue-grey wind on the cliffs.
+	"cliffs": {"top": Color8(8, 10, 16), "mid": Color8(22, 30, 50), "haze": Color8(54, 72, 106), "ray": Color8(176, 200, 238), "light": Color8(156, 184, 232)},
+	# Warm sand light over the sandbox.
+	"sandbox": {"top": Color8(14, 12, 8), "mid": Color8(44, 36, 22), "haze": Color8(104, 86, 52), "ray": Color8(236, 204, 140), "light": Color8(226, 196, 130)},
+	# Deep plum, clock-face pink.
+	"ravine": {"top": Color8(9, 6, 12), "mid": Color8(32, 14, 36), "haze": Color8(72, 30, 72), "ray": Color8(224, 122, 192), "light": Color8(216, 112, 174)},
+	# Night-blue network glow.
+	"router": {"top": Color8(4, 5, 12), "mid": Color8(12, 16, 42), "haze": Color8(26, 40, 98), "ray": Color8(124, 172, 255), "light": Color8(120, 164, 250)},
 }
 
 
