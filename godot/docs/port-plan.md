@@ -150,8 +150,10 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M10 2-4 The Diff Towers
-- [ ] Convert, spawns. Towers motif: transformer stacks with light in the residual stream.
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Convert, spawns. Towers motif: transformer stacks with light in the residual stream. Full jumps fit (no
+      override: no ceilings or spikes; the check climbs the whole level); one-way landing fixed in `player.gd` for
+      platforms two rows apart.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M11 2-B Codex
 - [x] Arena; port `src/entities/boss/codex.ts` as a big voxel model; "CODEX HAS BEEN DEPRECATED", "WORLD 2

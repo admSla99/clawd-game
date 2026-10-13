@@ -365,7 +365,31 @@ grows without end while the timer runs out, in the port the flattened blob made 
 
 ### 2-4 The Diff Towers
 
-Not ported yet (M10): the towers motif.
+A climb: 40 tiles wide, 96 tall, one-way platforms three rows apart zigzagging up from the start to the exit, with
+full-width floors (and checkpoints) every 27 rows; 3 shield bots, 4 drones, 4 turrets, 2 spam bots, 2 sub-agents on
+ledges by the walls, the TS sign text ("aim down at what is below you": ↓ in the air aims down in the port too).
+Full jumps fit: there are no ceilings or spikes, so no map override.
+
+- Towers motif: `shaders/motif_towers.gdshader`, transformer stacks, behind the parallax's own towers background
+  (its dotted columns and data rain, `Parallax`, unchanged). Two ranges of tall stacks (the far one at 0.05 of the
+  camera's speed and hazier, the near one at 0.1), one per 104 / 150 px cell, moving on both axes since the level is
+  a climb. A stack is a column of translucent glass plates, one per layer (8 / 12 px apart), attention and MLP
+  layers by turns (the MLP ones narrower): each a slab seen from above, a top band lit by the theme's ray colour
+  over a front face with a bright lip, a see-through body and a dark joint. The plates are a diff: most layers are
+  context (dim words of code), some carry a green (added) or red (removed) two-row stripe with a "+" / "-" at its
+  left end, in the colours of the mesa's strata. A residual stream runs up the middle of every stack, dim through
+  the plates and brighter in the gaps; pulses of light climb it (one per 84 px of the stream, 20-30 px/s) and light
+  each plate's top band as they pass. Two in three stacks end in a cap with a pulsing output node, placed so that the
+  caps come into view in the upper half of the climb. Translucent (the haze shows through the
+  plates), hazier lower in the view.
+- One-way landing (`Player._in_one_way_strip()` in `scripts/player.gd`): a falling Clawd ignores one-way platforms
+  only while his body overlaps their collision strip (the tile's top 4 px, `ONE_WAY_STRIP`), not the whole tile.
+  Under the exit, platforms are two rows apart (rows 3 and 5): his head is still in row 3's tile when his feet reach
+  row 5, and he fell through it; now he lands, like `moveY()` in TS.
+- Checks (`tools/checks/2-4.gd`): theme, motif and its colours, no 3D motif, the parallax's towers background kept,
+  armed start, the enemy counts, the sign; the real player climbs the whole level hop by hop with tapped (full)
+  jumps (30 hops) and walks into the exit, the motif follows the camera on both axes, the fall onto row 5 under
+  row 3, and full jumps onto both sub-agents' ledges.
 
 ### 2-B Codex
 

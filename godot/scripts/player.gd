@@ -26,6 +26,8 @@ const MAX_FALL := 430.0
 const JUMP_VELOCITY := 470.0
 const COYOTE_TIME := 0.1
 const JUMP_BUFFER := 0.12
+## Height of a one-way tile's collision strip in px (a quarter of a cell, tools/build_meshlib.gd).
+const ONE_WAY_STRIP := 4.0
 const HOVER_DURATION := 0.85
 const HOVER_FALL_SPEED := 18.0
 const HOVER_ACCEL := 2600.0
@@ -352,9 +354,9 @@ func _physics_process(dt: float) -> void:
 	var fall_speed := vel.y
 	if vel.y < 0:
 		_corner_correct(vel.y * dt)
-	# One-way platforms block only a falling Clawd whose body is clear of them, and not while dropping
-	# through. ponytail: checks all one-way tiles the body overlaps, not the one landed on; fine for 1-tile slabs.
-	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _touches_tile(Level.ONEWAY, Rect2(-SIZE.x / 2, -SIZE.y, SIZE.x, SIZE.y)))
+	# One-way platforms block only a falling Clawd whose body is clear of their collision strips, and not while
+	# dropping through.
+	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _in_one_way_strip())
 	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
 	move_and_slide()
 	vel = Vector2(velocity.x, -velocity.y) / Px.M
@@ -523,6 +525,20 @@ func _touches_tile(item: int, probe: Rect2) -> bool:
 	for y in range(floori(a.y / 16), floori(b.y / 16) + 1):
 		for x in range(floori(a.x / 16), floori(b.x / 16) + 1):
 			if level.tile(Vector2(x, y) * 16) == item:
+				return true
+	return false
+
+
+## Whether the body overlaps the collision strip of a one-way tile, its top ONE_WAY_STRIP px (the shape in
+## tools/build_meshlib.gd). Not the whole tile: where one-way platforms are two rows apart (2-4), the head is
+## still in the tile above while the feet reach the one below, and Clawd must land there (moveY() in TS).
+func _in_one_way_strip() -> bool:
+	var top := pos.y - SIZE.y
+	for y in range(floori(top / 16), floori((pos.y - 0.001) / 16) + 1):
+		if y * 16 + ONE_WAY_STRIP <= top or y * 16 >= pos.y - 0.001:
+			continue
+		for x in range(floori((pos.x - SIZE.x / 2) / 16), floori((pos.x + SIZE.x / 2 - 0.001) / 16) + 1):
+			if level.tile(Vector2(x, y) * 16) == Level.ONEWAY:
 				return true
 	return false
 
