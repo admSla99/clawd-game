@@ -60,7 +60,7 @@ const TRACKS := {
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
 	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
-	"explode", "hit", "typing", "slam", "laser"]
+	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -416,6 +416,19 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 		"laser":
 			tone(buf, "sawtooth", 220, 2200, 0.4, 0.12)
 			noise(buf, 0.4, 0.2, 5000, 800, 0, 1)
+		# World 3's Tool Call (not in TS): a whoosh, a metallic clink, a dull clank, the rising zip.
+		"hookThrow":
+			noise(buf, 0.12, 0.2, 1200, 3200, 0, 1.5)
+			tone(buf, "triangle", 500, 900, 0.08, 0.06)
+		"hookCatch":
+			tone(buf, "square", 1200, 1600, 0.05, 0.08)
+			tone(buf, "triangle", 1900, 1900, 0.08, 0.07, 0.03)
+		"hookMiss":
+			tone(buf, "square", 300, 200, 0.06, 0.07)
+			noise(buf, 0.06, 0.2, 2000, 900, 0, 1)
+		"zip":
+			tone(buf, "sawtooth", 300, 900, 0.2, 0.05)
+			noise(buf, 0.2, 0.15, 800, 2500, 0, 1.2)
 		"heart":
 			for i in 4:
 				var f := midi(72 + [0, 5, 9, 12][i])
@@ -457,6 +470,10 @@ static func _sfx_length(id: String) -> float:
 		"confirm": return 0.16
 		"stomp": return 0.13
 		"token": return 0.11
+		"hookThrow": return 0.12
+		"hookCatch": return 0.11
+		"hookMiss": return 0.06
+		"zip": return 0.2
 	return 0.2
 
 

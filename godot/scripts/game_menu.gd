@@ -332,8 +332,8 @@ func control_lines() -> Array:
 		["HOLD " + first.call(&"jump") + " (AIR)", "Hover — the jet hurts enemies"],
 	]
 	if armed:
-		lines.append([k.call([&"attack"]), "World 1: spin · World 2: shoot"])
-		lines.append([k.call([&"spin"]) + " / RMB", "Spin attack"])
+		lines.append([k.call([&"attack"]), "World 1: spin · Worlds 2-3: shoot"])
+		lines.append([k.call([&"spin"]), "Spin attack"])
 	else:
 		lines.append([k.call([&"attack", &"spin"]), "Spin attack"])
 	lines.append_array([
@@ -346,6 +346,8 @@ func control_lines() -> Array:
 			[first.call(&"up") + " " + first.call(&"down") + " + " + first.call(&"attack"), "Aim up / down without a mouse"],
 			["1-5 · " + k.call([&"prev", &"next"]) + " · WHEEL", "Switch weapon"],
 		])
+	if Progress.has_tool("hook"):
+		lines.append([k.call([&"tool"]) + " / RMB", "Tool Call: zip to endpoints, rip shields"])
 	lines.append_array([
 		[k.call([&"shop"]) + " (MAP)", "Shop"],
 		[k.call([&"pause"]) + " / ESC · " + k.call([&"mute"]) + " · " + k.call([&"controls"]), "Pause · mute · this help"],

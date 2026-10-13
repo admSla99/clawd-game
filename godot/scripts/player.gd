@@ -33,6 +33,10 @@ const HOVER_FALL_SPEED := 18.0
 const HOVER_ACCEL := 2600.0
 const CORNER_CORRECTION := 6
 const DROP_THROUGH_TIME := 0.18
+## The Tool Call's zip (world 3): its speed (px/s), the hop on arrival, and how long it may take at most.
+const ZIP_SPEED := 440.0
+const ZIP_POP := 250.0
+const ZIP_MAX_TIME := 0.9
 const SPIN_DURATION := 0.32
 const SPIN_COOLDOWN := 0.12
 const SPIN_HOP := 160.0
@@ -90,7 +94,7 @@ var prev_pos: Vector2
 var squash := Vector2.ONE
 ## Counts down; Clawd blinks while it is below 0 (0.12 s), then it restarts at 2..5 s.
 var blink_timer := 2.5
-## &"normal", &"spin", &"pound_windup", &"pound" or &"pound_land".
+## &"normal", &"spin", &"pound_windup", &"pound", &"pound_land" or &"zip" (pulled to an anchor by the Tool Call).
 var state := &"normal"
 var state_timer := 0.0
 var spin_cooldown := 0.0
@@ -105,6 +109,8 @@ var frozen := false
 var riding = null
 ## Standing on a tile floor or riding a platform (set after moving).
 var on_ground := false
+## Where the zip pulls his feet (level px); the Tool Call keeps it on a moving anchor.
+var zip_target := Vector2.ZERO
 
 @onready var visual: Node3D = $Visual
 @onready var body: MeshInstance3D = $Visual/Body
@@ -239,6 +245,9 @@ func _physics_process(dt: float) -> void:
 	drop_timer -= dt
 	if Input.is_action_just_pressed("jump") and not frozen:
 		jump_buffer = JUMP_BUFFER
+	if state == &"zip":
+		_zip(dt)
+		return
 
 	# Ride the moving platform (they move before the player): carried sideways, kept on its top.
 	if riding:
@@ -390,6 +399,71 @@ func _physics_process(dt: float) -> void:
 			var k := minf(1.0, fall_speed / MAX_FALL)
 			squash = Vector2(1 + 0.35 * k, 1 - 0.3 * k)
 			event.emit(&"hard_land" if fall_speed > 300 else &"land", pos)
+	_check_hazards()
+	_update_visual()
+
+
+## The Tool Call caught an anchor: pulled in a straight line to `target` (his feet), no gravity, no control.
+func start_zip(target: Vector2) -> void:
+	state = &"zip"
+	state_timer = ZIP_MAX_TIME
+	zip_target = target
+	riding = null
+	hovering = false
+	jumping = false
+	coyote = 0.0
+	event.emit(&"zip", pos)
+
+
+## Ends a zip: with `pop` (he arrived) a hop up off the anchor, else he just lets go and keeps a little of his
+## speed. Either way hover and the air spin are fresh.
+func end_zip(pop: bool) -> void:
+	if state != &"zip":
+		return
+	state = &"normal"
+	vel = Vector2(clampf(vel.x, -RUN_SPEED, RUN_SPEED) * 0.5, -ZIP_POP) if pop else vel * 0.5
+	hover_left = hover_duration
+	air_spin_used = false
+	coyote = 0.0
+	if pop:
+		squash = Vector2(0.75, 1.3)
+
+
+## One frame of the zip: straight at zip_target at ZIP_SPEED; arriving (or running out of time) ends it with the
+## hop, a wall in the way ends it where he is, and jump lets go with a jump.
+func _zip(dt: float) -> void:
+	state_timer -= dt
+	var to := zip_target - pos
+	if jump_buffer > 0 and not frozen:
+		end_zip(false)
+		jump_buffer = 0.0
+		vel.y = -JUMP_VELOCITY
+		jumping = true
+		squash = Vector2(0.72, 1.3)
+		event.emit(&"jump", pos)
+	elif to.length() <= ZIP_SPEED * dt or state_timer <= 0:
+		vel = to / dt if to.length() <= ZIP_SPEED * dt else to.normalized() * ZIP_SPEED
+	else:
+		vel = to.normalized() * ZIP_SPEED
+		if absf(to.x) > 1:
+			facing = 1 if to.x > 0 else -1
+		squash = squash.lerp(Vector2(1.15, 0.85), 0.5)
+	var before := pos
+	var arriving := state == &"zip" and to.length() <= ZIP_SPEED * dt
+	# One-way platforms let him through on the way up, like a jump.
+	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _in_one_way_strip())
+	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
+	move_and_slide()
+	vel = Vector2(velocity.x, -velocity.y) / Px.M
+	on_ground = is_on_floor()
+	on_one_way = is_on_floor() and _floor_is_one_way()
+	if state == &"zip":
+		if arriving or state_timer <= 0:
+			end_zip(true)
+			event.emit(&"zip_end", pos)
+		elif (pos - before).length() < ZIP_SPEED * dt * 0.3:
+			# Something solid in the way: he stops there.
+			end_zip(false)
 	_check_hazards()
 	_update_visual()
 
@@ -569,6 +643,11 @@ func _update_visual() -> void:
 			o.arms = "up"
 			o.legs = "tuck"
 		turn = anim * 38
+	elif state == &"zip":
+		# Reaching for the anchor.
+		o.arms = "up"
+		o.legs = "dangle"
+		look.x = 1
 	elif frozen:
 		o.arms = "high" # cheering at the exit
 	elif not on_ground:

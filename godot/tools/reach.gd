@@ -1,10 +1,14 @@
 # Explores levels with Clawd's movement and checks that the exit, every spark and every sub-agent can be reached:
 # from every place he can stand it tries a set of walks and jumps (with and without hover) and sees where he lands.
-# The level-design safety net that tests/reachability.test.ts was in the TS game (branch ts-legacy), on the port's
-# rules: every jump is a full jump. Enemies are ignored, moving platforms and rate limiters are sampled as static
-# ones along their path, and corrupted blocks count as already pounded through. Boss levels are skipped.
-# The movement is a tile-based model of scripts/player.gd (its constants are read from it); the real player
-# collides through move_and_slide(), so a target found here is reachable within a pixel or so.
+# The level-design safety net that tests/reachability.test.ts was in the TS game (branch ts-legacy), on the
+# game's rules: every jump is a full jump. Enemies are ignored, moving platforms and rate limiters are sampled as
+# static ones along their path, corrupted and brittle blocks count as already broken, and gates as open (their
+# puzzles have check sections of their own). Boss levels are skipped.
+# World 3's anchors (`+`, `*`): from where he stands, and at the top of a jump, Clawd throws the Tool Call at every
+# anchor in reach and in sight and zips there (scripts/tool_call.gd, Player._zip()); after the hop off an anchor he
+# drifts (with and without hover) or zips on to the next anchor, so chains of anchors over a chasm count.
+# The movement is a tile-based model of scripts/player.gd (its constants are read from it and from tool_call.gd);
+# the real player collides through move_and_slide(), so a target found here is reachable within a pixel or so.
 # Run from godot/: godot --headless --script tools/reach.gd [-- <id>...]   (no ids = every level)
 extends SceneTree
 
@@ -16,17 +20,22 @@ const H := 18.0
 enum { EMPTY, SOLID, ONEWAY, SPIKE }
 
 var K: Dictionary # scripts/player.gd's constants
+var T: Dictionary # scripts/tool_call.gd's
 var rows: PackedStringArray
 var width := 0
 var height := 0
 var platforms: Array = [] # [x, y, w]
+var anchors: Array[Vector2] = [] # the middles of the anchors' tiles
+var targets := {} # name -> Rect2
+var reached := {}
 
 
 func _init() -> void:
 	# scripts/player.gd uses the Game autoload, which exists only after the first frame.
 	await process_frame
 	K = load("res://scripts/player.gd").get_script_constant_map()
-	assert(K.has("JUMP_VELOCITY"))
+	T = load("res://scripts/tool_call.gd").get_script_constant_map()
+	assert(K.has("JUMP_VELOCITY") and K.has("ZIP_SPEED") and T.has("REACH"))
 	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
 	var ids := Array(OS.get_cmdline_user_args())
 	if ids.is_empty():
@@ -45,14 +54,16 @@ func _init() -> void:
 
 
 func check_level(id: String) -> Array:
-	rows = FileAccess.get_file_as_string("res://levels/%s.txt" % id).trim_suffix("\n").split("\n")
+	rows = FileAccess.get_file_as_string("res://levels/%s.txt" % id).replace("\r", "").trim_suffix("\n").split("\n")
 	height = rows.size()
 	width = 0
 	for r in rows:
 		width = maxi(width, r.length())
 	platforms = []
+	anchors = []
+	targets = {}
+	reached = {}
 	var start := Vector2.ZERO
-	var targets := {} # name -> Rect2
 	var counts := {"S": 0, "A": 0}
 	for ty in height:
 		for tx in rows[ty].length():
@@ -70,6 +81,8 @@ func check_level(id: String) -> Array:
 					counts.A += 1
 				"G":
 					targets["goal"] = Rect2(x - 8, y - 40, 16, 40)
+				"+", "*":
+					anchors.append(Vector2(x, y - TILE / 2))
 				"M":
 					for o in [-3.5, -1.75, 0.0, 1.75, 3.5]:
 						platforms.append([x - 24 + o * TILE, ty * TILE, 48.0])
@@ -85,11 +98,12 @@ func check_level(id: String) -> Array:
 					while py <= (floor_y - 2) * TILE:
 						platforms.append([tx * TILE, py, 32.0])
 						py += TILE / 2
-	var reached := explore(start, targets)
+	explore(start)
 	return targets.keys().filter(func(n): return not reached.has(n))
 
 
-## The tile at (tx, ty): SOLID left and right of the map, EMPTY above and below it; corrupted blocks are EMPTY.
+## The tile at (tx, ty): SOLID left and right of the map, EMPTY above and below it; corrupted and brittle blocks,
+## plates and gates are EMPTY.
 func tile(tx: int, ty: int) -> int:
 	if tx < 0 or tx >= width:
 		return SOLID
@@ -134,54 +148,161 @@ func plans(dir: String) -> Array:
 	]
 
 
-func explore(start: Vector2, targets: Dictionary) -> Dictionary:
-	var reached := {}
+## Drifts after the hop off an anchor: no key, or a side, each with and without hover.
+func drifts() -> Array:
+	var out := []
+	for d in ["", "left", "right"]:
+		for hover in [false, true]:
+			out.append([[300, func(_f, b):
+				var a := [] if d == "" else [d]
+				if b.vy < 0 or hover:
+					a.append("jump")
+				return a]])
+	return out
+
+
+## Runs `plan` on `b` until he lands (a walk runs its full length): the Body where he stands, or null when he died
+## or is still in the air. Marks the targets he touches.
+func run(b: Body, plan: Array) -> Body:
+	var was_air := not b.grounded
+	var stages: Array = plan + [[200, func(_f, _b): return []]]
+	for si in stages.size():
+		var stage: Array = stages[si]
+		for i in stage[0]:
+			b.step(stage[1].call(i, b), self)
+			if dead(b):
+				return null
+			touch(b)
+			if not b.grounded:
+				was_air = true
+			if b.grounded and (was_air or si == stages.size() - 1):
+				return b
+	return b if b.grounded else null
+
+
+func dead(b: Body) -> bool:
+	return b.y > height * TILE + 20 or touches(Rect2(b.x + 1, b.y + H - 6, W - 2, 6), SPIKE)
+
+
+func touch(b: Body) -> void:
+	var hb := Rect2(b.x + 2, b.y + 3, W - 4, H - 3)
+	for n in targets:
+		if not reached.has(n) and hb.intersects(targets[n]):
+			reached[n] = true
+
+
+## The anchors the hook can catch from `b` now: in reach of his hand and in sight.
+func anchors_from(b: Body) -> Array:
+	var hand := Vector2(b.x + W / 2, b.y + H - 9)
+	var out := []
+	for i in anchors.size():
+		if hand.distance_to(anchors[i]) <= T.REACH and clear_line(hand, anchors[i]):
+			out.append(i)
+	return out
+
+
+func clear_line(a: Vector2, b: Vector2) -> bool:
+	var n := ceili(a.distance_to(b) / 4.0)
+	for i in range(1, n):
+		var p := a.lerp(b, float(i) / n)
+		if tile(floori(p.x / TILE), floori(p.y / TILE)) == SOLID:
+			return false
+	return true
+
+
+## Zips `b` to anchor `i`: true when he got there (then he has hopped off it).
+func zip(b: Body, i: int) -> bool:
+	var target := anchors[i] + Vector2(0, T.ZIP_BELOW)
+	var t := 0.0
+	while t < K.ZIP_MAX_TIME:
+		t += STEP
+		var feet := Vector2(b.x + W / 2, b.y + H)
+		var to := target - feet
+		var d: Vector2 = to if to.length() <= K.ZIP_SPEED * STEP else to.normalized() * K.ZIP_SPEED * STEP
+		var x0 := b.x
+		var y0 := b.y
+		b._move_x(d.x, self)
+		b._move_y(d.y, self)
+		if dead(b):
+			return false
+		touch(b)
+		if to.length() <= K.ZIP_SPEED * STEP:
+			break
+		if Vector2(b.x - x0, b.y - y0).length() < d.length() * 0.3:
+			return false
+	b.vx = 0.0
+	b.vy = -K.ZIP_POP
+	b.grounded = false
+	b.coyote = 0.0
+	b.hover_left = K.HOVER_DURATION
+	b.held = []
+	return true
+
+
+func explore(start: Vector2) -> void:
 	var seen := {}
+	var seen_anchor := {}
+	# Entries: Vector2 = feet where he stands; int = the anchor he just hopped off.
 	var queue: Array = [start]
 	var key := func(x: float, bottom: float) -> Vector2i: return Vector2i(roundi(x / 6), roundi(bottom))
 	seen[key.call(start.x, start.y)] = true
 	var budget := 6000
 	var all_plans := {"left": plans("left"), "right": plans("right")}
+	var after := drifts()
+	var enqueue := func(b: Body) -> void:
+		if b == null or not b.grounded:
+			return
+		var k: Vector2i = key.call(b.x + W / 2, b.y + H)
+		if not seen.has(k):
+			seen[k] = true
+			queue.append(Vector2(b.x + W / 2, b.y + H))
+	var enqueue_anchor := func(i: int) -> void:
+		if not seen_anchor.has(i):
+			seen_anchor[i] = true
+			queue.append(i)
 	while not queue.is_empty() and budget > 0:
 		budget -= 1
-		var s: Vector2 = queue.pop_front()
+		var entry = queue.pop_front()
+		if entry is int:
+			# Hopped off anchor `entry`: drift down, or zip on from the hop.
+			var at := anchors[entry] + Vector2(0, T.ZIP_BELOW)
+			for plan in after:
+				enqueue.call(run(Body.at_anchor(at, K), plan))
+			var hop := Body.at_anchor(at, K)
+			for f in 12:
+				hop.step(["jump"], self)
+			for i in anchors_from(hop):
+				if i != entry and zip(Body.at_anchor(at, K).copy_from(hop), i):
+					enqueue_anchor.call(i)
+			continue
+		var s: Vector2 = entry
+		var probe := Body.new(s.x, s.y, K)
+		probe.step([], self)
+		if not probe.grounded:
+			continue
 		for dir in ["left", "right"]:
 			for plan in all_plans[dir]:
 				var b := Body.new(s.x, s.y, K)
 				b.step([], self)
-				if not b.grounded:
-					break
-				var dead := false
-				var was_air := false
-				var stages: Array = plan + [[200, func(_f, _b): return []]]
-				var done := false
-				for si in stages.size():
-					var stage: Array = stages[si]
-					for i in stage[0]:
-						b.step(stage[1].call(i, b), self)
-						if b.y > height * TILE + 20 or touches(Rect2(b.x + 1, b.y + H - 6, W - 2, 6), SPIKE):
-							dead = true
-							done = true
-							break
-						var hb := Rect2(b.x + 2, b.y + 3, W - 4, H - 3)
-						for n in targets:
-							if not reached.has(n) and hb.intersects(targets[n]):
-								reached[n] = true
-						if not b.grounded:
-							was_air = true
-						# A jump ends when Clawd lands; walks run their full length.
-						if b.grounded and (was_air or si == stages.size() - 1):
-							done = true
-							break
-					if done:
-						break
-				var k: Vector2i = key.call(b.x + W / 2, b.y + H)
-				if not dead and b.grounded and not seen.has(k):
-					seen[k] = true
-					queue.append(Vector2(b.x + W / 2, b.y + H))
+				enqueue.call(run(b, plan))
+		# The Tool Call, standing and at the top of a full jump.
+		if not anchors.is_empty():
+			for i in anchors_from(probe):
+				var b := Body.new(s.x, s.y, K)
+				b.step([], self)
+				if zip(b, i):
+					enqueue_anchor.call(i)
+			var apex := Body.new(s.x, s.y, K)
+			apex.step([], self)
+			apex.step(["jump"], self)
+			while apex.vy < 0:
+				apex.step(["jump"], self)
+			for i in anchors_from(apex):
+				var b := Body.new(s.x, s.y, K).copy_from(apex)
+				if zip(b, i):
+					enqueue_anchor.call(i)
 		if reached.size() == targets.size():
 			break
-	return reached
 
 
 func touches(r: Rect2, kind: int) -> bool:
@@ -200,7 +321,7 @@ func hits_solid(x: float, y: float) -> bool:
 	return false
 
 
-## Clawd's body: Player.update() from src/entities/player.ts on the port's rules (no jump cut), x / y its top-left.
+## Clawd's body: Player.update() from src/entities/player.ts on the game's rules (no jump cut), x / y its top-left.
 class Body:
 	var k: Dictionary
 	var x: float
@@ -223,6 +344,27 @@ class Body:
 		y = bottom - H
 		prev_y = y
 		hover_left = k.HOVER_DURATION
+
+	## Just hopped off an anchor, his feet at `feet`.
+	static func at_anchor(feet: Vector2, constants: Dictionary) -> Body:
+		var b := Body.new(feet.x, feet.y, constants)
+		b.vy = -constants.ZIP_POP
+		return b
+
+	func copy_from(o: Body) -> Body:
+		x = o.x
+		y = o.y
+		prev_y = o.prev_y
+		vx = o.vx
+		vy = o.vy
+		grounded = o.grounded
+		on_one_way = o.on_one_way
+		coyote = o.coyote
+		jump_buffer = o.jump_buffer
+		hover_left = o.hover_left
+		drop_timer = o.drop_timer
+		held = o.held.duplicate()
+		return self
 
 	func step(acts: Array, r) -> void:
 		var pressed := func(a: String) -> bool: return acts.has(a) and not held.has(a)

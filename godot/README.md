@@ -59,6 +59,7 @@ Map legend:
 | `#` `=` `^` `X` | Tiles: rock, one-way platform, spikes, corrupted (ground-pound or blast it) |
 | `@` `G` `C` `?` | Start, exit, checkpoint, sign (texts in `signs`, in map order) |
 | `o` `S` `A` | Token, spark, sub-agent |
+| `+` | Anchor for the Tool Call (world 3) |
 | `M` `V` | Moving platform, horizontal / vertical |
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
@@ -311,7 +312,8 @@ Output, Attention Beam, Opus Cannon; slots 1-5 in `ORDER`), the gun mods the sho
   every frame (`poll_mouse()`) instead of waiting for mouse events, which never reach it.
 - **Switching**: `next` / `prev` (E / Q, the wheel) cycle through the owned weapons, `slot1`-`slot5` (1-5)
   pick a slot; the choice is saved as `Progress.equipped` and the weapon's name shows over Clawd for 1.5 s.
-- **Armed Clawd**: attack shoots instead of spinning (spin stays on its own key and the right mouse button),
+- **Armed Clawd**: attack shoots instead of spinning (spin stays on its own key; the right mouse button throws the
+  Tool Call since world 3),
   and down with attack held does not pound. The voxel gun (`GunSprite`, own material so the see-through windows
   don't dither it) turns about its grip to the aim, upside down when aiming left like the 2D sprite, 6 px in front
   of Clawd (lifted by a third of that against the oblique shift), kicks back on each shot, with a 2-voxel-deep
@@ -478,6 +480,45 @@ glinting down; their tops show a lit rim.
 `tools/checks/2-B.gd` checks the spawn, the intro, every attack, the phases, a blaster hit and a stomp, the death,
 the exit, the results and the motif.
 
+## World 3: AGENT MODE
+
+The plan and its task list are in `docs/world3-plan.md`. World 3 is not a port: its mechanics are new.
+
+### Tool Call
+
+`scripts/tool_call.gd` (`ToolCall`, `Main.tool_call`, next to the gun and run after it) is Clawd's hook in every
+level once `Progress.has_tool("hook")` (Codex drops it). The `tool` action (Shift / F / the right mouse button,
+which no longer spins) throws it from his hand (the gun's pivot) along his aim: the gun's while armed, else
+`Gun.compute_aim()` the same way (the mouse, or the keys).
+
+- **Aim assist**: every frame `pick()` chooses the anchor nearest the aim line within `REACH` (128 px = 8 tiles)
+  and `CONE` (35°) that he can see (no solid block on the line, sampled every 4 px), scoring angle × 80 +
+  distance × 0.3. The pick shows orange brackets in the Overlay and turns faster.
+- **Flight**: the claw flies at 900 px/s: to the pick, which it catches (`Anchor.catch()`, hookCatch, a burst),
+  then `Player.start_zip()` pulls Clawd's feet to 12 px under the anchor; with no pick it flies straight in 2 px
+  steps, and a solid or corrupted block stops it (hookMiss), an enemy is struck, and at REACH it comes back. It
+  returns at 1400 px/s; a new throw waits 0.15 s.
+- **Enemies**: a struck enemy takes `HOOK_DAMAGE` (2, as a shot) unless it has something to lose: `hook_hit()`
+  on a shield bot tears its shield off (`ShieldBot.shieldless`: no shield drawn, shots get through from every
+  side), and the hook only hurts it after that. Bosses and projectiles are not struck.
+- **Zip** (`Player` state `zip`, `_zip()`): straight at the target at `ZIP_SPEED` (440 px/s), no gravity or
+  control, at most `ZIP_MAX_TIME` (0.9 s); one-way platforms let him through on the way up. Arriving ends it with
+  a hop (`ZIP_POP`, 250 px/s up) and fresh hover and air spin (`end_zip(true)`, a burst); a wall in the way stops
+  him where he is; jump lets go with a full jump, `tool` again lets go keeping half his speed, a hit ends it.
+  While zipping he reaches up.
+- **Look**: a voxel claw (`CLAW`, orange with white tips) turned along the cable, and the cable as up to 48 glowing
+  1 px cubes (a MultiMesh with the particles shader) every 3 px from the hand. Sounds: hookThrow (a whoosh),
+  hookCatch (a clink), hookMiss (a clank) and zip, synthesized like the rest.
+
+`scripts/anchor.gd` (`Anchor`, `+` in a map, group `anchors`): an API endpoint in the middle of its tile, a 7 x 7
+voxel ring of cyan round a white and orange core (1 px cells) that turns slowly, with a small GlowLight that
+pulses; `point()` is where the hook catches it, `active` lets timeout anchors switch off (W7).
+
+`tools/reach.gd` knows the Tool Call: from where Clawd stands and at the top of a full jump he zips to every
+anchor in reach and sight, and from an anchor he drifts down (with and without hover, to either side or none) or
+zips on to the next one 12 frames into his hop, so chains of anchors over a chasm count; anchors 6 tiles apart
+chain, 8 apart do not.
+
 ## Checks
 
 ```bash
@@ -531,7 +572,10 @@ fall onto the platform two rows down, both sub-agents), 2-B Codex (the arena and
 the spawn, 90 hp on the boss bar, the intro, the hands, bursts, slams and shockwaves, the refactor phases, failing
 tests, rm -rf columns, both hands in phase 2, stomps, SEGFAULT, CODEX HAS BEEN DEPRECATED, the Tool Call drop
 and pickup, the exit, WORLD 2 CLEAR and TOOL CALL FOUND · WORLD 3 UNLOCKED, an old save getting the Tool Call), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
-aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
+aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), the Tool Call (its keys, `+` anchors, nothing
+without it, the aim assist's pick, the throw, catch and zip with their sounds, the hop and fresh hover on arrival,
+no pick out of reach or behind a block, a clank on a block, a bug struck, a shield bot's shield torn off, letting go
+by jump / tool / a hit, the controls help line), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -756,8 +800,8 @@ size, the selected row as a faint orange bar with a bright left edge and a `>` p
 
 - **Controls help** (`controls` key, H; or the HUD's CONTROLS button): what every key does, built from the
   current bindings like `controlLines()` (without its gamepad line: the port has no gamepad support); once a
-  weapon is found it adds attack as spin / shoot, spin on the right mouse button, aiming with the mouse or the
-  keys, and switching weapons. Enter (or its button) opens the keybindings.
+  weapon is found it adds attack as spin / shoot, spin, aiming with the mouse or the keys, and switching weapons;
+  once Codex dropped the Tool Call, a line for it (its keys / RMB). Enter (or its button) opens the keybindings.
 - **Pause** (`pause` key, P, or Escape; or the HUD's pause button): RESUME, RESTART FROM CHECKPOINT, RESTART
   LEVEL, CRT FILTER: ON/OFF, CROSSHAIR: its colour (the port's; Enter or left / right cycle it, with a preview at
   the row's end), KEYBINDINGS, QUIT TO MAP (the world map, on the current level).
@@ -956,6 +1000,7 @@ without COOP/COEP headers.
 | `scripts/codex.gd`, `scripts/codex_hand.gd` | World 2's boss Codex (`B` in 2-B) and its two cursor hands |
 | `scripts/code_shot.gd`, `scripts/column_beam.gd`, `scripts/codex_paint.gd` | Codex's code-character shots and shockwaves, its rm -rf columns; flat boxes redrawn each frame (its face, telegraphs) |
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
+| `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |
 | `scripts/gun.gd` | `Gun`: firing, context heat and overflow, aiming (mouse polling, keys), switching, the gun in Clawd's hands |
 | `scripts/bullet.gd`, `scripts/beam_fx.gd` | Clawd's bullets (token, pellet, glyph, orb); the Attention Beam's flashes |

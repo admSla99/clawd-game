@@ -26,15 +26,15 @@ Five levels, each with its own theme, motif and music:
 
 - Action `tool`: **Shift / F / right mouse button** (the right button moves from spin to the hook; spin keeps
   C / L, and unarmed the attack button spins anyway). Owned once Codex is beaten (`Progress`), from then on in
-  every level, worlds 1 and 2 too.
+  every level, worlds 1 and 2 too. The aim assist's pick shows brackets (no HUD element needed).
 - Aimed like the gun: the mouse, or the keys (facing, ↑ / ↓ tilt). An aim assist picks the anchor nearest to the
   aim line within the hook's reach (8 tiles) and a 35° cone; with none, the hook flies straight and comes back.
 - **Anchor** (`+`, an API endpoint: a glowing node): the hook catches it and **zips** Clawd to it (fast, no
   gravity, stopped by walls). Arriving gives a small hop and refills hover and the air spin; jump during the zip
-  lets go with a jump; letting go of `tool` keeps the speed (a fling).
+  lets go with a jump, `tool` again lets go (no need to hold the button: a tap zips all the way).
 - **Timeout anchor** (`*`): dissolves 1.2 s after it is caught, comes back after 3 s.
-- **Enemies**: small ones (bugs, injector bugs, drones) are yanked to Clawd and stunned; a shield bot loses its
-  shield; a Parser loses its armour; a Webhook zips Clawd to it like an anchor.
+- **Enemies**: the hook strikes them for 2 damage; a shield bot loses its shield instead, a Parser its armour;
+  a Webhook zips Clawd to it like an anchor.
 - Look: a voxel claw on a dotted cable, a small sound set (throw, catch, zip, miss).
 
 ### Sub-agents (echoes)
@@ -124,10 +124,10 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] Codex drops the Tool Call (pickup), WORLD 2 CLEAR opens world 3 instead of the end screen.
 
 ### W2 Tool Call
-- [ ] `tool` action and binding (right mouse button moves from spin), owned flag in `Progress`.
-- [ ] The hook (`scripts/tool_call.gd`): aim, assist, flight, catch, zip, fling, miss; anchors `+`; sounds; look.
-- [ ] Yanking enemies (small ones, shields); the HUD shows the hook.
-- [ ] `reach.gd` zips to anchors; checks.
+- [x] `tool` action and binding (right mouse button moves from spin), owned flag in `Progress`.
+- [x] The hook (`scripts/tool_call.gd`): aim, assist, flight, catch, zip, letting go, miss; anchors `+`; sounds; look.
+- [x] Striking enemies (damage; a shield bot's shield comes off; the Parser's armour in W3).
+- [x] `reach.gd` zips to anchors; checks.
 
 ### W3 3-1 Endpoint Canopy
 - [ ] Parser (`P`).

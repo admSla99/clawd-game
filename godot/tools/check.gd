@@ -89,6 +89,7 @@ func _init() -> void:
 	await section("shooting (src/entities/gun.ts, bullets.ts, src/weapons.ts)", check_gun)
 	await section("spam bots, shots and rate limiters (src/entities/enemies.ts, entity.ts)", check_enemies)
 	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
+	await section("the Tool Call: hook, anchors, zip (world 3)", check_tool_call)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1012,6 +1013,140 @@ func drive(f: Callable, max_frames := 600) -> void:
 		Input.action_release(a)
 
 
+## An anchor (`+`) placed at level pixel `at` (its middle) in the current level.
+func add_anchor(m: Node, at: Vector2) -> Node:
+	var a = load("res://scripts/anchor.gd").new()
+	a.position = Px.to3(at + Vector2(0, 8))
+	m.level.add_child(a)
+	return a
+
+
+func check_tool_call() -> bool:
+	var m = current_scene
+	var p = m.player
+	var tc = m.tool_call
+	var progress = root.get_node("Progress")
+	var settings = root.get_node("Settings")
+	var snd = root.get_node("Sound")
+	ok(settings.DEFAULTS[&"tool"] == [KEY_SHIFT, KEY_F] and settings.MOUSE[&"tool"] == [MOUSE_BUTTON_RIGHT]
+		and not settings.MOUSE.has(&"spin") and &"tool" in settings.BINDABLE, "the Tool Call is on SHIFT / F and the right mouse button")
+	ok(level_script.SPAWNS["+"] == "anchor", "'+' in a map is an anchor")
+	var tools0: Array = progress.tools.duplicate()
+	progress.tools.clear()
+	m.load_level("3-1")
+	await frames(3)
+	# Keys aim, not the mouse.
+	m.gun.mouse_moved = -1_000_000
+	var floor_y: float = 15 * TILE + TILE
+	var start := Vector2(10 * TILE + 8, floor_y)
+	p.pos = start
+	p.vel = Vector2.ZERO
+	p.facing = 1
+	var a = add_anchor(m, start + Vector2(96, -40))
+	await frames(3)
+	await drive(func(i): return ["tool"] if i < 2 else (null if i > 6 else []), 10)
+	ok(tc.state == tc.IDLE and p.state == &"normal" and not a.targeted, "without the Tool Call nothing happens")
+	progress.grant_tool("hook")
+	await frames(2)
+	ok(tc.candidate == a and a.targeted, "with it, the aim assist picks the anchor ahead within reach (brackets)")
+	snd.played.clear()
+	var st := {"zipped": false, "held": false}
+	await drive(func(i):
+		st.zipped = st.zipped or p.state == &"zip"
+		st.held = st.held or tc.state == tc.HELD
+		if i > 10 and p.state != &"zip" and st.zipped:
+			return null
+		return ["tool"] if i < 2 else [], 90)
+	ok(st.held and st.zipped and "hookThrow" in snd.played and "hookCatch" in snd.played and "zip" in snd.played,
+		"the hook flies out, catches it and pulls Clawd in (hookThrow, hookCatch, zip)")
+	ok(p.state == &"normal" and p.vel.y < -150 and p.pos.distance_to(a.point() + Vector2(0, tc.ZIP_BELOW)) < 12 and p.hover_left == p.hover_duration,
+		"he arrives at the anchor with a hop up and his hover refilled (%s, vel %s)" % [p.pos - a.point(), p.vel])
+	await frames(40)
+	ok(tc.state == tc.IDLE, "the hook comes back")
+
+	# Out of reach or behind a block: no pick, the hook flies straight and comes back.
+	p.pos = start
+	p.vel = Vector2.ZERO
+	a.position = Px.to3(start + Vector2(tc.REACH + 40, -16))
+	await frames(3)
+	ok(tc.candidate == null, "an anchor out of reach is not picked")
+	a.position = Px.to3(start + Vector2(80, -8 + 8))
+	m.level.terrain.set_cell_item(Vector3i(13, -16, 0), 0)
+	await frames(3)
+	ok(tc.candidate == null, "nor one behind a block")
+	snd.played.clear()
+	st = {"out": false}
+	await drive(func(i):
+		st.out = st.out or tc.state == tc.OUT
+		return null if i > 30 else (["tool"] if i < 2 else []), 40)
+	ok(st.out and "hookMiss" in snd.played and tc.state == tc.IDLE and p.state == &"normal",
+		"thrown at the block it clanks and comes back (hookMiss)")
+	m.level.terrain.set_cell_item(Vector3i(13, -16, 0), -1)
+	a.queue_free()
+
+	# Enemies: a bug takes HOOK_DAMAGE, a shield bot loses its shield (not hp).
+	var bug = load("res://scenes/bug.tscn").instantiate()
+	m.level.add_child(bug)
+	bug.pos = start + Vector2(60, 0)
+	bug.hp = 10.0
+	await frames(2)
+	var hp0: float = bug.hp
+	await drive(func(i): return null if i > 20 else (["tool"] if i < 2 else []), 30)
+	ok(is_instance_valid(bug) and bug.hp == hp0 - tc.HOOK_DAMAGE, "the hook hits a bug for %d" % tc.HOOK_DAMAGE)
+	if is_instance_valid(bug):
+		bug.queue_free()
+	var sb = load("res://scripts/shield_bot.gd").new()
+	m.level.add_child(sb)
+	sb.pos = start + Vector2(70, 0)
+	sb.facing = -1.0
+	await frames(30)
+	hp0 = sb.hp
+	ok(sb.blocks_direction(Vector2.RIGHT), "a shield bot's shield stops shots from the front")
+	p.pos = start
+	p.facing = 1
+	await drive(func(i): return null if i > 20 else (["tool"] if i < 2 else []), 30)
+	ok(sb.shieldless and sb.hp == hp0 and not sb.blocks_direction(Vector2.RIGHT) and not sb._shield_mesh.visible,
+		"the hook tears its shield off: shots get through")
+	sb.queue_free()
+	await frames(2)
+
+	# Letting go: jump during the zip jumps, `tool` again just lets go; a hit ends the zip too.
+	a = add_anchor(m, start + Vector2(110, -60))
+	for how in ["jump", "tool", "hurt"]:
+		p.pos = start
+		p.vel = Vector2.ZERO
+		p.invuln = 0.0
+		await frames(4)
+		st = {"zip": 0, "sent": false}
+		await drive(func(i):
+			if st.sent:
+				return null
+			if p.state == &"zip":
+				st.zip += 1
+			if st.zip >= 3:
+				st.sent = true
+				if how == "hurt":
+					p.hurt(p.pos.x + 10)
+					return []
+				return [how]
+			return ["tool"] if i < 2 else [], 60)
+		# A hit freezes the game for a moment (hitstop) first.
+		await frames(10 if how == "hurt" else 2)
+		var ok_how: bool = p.state == &"normal" and tc.state != tc.HELD
+		if how == "jump":
+			ok_how = ok_how and p.vel.y < -300
+		ok(ok_how and p.pos.distance_to(a.point()) > 20, "%s during the zip lets go (vel %s, state %s, hook %d, %.0f px from it)"
+			% [how, p.vel, p.state, tc.state, p.pos.distance_to(a.point())])
+		await frames(30)
+	a.queue_free()
+	ok(m.menu.control_lines().any(func(l): return String(l[1]).begins_with("Tool Call")), "the controls help lists the Tool Call")
+	progress.tools = tools0
+	p.invuln = 0.0
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
 func check_caves() -> bool:
 	var m = current_scene
 	var p = m.player
@@ -1725,13 +1860,19 @@ func check_menus() -> bool:
 	ok(lines[1][0] == "SPACE W K" and lines[0][0] == "← A → D", "the help lists the bound keys (%s, %s)" % [lines[0][0], lines[1][0]])
 	var progress = root.get_node("Progress")
 	var had: Array = progress.weapons
+	var had_tools: Array = progress.tools
 	progress.weapons = []
+	progress.tools = []
 	var plain: int = menu.control_lines().size()
 	progress.weapons = ["blaster"]
 	var armed_lines: Array = menu.control_lines().map(func(l): return l[1])
+	progress.tools = ["hook"]
+	var hook_lines: Array = menu.control_lines().map(func(l): return l[1])
 	progress.weapons = had
+	progress.tools = had_tools
 	ok(plain == 8 and armed_lines.size() == 12 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
 		"with a weapon found it adds shooting, aiming and switching")
+	ok(hook_lines.size() == 13 and hook_lines[-3].begins_with("Tool Call"), "with the Tool Call, a line for it")
 
 	# Keybindings: rebind jump's second slot.
 	menu.handle(key(KEY_ENTER))

@@ -81,6 +81,8 @@ var boss: Enemy = null
 var weapon_found_run := false
 ## Clawd's weapon (armed in world 2) and the Attention Beam's flashes.
 var gun: Gun
+## World 3's hook (once Codex dropped it).
+var tool_call: ToolCall
 var beams: BeamFx
 
 @onready var view: SubViewportContainer = $View
@@ -115,6 +117,10 @@ func _ready() -> void:
 	gun.name = "GunControl"
 	world.add_child(gun)
 	gun.setup(self, player)
+	tool_call = ToolCall.new()
+	tool_call.name = "ToolCall"
+	world.add_child(tool_call)
+	tool_call.setup(self, player)
 	beams = BeamFx.new()
 	beams.name = "Beams"
 	world.add_child(beams)
@@ -272,6 +278,7 @@ func load_level(id: String) -> void:
 	if armed and Progress.weapons.is_empty():
 		Progress.grant_weapon("blaster")
 	gun.arm(armed, Progress.equipped)
+	tool_call.reset()
 	# World 2's bugs and spam bots are tougher (`tough` in spawnEntities()), and every enemy has HP_FACTOR
 	# times its TS hit points in the port (bosses keep theirs, projectiles have none to speak of).
 	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
@@ -443,6 +450,8 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			Game.hitstop(0.08)
 		&"pound_land":
 			_on_pound_land()
+		&"zip_end":
+			particles.emit(at + Vector2(0, -9), {count = 8, speed = 60, life = 0.3, color = [Color.WHITE, Anchor.CYAN], drag = 3})
 		&"die", &"fell":
 			# respawn() in TS puts the rising void back below the checkpoint.
 			if rising_void:
@@ -487,6 +496,8 @@ func _sound(kind: StringName) -> void:
 			Sound.play("die")
 		&"stomp":
 			Sound.play("stomp")
+		&"zip":
+			Sound.play("zip")
 
 
 ## Ground pound landing (onPoundLand() in src/scenes/game.ts): dust and shake, breaks the corrupted

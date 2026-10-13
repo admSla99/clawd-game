@@ -10,7 +10,7 @@ extends Node
 var path := "user://settings.cfg"
 const SLOTS := 3
 ## Actions the player can rebind, in the order the keybinding menu lists them.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -19,6 +19,7 @@ const LABELS := {
 	&"jump": "JUMP",
 	&"attack": "ATTACK (SPIN / SHOOT)",
 	&"spin": "SPIN",
+	&"tool": "TOOL CALL (HOOK)",
 	&"prev": "PREV WEAPON",
 	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
@@ -34,6 +35,7 @@ const DEFAULTS := {
 	&"jump": [KEY_SPACE, KEY_W, KEY_K],
 	&"attack": [KEY_X, KEY_J],
 	&"spin": [KEY_C, KEY_L],
+	&"tool": [KEY_SHIFT, KEY_F],
 	&"prev": [KEY_Q],
 	&"next": [KEY_E],
 	&"pause": [KEY_P],
@@ -54,10 +56,11 @@ const FIXED := {
 	&"slot5": [KEY_5],
 }
 ## The mouse (attachMouse() in src/core/input.ts): the left button attacks (shoots when armed), the right one
-## spins, the wheel switches weapons (down = next).
+## throws the Tool Call (it spun in TS; spin keeps C / L, and unarmed the attack button spins anyway), the wheel
+## switches weapons (down = next).
 const MOUSE := {
 	&"attack": [MOUSE_BUTTON_LEFT],
-	&"spin": [MOUSE_BUTTON_RIGHT],
+	&"tool": [MOUSE_BUTTON_RIGHT],
 	&"next": [MOUSE_BUTTON_WHEEL_DOWN],
 	&"prev": [MOUSE_BUTTON_WHEEL_UP],
 }

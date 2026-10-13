@@ -48,6 +48,8 @@ var facing := -1.0
 var fire_timer := 2.0 + randf()
 var turn_timer := 0.0
 var shield_flash := 0.0
+## The Tool Call tore its shield off (world 3): shots get through from every side.
+var shieldless := false
 var t := 0.0
 var _visual: Node3D
 var _body: MeshInstance3D
@@ -83,10 +85,19 @@ func _ready() -> void:
 ## blocksDirection(): a shot travelling along `dir` hits the shield when it comes from the side the bot faces
 ## and is not too steep (from above it gets through). The shield flashes white.
 func blocks_direction(dir: Vector2) -> bool:
-	if dir.x * facing < 0 and absf(dir.y) < absf(dir.x) * 1.4:
+	if not shieldless and dir.x * facing < 0 and absf(dir.y) < absf(dir.x) * 1.4:
 		shield_flash = 0.15
 		return true
 	return false
+
+
+## The Tool Call's hook strikes it: it tears the shield off (once; then the hook just hurts it).
+func hook_hit(_dir: Vector2) -> bool:
+	if shieldless:
+		return false
+	shieldless = true
+	Fx.burst(self, pos + Vector2(facing * 8, -SIZE.y / 2), {count = 14, speed = 90, life = 0.4, color = [CYAN, Color.WHITE]})
+	return true
 
 
 func _physics_process(dt: float) -> void:
@@ -143,6 +154,7 @@ func _update_visual() -> void:
 	_body.mesh = BODIES[int(t * 6) % 2]
 	var turning := turn_timer > 0 and floori(Game.time * 16) % 2 == 1
 	_shield_mesh.mesh = SHIELDS[1 if shield_flash > 0 else (2 if turning else 0)]
+	_shield_mesh.visible = not shieldless
 	# The 2D shield's left edge is x + 15 facing right (x - 2 facing left): 7 px right of the middle, 3 wide,
 	# from 2 px above its top down to its feet.
 	_shield_mesh.position = Vector3(8.5 * facing, 0, 0) * Px.M

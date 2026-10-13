@@ -29,7 +29,8 @@ godot --headless --script tools/reach.gd         # every level's exit, sparks an
 | Space / W / K | Jump (every jump is a full jump) |
 | Hold jump in the air | Hover (the jet hurts enemies) |
 | X / J · left mouse button | World 1: spin · World 2: shoot |
-| C / L · right mouse button | Spin |
+| C / L | Spin |
+| Shift / F · right mouse button | World 3: Tool Call (hook to endpoints, zip there) |
 | ↓ / S in the air | Ground pound (breaks purple "corrupted" blocks) |
 | ↓ + Space | Drop through a platform |
 | Mouse | World 2: aim (↑ / ↓ + X aims without a mouse) |
