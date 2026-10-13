@@ -312,7 +312,32 @@ world-2 enemies (*Enemies*); 2-1's mesa motif is under *Look and feedback*.
 
 ### 2-2 GPU Forge
 
-Not ported yet (M8): the forge motif.
+Armed, with 5 ceiling turrets (`Y`), a floor turret, 3 drones, 3 rate limiters, 2 shield bots and 3 bugs; the
+TS sign text is kept. Full jumps fit without a map override: the ceiling is high everywhere (row 3), so no jump
+bumps into anything. `tools/checks/2-2.gd` drives the critical places: the first spike bed (columns 45-76) on
+the two moving platforms (their gaps never close below 5 tiles, so the hover carries Clawd over), the arch of
+one-way platforms over the second (columns 130-164) up to row 10 and down, the spark over the arch's top, the
+spark in the nook over the middle rate limiter (it crashes down next to Clawd, he jumps on it while it rests and
+rides it up into the nook), and the corrupted floor at the end (a pound in, a full jump out).
+
+Forge motif: `shaders/motif_forge.gdshader`, server racks and GPU monoliths, a background layer like the mesa
+motif (*Look and feedback*, same uniforms). Two ranges of machines (the far one at 0.07 of the camera's speed,
+smaller and hazier, the near one at 0.13), one per 170 / 230 px cell or none, standing at 64 / 70 % of the view's
+height and fading into the haze below their foot. A cell holds a row of one to three racks or a GPU monolith:
+- Racks: a lit cap, rails with a screw hole per unit and 1U units (5 / 6 px) behind them: servers with a vent
+  grille and three LEDs (one steady, two blinking at random at their own rate), drive bays with flickering
+  activity lights, blank panels with a handle, switches with port lights. Racks of a row differ in height.
+- GPU monoliths: a heat sink of vertical fins that glow hotter towards the die, the die white-hot in the
+  middle and pulsing in a ring of pins, one or two fans spinning (opposite ways) with the hot inside showing
+  between the blades, a vent grille and a load bar at the foot that swells and ebbs.
+- Thick power cables (3 px, thicker where steep, lit on top) sag between neighbouring machines, one or two
+  per pair, and a pulse of light runs along them now and then.
+
+LEDs, dies, hot fins and pulses are in the theme's ray colour (white-hot for the die's core and some LEDs) and
+less hazed than the metal. The embers of the TS forge (`Parallax`) still rise over it.
+
+Pickups: sparks, sub-agents and the token magnet test `Player.in_play()` instead of `visible`, which blinks
+while Clawd is invulnerable; before, half the frames after a hit could not take them (TS only checks the overlap).
 
 ### 2-3 Prompt Injection Swamp
 

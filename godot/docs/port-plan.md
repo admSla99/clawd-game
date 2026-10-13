@@ -138,8 +138,10 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M8 2-2 GPU Forge
-- [ ] Convert, spawns. Forge motif: server racks and GPU monoliths (embers already exist).
-- [ ] Check section, screenshots, README, commit + push → **playtest**.
+- [x] Convert, spawns. Forge motif: server racks and GPU monoliths (embers already exist). Full jumps fit (no
+      override: the ceiling is high everywhere; the check drives both spike beds, the rate-limiter nook and the
+      corrupted pocket); the TS sign text is kept. Pickups no longer miss while Clawd blinks after a hit.
+- [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M9 2-3 Prompt Injection Swamp
 - [ ] Convert, spawns. Swamp motif: corrupted data pools and text bubbles.

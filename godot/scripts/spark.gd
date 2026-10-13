@@ -79,7 +79,7 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	var player: Player = get_tree().get_first_node_in_group("player")
-	if player and player.visible and Rect2(feet() + RECT.position, RECT.size).intersects(player.hitbox()):
+	if player and player.in_play() and Rect2(feet() + RECT.position, RECT.size).intersects(player.hitbox()):
 		var main := get_tree().get_first_node_in_group("main")
 		if main:
 			main.collect_spark(self)
