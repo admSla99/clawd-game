@@ -162,8 +162,13 @@ M12 waits for all of them. Rules, so they never edit the same lines:
 - [x] Check section, screenshots, README, commit + push → **playtest**.
 
 ### M12 Finish
-- [ ] Full playthrough title → 2-B; balance check of token income vs. ARMORY prices (with 5× tokens and 3× hp).
-- [ ] `CLAUDE.md` "Godot port status", `docs/scenery-themes.md` and `godot/README.md` (Layout rows, *Checks*)
+- [x] Full playthrough title → 2-B (the user, 2026-10-12; the bugs it found are fixed after M12); balance check
+      of token income vs. ARMORY prices (with 5× tokens and 3× hp): a full clear brings ~175 tokens in world 1 and
+      ~1190 in world 2 against 750 + 2880 for everything, so one run buys about two world-1 upgrades and a weapon
+      or mod per world-2 level, everything takes about two more runs of world 2 (*Shop* in `godot/README.md`). TS
+      prices stay; the Spark Radar costs 80 tokens and no sparks (3 sparks made the spark prices 38 against the
+      levels' 35, so nobody could buy everything) and Double Tokens 100 (at 50 it paid back ~5× per world-2 run).
+- [x] `CLAUDE.md` "Godot port status", `docs/scenery-themes.md` and `godot/README.md` (Layout rows, *Checks*)
       brought up to date after the parallel milestones.
 - [ ] Small TS details still missing: Clawd holds his gun on the world map in world 2 (`levelSelect.ts`).
 

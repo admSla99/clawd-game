@@ -109,25 +109,28 @@ in `timeout` (a script that fails to parse never quits). The port targets deskto
 
 ## Godot port status (branch `godot-2.5d`)
 
-**`godot/docs/port-plan.md` is the task list for the remaining levels, shooting and weapons**, with the user's
-decisions from the planning interview. Work through it in order and tick tasks off in the commits that finish them.
+**`godot/docs/port-plan.md` is the task list of the port** (M0-M12), with the user's decisions from the planning
+interview and *Added beyond the plan* (extras the user asked for on top of TS); tick tasks off in the commits that
+finish them, and record new extras there.
 
-All levels are converted with every spawn ported so far; world 1 (1-1, 1-2 darkness, 1-3 rising void, 1-B the
-Hallucination, which drops the Token Blaster) and 2-1 (mesa motif) are playable; **1-1** is fully playable (title → map → level →
-results → map, shop). Enemies extend `Enemy` (`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot,
-shot, rate limiter, Hallucination, and world 2's turret (`T` / `Y`), drone, shield bot and injector (M6; world 2's
-bugs and spam bots are tougher). Shooting is ported (M5): world 2 is armed (`scripts/gun.gd`, `bullet.gd`,
-`weapons.gd`, `beam_fx.gd`), aiming with the mouse (polled from the window: the SubViewport's container ignores
-the mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
-crosshair, and the shop's ARMORY and GUN MODS once a weapon is found. No gamepad support (the user's call).
+The whole game is ported and playable from the title to the end of 2-B: world 1 (1-1, 1-2 darkness, 1-3 rising
+void, 1-B the Hallucination, which drops the Token Blaster) and world 2 (2-1 … 2-4, each with its motif, and 2-B
+the boss Codex: `scripts/codex.gd`, `codex_hand.gd`, `code_shot.gd`, `column_beam.gd`). Enemies extend `Enemy`
+(`scripts/enemy.gd`, from `src/entities/entity.ts`): bug, spam bot, shot, rate limiter, both bosses, and world 2's
+turret (`T` / `Y`), drone, shield bot and injector (world 2's bugs and spam bots are tougher). Shooting (M5):
+world 2 is armed (`scripts/gun.gd`, `bullet.gd`, `weapons.gd`, `beam_fx.gd`), aiming with the mouse (polled from
+the window: the SubViewport's container ignores the mouse, so no mouse event reaches nodes inside it) or the keys,
+weapon switching, the HUD weapon panel and crosshair, and the shop's ARMORY and GUN MODS once a weapon is found.
+No gamepad support (the user's call).
 Port-only design decisions the user asked for (keep them): every jump is a full jump (no jump cut, sign texts in
-`godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10) and has 3× its TS hp (`Enemy.HP_FACTOR`, not bosses); sparks are a solid glowing star; spikes are a bed across
-the block depth; hit enemies show damage numbers and, once hurt, a health bar (`Overlay`); the shop opens after
-clearing 1-1 and adds Spark Radar, Fortune Haiku, Firewall and Double
-Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd finds a weapon.
+`godot/levels/overrides.json`); every enemy drops 5× its TS tokens (a bug 10) and has 3× its TS hp
+(`Enemy.HP_FACTOR`, not bosses); sparks are a solid glowing star; spikes are a bed across the block depth; hit
+enemies show damage numbers and, once hurt, a health bar (`Overlay`); the shop opens after clearing 1-1 and adds
+Spark Radar, Fortune Haiku, Firewall and Double Tokens; world-2 weapons/mods are a locked ARMORY row until Clawd
+finds a weapon. TS prices stay; the port's own items are priced for the 5× income, and the shop's spark prices
+must add up to the levels' 35 sparks (checked; *Shop* in `godot/README.md` has the token income per level).
 
-Not ported yet (the next goal is world 2):
-- The boss Codex (`src/entities/boss/codex.ts`, 2-B); the motifs and checks of 2-2 … 2-B (M8–M11).
+Not ported yet: Clawd holding his gun on the world map in world 2 (`levelSelect.ts`, M12).
 
 To port a level: `node godot/tools/export_levels.mjs` (repo root; `git checkout` the `.txt` files whose only
 change is line endings), `godot --headless --script tools/convert_level.gd -- <id>`, then check it plays

@@ -1,6 +1,7 @@
-# CLAWD — Godot 2.5D vertical slice
+# CLAWD — Godot 2.5D port
 
-Godot 4.7.2 port of the game in `../src`, rebuilt in 3D with a side camera (2.5D). The 2D port is on the
+Godot 4.7.2 port of the game in `../src`, rebuilt in 3D with a side camera (2.5D): all nine levels of both
+worlds, both bosses, shooting and the shop, playable from the title to the end of 2-B. The 2D port is on the
 `godot-2d-port` branch. GDScript; Forward+ renderer on desktop, Compatibility (WebGL 2) on the web export.
 
 ## Setup on a new machine (Linux x86_64)
@@ -306,8 +307,8 @@ jittering line of 2 px dots, cyan with white every 6 px.
 
 ## World 2 levels
 
-One section per level, each filled in by the milestone that ports it (M8-M11 in `docs/port-plan.md`, which may
-run in parallel worktrees: each edits only its own section here). Every world-2 level is armed and uses the
+One section per level, each written by the milestone that ported it (M8-M11 in `docs/port-plan.md`, done in
+parallel worktrees, each editing only its own section here). Every world-2 level is armed and uses the
 world-2 enemies (*Enemies*); 2-1's mesa motif is under *Look and feedback*.
 
 ### 2-2 GPU Forge
@@ -487,14 +488,23 @@ Clawd, reset below the checkpoint, the ▲ glyph) and windows, the Hallucination
 intro, bursts, dazed, stomp, immunity, teleport, rain and warnings, fake platforms, death, the blaster, the
 exit, WORLD 1 CLEAR, world 2 unlocked), 2-1 Merge Conflict Mesa (theme, the mesa motif and its colours, armed
 start, its enemies, the TS sign texts; the real player with full jumps crosses the pit on its two one-way
-platforms, pounds through the corrupted floor to the spark below and climbs out), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
+platforms, pounds through the corrupted floor to the spark below and climbs out), 2-2 GPU Forge (the forge
+motif, its enemies, the moving platforms over the first spike bed, the arch's spark, riding a rate limiter up to
+the nook's spark, the pocket under the corrupted floor), 2-3 Prompt Injection Swamp (the swamp motif, eight
+injectors, the one-way steps to a spark, the moving platforms, the pocket and the climb to the exit), 2-4 The
+Diff Towers (the towers motif over the parallax's own towers, its enemies, the full-jump climb to the exit, a
+fall onto the platform two rows down, both sub-agents), 2-B Codex (the arena and its tune, the code monoliths,
+the spawn, 90 hp on the boss bar, the intro, the hands, bursts, slams and shockwaves, the refactor phases, failing
+tests, rm -rf columns, both hands in phase 2, stomps, SEGFAULT, CODEX HAS BEEN DEPRECATED, the exit, WORLD 2
+CLEAR and THANKS FOR PLAYING!), aiming with the mouse (world 2 armed, mouse motion reaches the gun, the
 aim angle, the crosshair's level point, keys without the mouse, world 1 unarmed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, shooting down enemy shots and not the
 ones that can't be, next / prev / slot switching and saving, attack shoots instead of spinning, the orb's
 explosion breaking 1-1's corrupted blocks with splash damage, damage numbers adding up and marking the kill, health
 bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), the controls help (shooting lines once a weapon
-is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, each item's price and
+is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, the spark prices add up
+to the sparks in the levels, each item's price and
 effect in a level, refusals, fortunes read from the map, saving, back to the map; with a weapon the ARMORY and
 GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects).
 
@@ -681,12 +691,18 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
   after the next level (`DAMAGE x1.25 → x1.50`). The list is then taller than the screen: it scrolls just
   enough to keep the selected row (and its section heading) in view, with ▲ / ▼ in the left margin; the wheel
   moves the selection too. HAIKU adds the TS's weapon haiku to its small talk.
-- Added in the port: the **Spark Radar** (60 tokens + 3 sparks; the HUD chevron), the **Fortune Haiku** (25
+- Added in the port: the **Spark Radar** (80 tokens; the HUD chevron), the **Fortune Haiku** (25
   tokens, repeatable: HAIKU names a spark or sub-agent still missing in a playable level, the stretch between
   checkpoints it is in and how high it is, read from the level map; each fortune tells about a new one), and two
   consumables, up to 3 in stock: **Firewall** (40; up at the start of every level while one is in stock, it
-  takes the next hit instead of a heart and is only used up when it breaks) and **Double Tokens** (50; every
+  takes the next hit instead of a heart and is only used up when it breaks) and **Double Tokens** (100; every
   token counts twice, used up when a level is cleared).
+- Balance (M12): with 5× tokens a full clear of world 1 brings about 175 tokens (1-1 69, 1-2 64, 1-3 43) and of
+  world 2 about 1190 (2-1 264, 2-2 269, 2-3 397, 2-4 259; the bosses drop none), against 750 for the world-1
+  upgrades and radar and 2880 for the ARMORY and GUN MODS. One run through the game buys about two upgrades in
+  world 1 and then a weapon or a mod after each world-2 level; everything takes about two more runs of world 2.
+  The TS prices stay; the port's own items are priced for that income: Double Tokens pays off in world 2 only,
+  and the radar costs no sparks, so as in TS the 35 sparks of the levels buy every spark price exactly (checked).
 
 ## Menus and key bindings
 
@@ -889,6 +905,8 @@ without COOP/COEP headers.
 | `scripts/turret.gd`, `scripts/drone.gd` | World 2's turret (`T` floor, `Y` ceiling) and drone (`D`) |
 | `scripts/shield_bot.gd`, `scripts/injector.gd` | World 2's "403" shield bot (`H`) and prompt injector (`I`) |
 | `scripts/hallucination.gd`, `scripts/fake_platform.gd` | World 1's boss (`B` in 1-B) and its fake platforms |
+| `scripts/codex.gd`, `scripts/codex_hand.gd` | World 2's boss Codex (`B` in 2-B) and its two cursor hands |
+| `scripts/code_shot.gd`, `scripts/column_beam.gd`, `scripts/codex_paint.gd` | Codex's code-character shots and shockwaves, its rm -rf columns; flat boxes redrawn each frame (its face, telegraphs) |
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/weapons.gd` | `Weapons`: the five weapons, gun mods and their loadout multipliers (`src/weapons.ts`) |
 | `scripts/gun.gd` | `Gun`: firing, context heat and overflow, aiming (mouse polling, keys), switching, the gun in Clawd's hands |
@@ -896,6 +914,7 @@ without COOP/COEP headers.
 | `scripts/rising_void.gd`, `shaders/void.gdshader` | The rising null of `risingVoid` levels (1-3) |
 | `scripts/window_motif.gd`, `shaders/motif_window.gdshader` | Window motif: floating text windows that type in and crumble |
 | `scenes/token.tscn`, `scripts/token.gd` | Collectible token |
+| `scripts/clawd_sprite.gd`, `scripts/bug_sprite.gd`, `scripts/token_sprite.gd`, `scripts/sprite_fx.gd` | Voxel sprites of Clawd, the bug and the token; the flattened shell or sparkle left behind, see *Voxel models* |
 | `scripts/checkpoint.gd` | Checkpoint terminal (`C`) |
 | `scripts/goal.gd`, `shaders/portal.gdshader` | Exit gate (`G`) and its swirl |
 | `scripts/sign.gd` | Tutorial sign (`?`) and its text bubble |
@@ -918,8 +937,17 @@ without COOP/COEP headers.
 | `shaders/darkness.gdshaderinc` | Darkness of dark levels around Clawd's lamp (global `dark_amount`, `dark_lamp`) |
 | `shaders/motif_caves.gdshader` | Caves motif: contour lines of the loss landscape, rolling balls of light |
 | `shaders/motif_mesa.gdshader` | Mesa motif: mesas of diff strata with glowing merge-conflict seams |
+| `shaders/motif_forge.gdshader` | Forge motif: server racks and GPU monoliths with LEDs, heat sinks, glowing dies, fans and cables |
+| `shaders/motif_swamp.gdshader` | Swamp motif: corrupted data pools mirroring the haze, cables, rising bubbles of injected text |
+| `shaders/motif_towers.gdshader` | Towers motif: transformer stacks of translucent plates, a light running up the residual stream |
+| `scripts/codex_motif.gd`, `shaders/codex_monolith.gdshader` | Codex motif: code monoliths in the depth with scrolling, syntax-coloured code and a blinking cursor |
 | `shaders/scenery.gdshader`, `shaders/haze.gdshader`, `shaders/crt.gdshader` | Background towers; haze gradient and light rays; CRT scanlines and vignette |
 | `scripts/fx.gd` | `Fx.burst()` emits into the level's particles |
+| `scripts/particles.gd`, `shaders/particles.gdshader` | Particles as 1 px cubes in a MultiMesh (`src/render/particles.ts`) |
+| `scripts/motes.gd`, `shaders/motes.gdshader`, `shaders/light_fx.gdshader` | Fireflies / data motes in the air; light shafts and rising mist over the view |
+| `shaders/voxel.gdshader`, `shaders/grade.gdshader` | Voxel material (hit tint, sway, lit edges); colour grade on top of the view |
+| `shaders/oblique.gdshaderinc`, `shaders/fog.gdshaderinc`, `shaders/reveal.gdshaderinc` | Shader includes: the oblique projection (every 3D material), depth fog, the foreground's see-through dither around Clawd |
+| `scripts/game.gd`, `scripts/game_camera.gd`, `scripts/noise.gd` | Autoload `Game` (game time, hitstop, pause); the camera (`src/core/camera.ts`); `DotNoise`, bit-exact noise ports |
 | `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps exported from `src`, and the 3D level scenes converted from them |
 | `levels/overrides.json` | Port-specific level metadata merged into `index.json` (1-1's sign texts) |

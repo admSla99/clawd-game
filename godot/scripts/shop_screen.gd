@@ -15,7 +15,7 @@ const IDLE := [
 	["tokens in your claw", "power waits upon the shelf", "spend them, little crab"],
 	["a jet tuned just right", "hangs a moment in the air", "long gaps fear it so"],
 	["no refunds, my friend", "all sales are final, much like", "a model's weights are"],
-	["sparks hide in the dark", "my radar hums when they're near", "three of them, it costs"],
+	["sparks hide in the dark", "my radar hums when they're near", "eighty tokens, yours"],
 	["codex waits up north", "it types faster than it thinks", "bring a bigger heart"],
 ]
 const THANKS := [["thank you, come again", "your wallet is lighter now", "your claws are not, though"]]

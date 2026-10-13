@@ -1953,6 +1953,17 @@ func check_shop() -> bool:
 	var shop = m.shop
 	ok(shop_items.ITEMS.map(func(it): return it.id) == ["hearts", "hover", "magnet", "radar", "fortune", "firewall", "double", "armory"],
 		"it sells the world-1 upgrades, the tools, the consumables and a locked armory")
+	# Balance (M12): as in TS, the sparks of every level buy everything that costs sparks, with none to spare.
+	var spark_prices := 0
+	for it in shop_items.ITEMS + load("res://scripts/weapons.gd").UPGRADES:
+		for s in it.get("sparks", []):
+			spark_prices += s
+	for w in load("res://scripts/weapons.gd").WEAPONS.values():
+		spark_prices += w.sparks
+	var level_sparks := 0
+	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
+		level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
+	ok(spark_prices == level_sparks, "the shop's spark prices add up to the sparks in the levels (%d / %d)" % [spark_prices, level_sparks])
 
 	# Extra Heart: 100 tokens.
 	shop.sel = 0
@@ -1962,17 +1973,17 @@ func check_shop() -> bool:
 	shop.handle(key(KEY_ENTER))
 	ok(progress.upgrade("hearts") == 1 and progress.wallet == 200 and shop.haiku == shop.DENIED[0],
 		"its second level also needs 4 sparks: refused")
-	# Jet Tuning, the radar (3 sparks), a fortune, a Firewall and a Double Tokens.
+	# Jet Tuning, the radar, a fortune, a Firewall and a Double Tokens.
 	shop.handle(key(KEY_DOWN))
 	shop.handle(key(KEY_ENTER))
 	ok(progress.upgrade("hover") == 1 and progress.wallet == 140, "Jet Tuning: 60 tokens")
 	shop.sel = 3
 	shop.handle(key(KEY_ENTER))
-	ok(progress.upgrade("radar") == 1 and progress.wallet == 80 and progress.sparks_available() == 0, "Spark Radar: 60 tokens and 3 sparks")
+	ok(progress.upgrade("radar") == 1 and progress.wallet == 60 and progress.sparks_available() == 3, "Spark Radar: 80 tokens, no sparks")
 	shop.sel = 4
 	shop.handle(key(KEY_ENTER))
 	var first: Array = progress.fortune
-	ok(progress.wallet == 55 and first.size() == 3 and first[0].ends_with("1-1") and shop.haiku == first,
+	ok(progress.wallet == 35 and first.size() == 3 and first[0].ends_with("1-1") and shop.haiku == first,
 		"a fortune: HAIKU tells where something still hides (%s)" % [first])
 	progress.wallet += 25
 	shop.handle(key(KEY_ENTER))
@@ -1980,18 +1991,18 @@ func check_shop() -> bool:
 	var spark_hint: Array = shop_items.fortune_lines({"level": "1-1", "kind": "S", "index": 0, "x": 160, "y": 5})
 	# Spark 0 of 1-1 sits on a one-way ledge between the first and second checkpoint (columns 107, 177).
 	ok(spark_hint == ["a spark sleeps in 1-1", "past save number one", "right above a ledge"], "hints read the map: %s" % [spark_hint])
-	progress.wallet = 100
+	progress.wallet = 150
 	shop.sel = 5
 	shop.handle(key(KEY_ENTER))
 	shop.sel = 6
 	shop.handle(key(KEY_ENTER))
-	ok(progress.in_stock("firewall") == 1 and progress.in_stock("double") == 1 and progress.wallet == 10, "Firewall 40, Double Tokens 50")
+	ok(progress.in_stock("firewall") == 1 and progress.in_stock("double") == 1 and progress.wallet == 10, "Firewall 40, Double Tokens 100")
 	shop.sel = 7
 	snd.played.clear()
 	shop.handle(key(KEY_ENTER))
 	ok("denied" in snd.played and shop.haiku == shop.LOCKED[0], "the armory is locked")
 	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(progress.path))
-	ok(cfg.upgrades.hearts == 1 and cfg.stock.firewall == 1 and cfg.sparks_spent == 3, "purchases are saved")
+	ok(cfg.upgrades.hearts == 1 and cfg.stock.firewall == 1 and cfg.sparks_spent == 0, "purchases are saved")
 	shop.handle(key(KEY_ESCAPE))
 	ok(m.mode == m.Mode.MAP and not shop.visible, "Escape goes back to the map")
 
