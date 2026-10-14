@@ -6,14 +6,29 @@ extends Node3D
 ## it reads at a glance among the scenery) that bobs a pixel and pulses, lit by a small GlowLight (it does not turn:
 ## edge-on it would vanish); while it is the hook's aim-assist pick, the Overlay draws orange brackets round it, and
 ## a caught one glows brighter. Group "anchors"; the origin is the tile's bottom middle like every spawn.
+## A timeout anchor (`*`, `timeout`): amber instead of cyan; FUSE seconds after the hook catches it, blinking faster
+## and faster, it times out (no longer `active`, only a dim dotted ghost of it left) and comes back COME_BACK seconds
+## later.
 
 const ROWS := ["..LhL..", ".h...h.", "L..W..L", "h.WOW.h", "L..W..L", ".h...h.", "..LhL.."]
 const PALETTE := {"W": Color("#F2FFFF"), "O": Color("#FFB28F"), "L": Color("#7FE8F0"), "h": Color("#3F9AA6")}
+const TIMEOUT_PALETTE := {"W": Color("#FFF4E0"), "O": Color("#FF6F5C"), "L": Color("#FFB25C"), "h": Color("#A0602A")}
+const GHOST := ["..L.L..", ".......", "L.....L", ".......", "L.....L", ".......", "..L.L.."]
+const FUSE := 1.2
+const COME_BACK := 3.0
 const CYAN := Color("#7FE8F0")
 const ORANGE_LIGHT := Color("#F0A585")
 
 static var MATERIAL := Voxel.material(1.8)
 static var MESH := Voxel.mesh(ROWS, PALETTE, {"W": 2, "O": 4, "L": 2, "h": 2}, 2 * Px.M, MATERIAL)
+static var TIMEOUT_MESH := Voxel.mesh(ROWS, TIMEOUT_PALETTE, {"W": 2, "O": 4, "L": 2, "h": 2}, 2 * Px.M, MATERIAL)
+static var GHOST_MESH := Voxel.mesh(GHOST, {"L": Color("#5A3A22")}, {"L": 2}, 2 * Px.M)
+
+## A timeout anchor (`*`).
+@export var timeout := false
+## Seconds left before a caught timeout anchor goes quiet, and before a quiet one comes back.
+var fuse := 0.0
+var gone := 0.0
 
 var t := 0.0
 ## Can the hook catch it now (timeout anchors switch this off for a while).
@@ -24,6 +39,7 @@ var targeted := false
 var caught_flash := 0.0
 var _pivot: Node3D
 var _mesh: MeshInstance3D
+var _ghost: MeshInstance3D
 var _glow: GlowLight
 
 
@@ -34,9 +50,15 @@ func _ready() -> void:
 	_pivot = Node3D.new()
 	add_child(_pivot)
 	_mesh = MeshInstance3D.new()
-	_mesh.mesh = MESH
+	_mesh.mesh = TIMEOUT_MESH if timeout else MESH
 	_mesh.position.y = -7 * Px.M
 	_pivot.add_child(_mesh)
+	if timeout:
+		_ghost = MeshInstance3D.new()
+		_ghost.mesh = GHOST_MESH
+		_ghost.position.y = -7 * Px.M
+		_ghost.visible = false
+		_pivot.add_child(_ghost)
 	_pivot.position.y = 8 * Px.M
 	_glow = GlowLight.new()
 	_glow.radius = 1.4
@@ -57,6 +79,8 @@ func point() -> Vector2:
 ## Called by the Tool Call when the hook catches it.
 func catch() -> void:
 	caught_flash = 0.3
+	if timeout and fuse <= 0:
+		fuse = FUSE
 
 
 func _physics_process(dt: float) -> void:
@@ -64,9 +88,25 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	caught_flash = maxf(0.0, caught_flash - dt)
+	if fuse > 0:
+		fuse -= dt
+		if fuse <= 0:
+			active = false
+			gone = COME_BACK
+			Sound.play("plateOff")
+			Fx.burst(self, point(), {count = 10, speed = 50, life = 0.4, color = [TIMEOUT_PALETTE.L, TIMEOUT_PALETTE.O]})
+	elif gone > 0:
+		gone -= dt
+		if gone <= 0:
+			active = true
+			Fx.burst(self, point(), {count = 6, speed = 30, life = 0.3, color = [TIMEOUT_PALETTE.L, Color.WHITE]})
 	# Bobs a whole pixel now and then.
 	_pivot.position.y = (8 + (1 if sin(t * 2.2) > 0.3 else 0)) * Px.M
-	_mesh.visible = active
+	# A burning fuse blinks, faster as it runs out.
+	var blink := fuse > 0 and fmod(t * (4.0 + 14.0 * (1.0 - fuse / FUSE)), 1.0) > 0.5
+	_mesh.visible = active and not blink
+	if _ghost:
+		_ghost.visible = not active
 	_glow.energy = 0.0 if not active else 0.45 + 0.15 * sin(t * 3) + (0.4 if targeted or caught_flash > 0 else 0.0)
 
 

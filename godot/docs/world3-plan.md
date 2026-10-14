@@ -153,8 +153,8 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The map (arena run), sandbox motif and music, check section.
 
 ### W7 3-4 Timeout Ravine
-- [ ] Timeout anchors `*`, timed plates.
-- [ ] The map, ravine motif and music, check section.
+- [x] Timeout anchors `*`, timed plates.
+- [x] The map, ravine motif and music, check section.
 
 ### W8 3-B The Router
 - [ ] The boss, its arena, router motif and music; WORLD 3 CLEAR and the ending.

@@ -56,7 +56,7 @@ const GATE_SCRIPT := "res://scripts/gate.gd"
 # (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "*": "timeout_anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop"}
 
 ## Brittle blocks by tile (scripts/brittle.gd adds itself).
 var brittle := {}
@@ -374,9 +374,10 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"injector":
 			node = load(INJECTOR).new()
 			node.name = "Injector"
-		"anchor":
+		"anchor", "timeout_anchor":
 			node = load(ANCHOR).new()
 			node.name = "Anchor"
+			node.timeout = kind == "timeout_anchor"
 		"parser":
 			node = load(PARSER).new()
 			node.name = "Parser"

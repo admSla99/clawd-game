@@ -180,10 +180,17 @@
     "theme": "ravine",
     "music": "ravine",
     "signs": [
-      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+      "TIMEOUT ENDPOINTS answer once, then go\nquiet for a while · don't hang around",
+      "THIS PLATE HOLDS 3.5 S · its gate is far\nrace there, or leave a sub-agent on it",
+      "ONE PLATE UP HERE, ONE DOWN IN THE PIT\nboth at once open the gate"
     ],
     "index": 12,
-    "terrainSeed": 163
+    "terrainSeed": 163,
+    "subAgents": true,
+    "plateHold": {
+      "1": 3.5,
+      "2": 4.0
+    }
   },
   {
     "id": "3-B",

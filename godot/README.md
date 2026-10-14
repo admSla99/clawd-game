@@ -59,7 +59,7 @@ Map legend:
 | `#` `=` `^` `X` | Tiles: rock, one-way platform, spikes, corrupted (ground-pound or blast it) |
 | `@` `G` `C` `?` | Start, exit, checkpoint, sign (texts in `signs`, in map order) |
 | `o` `S` `A` | Token, spark, sub-agent |
-| `+` | Anchor for the Tool Call (world 3) |
+| `+` · `*` | Anchor for the Tool Call · timeout anchor (world 3) |
 | `1`-`9` · `a`-`i` `z` | Pressure plate (a run of one digit is one plate) · gate (all cells of a letter; `a` opens with plates `1`, ...; `z` with the Retry Loops gone) |
 | `P` | Parser (world 3) |
 | `W` | Webhook (world 3), a flying anchor |
@@ -518,7 +518,9 @@ which no longer spins) throws it from his hand (the gun's pivot) along his aim: 
 `scripts/anchor.gd` (`Anchor`, `+` in a map, group `anchors`): an API endpoint in the middle of its tile, a 7 x 7
 voxel ring of cyan round a white and orange core in 2 px cells (14 px across, so it reads among the scenery; it
 bobs a pixel instead of turning, which would hide it edge-on), with a small GlowLight that pulses; `point()` is
-where the hook catches it, `active` lets timeout anchors switch off (W7).
+where the hook catches it. A timeout anchor (`*`, `timeout`) is amber: when the hook catches it a 1.2 s fuse burns
+(it blinks faster and faster), then it times out (`active` false: the hook can't pick it, only a dim dotted ghost
+is left) and answers again 3 s later.
 
 `tools/reach.gd` knows the Tool Call (and counts a webhook as an anchor where it spawns): from where Clawd stands and at the top of a full jump he zips to every
 anchor in reach and sight, and from an anchor he drifts down (with and without hover, to either side or none) or
@@ -640,6 +642,20 @@ behind a crate. 5 sparks, 2 sub-agents, 36 tokens, 212 crates. The Retry Loops m
 **Motif** (`shaders/motif_sandbox.gdshader`): two ranges of stacked corrugated containers with lit rims and
 scaffolding poles; now and then a stack's top container crumbles into pixels and is built again row by row.
 
+### 3-4 Timeout Ravine
+
+222 x 30 tiles of cliffs over a ravine floored with spikes, sub-agents expected (`subAgents`; plates of 1 hold
+3.5 s, of 2 hold 4 s). A chain of four timeout anchors over the first chasm (the TIMEOUT sign, a spark over it); on
+the next cliff plate 1, whose gate `a` stands in a wall beyond a second chasm of anchors: race there in 3.5 s or
+leave a sub-agent on it (the RACE sign); a checkpoint; then one 2-plate on a cliff and one down in a pit (a spark
+there, a timeout anchor out of it), both at once open gate `b` (the DEADLOCK sign), a parser and a shield bot; a
+long chain of eight timeout anchors with drones and a webhook over it, a spark over the middle and a sub-agent on
+a ledge in the chasm (an anchor back up); the last cliff with parsers, a spam bot, a high ledge with a spark and a
+sub-agent, and a spark over a lone timeout anchor before the exit. 5 sparks, 2 sub-agents, 36 tokens.
+
+**Motif** (`shaders/motif_ravine.gdshader`): two ranges of ravine walls hanging from the top and rising from the
+bottom; between them clock faces whose hands sweep round and flash red as they pass twelve, and loading spinners.
+
 ## Checks
 
 ```bash
@@ -707,7 +723,10 @@ plate 1 opening the ceiling's gate and a sub-agent holding it; the two 2-plates 
 hold; a webhook as an anchor, stunned and harmless when caught, diving at Clawd below it), 3-3 The Sandbox (theme,
 motif, its enemies, 212 crates, the red gate shut; a crate solid and stopping shots, broken by three shots, a pound
 drilling through, an explosion, a zip smashing through the maze; a Retry Loop dropping bugs, at most 3, and the red
-gate opening once every loop is destroyed), shooting (fire rate and damage
+gate opening once every loop is destroyed), 3-4 Timeout Ravine (theme, motif, its timeout and plain anchors,
+plates and gates; a timeout anchor caught, timing out 1.2 s later, unpickable, back 3 s later; gate a open 3.5 s
+after Clawd steps off its plate; the pit's 2-plate alone, then with a sub-agent in the pit and Clawd on the cliff),
+shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1137,6 +1156,7 @@ without COOP/COEP headers.
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
+| `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |
 | `shaders/motif_cliffs.gdshader` | Cliffs motif (3-2): cliff pillars, callbacks flying between them |
 | `scripts/echo_control.gd`, `scripts/echo.gd` | World 3's sub-agents: the recording, sending, slots; a sub-agent replaying and standing |
 | `scripts/plate.gd`, `scripts/gate.gd` | World 3's pressure plates (`1`-`9`) and the gates they open (`a`-`i`, `z`) |

@@ -23,6 +23,6 @@ parallax, haze, perspective), the theme palette in `scripts/themes.gd`, animatio
 | `canopy` (3-1 Endpoint Canopy) | **Endpoint canopy** — done (`shaders/motif_canopy.gdshader`) | Giant trees whose crowns close into a canopy, vines with endpoint lanterns; requests run down them as pulses and replies (OK, GET, PUT, POST) float up. |
 | `cliffs` (3-2 Webhook Cliffs) | **Webhook cliffs** — done (`shaders/motif_cliffs.gdshader`) | Sheer cliff pillars that move with the climb; messages arc between their tops on dotted trails and come back. |
 | `sandbox` (3-3 The Sandbox) | **Container stacks** — done (`shaders/motif_sandbox.gdshader`) | Stacked corrugated containers and scaffolding; a top container crumbles and is built again. |
-| `ravine` (3-4 Timeout Ravine) | **Clocks and spinners** (W7) | Loading spinners and clock faces deep in the ravine walls, hourglasses running out. |
+| `ravine` (3-4 Timeout Ravine) | **Clocks and spinners** — done (`shaders/motif_ravine.gdshader`) | Ravine walls from the top and the bottom, clock faces whose hands flash red at twelve, loading spinners. |
 | `router` (3-B The Router) | **Network topology** (W8) | A graph of nodes and links with packets routed along them. |
 | `codex` (2-B Codex) | **Code monoliths** — done (`scripts/codex_motif.gd`, `shaders/codex_monolith.gdshader`) | Monoliths covered in scrolling code (the theme already draws code lines), cursor blinks, syntax colours in the theme's cyan. |
