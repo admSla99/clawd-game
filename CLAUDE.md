@@ -71,17 +71,22 @@ The game targets desktop (keyboard and mouse; no gamepad or touch, the user's ca
 
 ## Status and plans
 
-Worlds 1 and 2 are done and playable from the title to the end of 2-B: world 1 (1-1, 1-2 darkness, 1-3 rising
-void, 1-B the Hallucination, which drops the Token Blaster) and world 2 (2-1 … 2-4, each with its motif, and 2-B
-the boss Codex). Enemies extend `Enemy` (`scripts/enemy.gd`): bug, spam bot, shot, rate limiter, both bosses, and
-world 2's turret (`T` / `Y`), drone, shield bot and injector. World 2 is armed (`scripts/gun.gd`, `bullet.gd`,
+Three worlds are done and playable from the title to the end of 3-B: world 1 (1-1, 1-2 darkness, 1-3 rising
+void, 1-B the Hallucination, which drops the Token Blaster), world 2 (2-1 … 2-4, each with its motif, and 2-B the
+boss Codex, which drops the Tool Call) and world 3, AGENT MODE (3-1 … 3-4 and the boss the Router, 3-B): the Tool
+Call (`scripts/tool_call.gd`, anchors `+` / `*` in `anchor.gd`, the player's `zip` state), sub-agents
+(`echo_control.gd`, `echo.gd`), plates and gates (`plate.gd`, `gate.gd`), brittle crates (`brittle.gd`), the
+enemies parser, webhook and Retry Loop, and System Prompts (`prompts.gd`, the shop's SYSTEM PROMPT section).
+Enemies extend `Enemy` (`scripts/enemy.gd`): bug, spam bot, shot, rate limiter, the three bosses, world 2's turret
+(`T` / `Y`), drone, shield bot and injector, and world 3's. Worlds 2 and 3 are armed (`scripts/gun.gd`, `bullet.gd`,
 `weapons.gd`, `beam_fx.gd`): aiming with the mouse (polled from the window: the SubViewport's container ignores the
 mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
 crosshair, and the shop's ARMORY and GUN MODS once a weapon is found.
 
-**World 3 is next: `godot/docs/world3-plan.md` is its task list** (design, decisions, milestones); tick tasks off
-in the commits that finish them. `godot/docs/port-plan.md` is the finished plan of the port (history, and its
-*Added beyond the plan* lists the extras made on top of the TS game).
+**`godot/docs/world3-plan.md` is world 3's plan** (design, decisions, milestones W0-W10, all done); the next ideas
+(endless maps with modifiers built on the System Prompts, a farm level, accounts) are not planned yet.
+`godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
+extras made on top of the TS game).
 
 Design decisions the user made (keep them): every jump is a full jump (no jump cut); every enemy drops 5× the TS
 tokens (a bug 10; a heart per 300 tokens) and has 3× the TS hp (`Enemy.HP_FACTOR`, not bosses); sparks are a solid

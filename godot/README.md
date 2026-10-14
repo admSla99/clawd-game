@@ -1,8 +1,9 @@
 # CLAWD — the Godot 2.5D game
 
-CLAWD in Godot 4.7.2, in 3D with a side camera (2.5D): all nine levels of worlds 1 and 2, both bosses, shooting
-and the shop, playable from the title to the end of 2-B; world 3 is planned in `docs/world3-plan.md`. GDScript;
-Forward+ renderer on desktop, Compatibility (WebGL 2) on the web export.
+CLAWD in Godot 4.7.2, in 3D with a side camera (2.5D): fourteen levels in three worlds, three bosses, shooting,
+the shop, and world 3's Tool Call, sub-agents and System Prompts (*World 3: AGENT MODE*, `docs/world3-plan.md`),
+playable from the title to the end of 3-B. GDScript; Forward+ renderer on desktop, Compatibility (WebGL 2) on the
+web export.
 
 The game began as a port of a TypeScript browser game (`src/`, `tests/`), which is kept on the `ts-legacy` branch
 and is no longer developed; the 2D port is on the `godot-2d-port` branch. Scripts that port TS code still name the
@@ -99,7 +100,7 @@ its body clear of the platform.
 
 The game starts in `scenes/main.tscn` on the title screen; Space opens the world map, which plays a level
 (see Title and world map). `Main.start_mode = Mode.PLAY` with `Main.start_level` skips straight into a level
-(tools/check.gd does). In a level **N** loads the next one (wrapping after 2-B).
+(tools/check.gd does). In a level **N** loads the next one (wrapping after 3-B).
 
 Gameplay ported so far: run, jump, coyote time, jump buffer, hover, corner correction, spin,
 ground pound and drop-through from `src/entities/player.ts`. Unlike the TS player every jump is a full jump

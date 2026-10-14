@@ -4,8 +4,9 @@
 
 A 2.5D platformer/shooter starring Clawd, made in **Godot 4.7.2** (GDScript). **World 1** is a platformer. At its
 end Clawd finds the **Token Blaster**, and **World 2** turns into a shooter: aim with the mouse, fire tokens, and
-buy better weapons and upgrades in the shop. The boss of World 2 is **Codex**. **World 3** is in the works
-(`godot/docs/world3-plan.md`).
+buy better weapons and upgrades in the shop. The boss of World 2 is **Codex**, who drops the **Tool Call**: in
+**World 3** Clawd hooks onto API endpoints and zips across chasms, sends sub-agents that replay his last moves to
+hold pressure plates, and tunes his build with System Prompts.
 
 The game lives in [`godot/`](godot/); [`godot/README.md`](godot/README.md) is its detailed design doc (rendering,
 levels, every system, checks, layout). It started as a port of a TypeScript browser game, which is kept on the
@@ -56,11 +57,21 @@ The pause menu also has the CRT filter and the crosshair's colour. Keyboard and 
 - 2-B Codex: a monitor with two giant cursor hands, autocomplete walls, `{ }` volleys, "npm test" bugs and
   `rm -rf` beams, in 3 phases
 
+**World 3 — Agent Mode** (hook, sub-agents, builds)
+- 3-1 Endpoint Canopy: the Tool Call's tutorial, anchor chains over chasms, armoured parsers
+- 3-2 Webhook Cliffs: a climb; webhooks (flying anchors), sub-agents, plates and gates
+- 3-3 The Sandbox: everything breaks; Retry Loops spawn bugs until destroyed (a good place to farm)
+- 3-4 Timeout Ravine: timeout anchors, a racing plate, two plates at once
+- 3-B The Router: a firewall only the hook tears down, packets, loopback echoes and a timeout storm
+
 **Weapons** (Context = heat; when it overflows the weapon has to cool down): Token Blaster (found), Context
 Spreader, Stream Output, Attention Beam, Opus Cannon.
 
 **Shop**: upgrades (Extra Heart, Bigger Model, Faster Inference, Longer Context, Jet Tuning, Token Magnet), tools
 (Spark Radar, Fortune Haiku), consumables (Firewall, Double Tokens) and, once a weapon is found, the armory.
+
+**System Prompts** (world 3, in the shop): eight prompts switched on within a context budget, such as Be
+concise. (faster, weaker shots), Delegate. (one more sub-agent) or Reflect. (the hook throws enemy shots back).
 
 Tokens collected in a level are added to your wallet when you finish it; every 300 tokens in a level give a heart.
 Sparks are spent in the shop but still count as found on the map.

@@ -1,5 +1,7 @@
 # World 3 plan: AGENT MODE
 
+> **Done (2026-10-14).** Every milestone below is finished; `../README.md` has the details of each system and level.
+
 World 3 adds a verb that joins movement and aiming, gives the rescued sub-agents a use, and starts the build
 customization that the endgame (endless maps with modifiers, later) will grow from. Chosen by the user on
 2026-10-13 from three concepts (A Toolchain, B Latent Sea, C Orchestrator): **A's Tool Call as the main mechanic
@@ -164,7 +166,7 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The eight prompts' effects; the pause menu lists them; checks.
 
 ### W10 Finish
-- [ ] Prices and spark sum (55), token income per level in *Shop*, README / CLAUDE.md, a playthrough list for the
+- [x] Prices and spark sum (55), token income per level in *Shop*, README / CLAUDE.md, a playthrough list for the
       user.
 
 ## Added beyond the plan
