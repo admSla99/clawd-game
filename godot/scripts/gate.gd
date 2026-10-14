@@ -96,8 +96,10 @@ func _occupied() -> bool:
 func _set_cells(shut: bool) -> void:
 	if level == null:
 		return
+	# Not level.terrain: a gate is ready before its level, whose @onready vars are still unset then.
+	var terrain: GridMap = level.get_node("Terrain")
 	for c in cells:
-		level.terrain.set_cell_item(Vector3i(c.x, -c.y - 1, 0), Level.GATE if shut else GridMap.INVALID_CELL_ITEM)
+		terrain.set_cell_item(Vector3i(c.x, -c.y - 1, 0), Level.GATE if shut else GridMap.INVALID_CELL_ITEM)
 
 
 ## Each cell's bars, slid up into the cell's top by `amount` (squashed from the bottom).

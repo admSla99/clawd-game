@@ -62,6 +62,7 @@ Map legend:
 | `+` | Anchor for the Tool Call (world 3) |
 | `1`-`9` · `a`-`i` `z` | Pressure plate (a run of one digit is one plate) · gate (all cells of a letter; `a` opens with plates `1`, ...; `z` with the Retry Loops gone) |
 | `P` | Parser (world 3) |
+| `W` | Webhook (world 3), a flying anchor |
 | `M` `V` | Moving platform, horizontal / vertical |
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
@@ -69,7 +70,8 @@ Map legend:
 
 `index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
 `theme` (palette, scenery and motif), `music`, `signs`, the optional `dark`, `risingVoid` (`speed` px/s, `delay`
-s), `boss` (`hallucination`, `codex`) and `plateHold` (seconds a plate of a digit stays pressed, `{"1": 3.0}`), `index` (its position) and `terrainSeed` (`7 + index * 13`).
+s), `boss` (`hallucination`, `codex`), `plateHold` (seconds a plate of a digit stays pressed, `{"1": 3.0}`) and
+`subAgents` (the level is made for sub-agents: `tools/reach.gd` lets Clawd stand on one), `index` (its position) and `terrainSeed` (`7 + index * 13`).
 
 `convert_level.gd` runs `Level.build()` (`scripts/level.gd`): it places the tile characters
 (`#` `=` `^` `X`) as GridMap cells and adds a child per spawn:
@@ -517,10 +519,11 @@ voxel ring of cyan round a white and orange core in 2 px cells (14 px across, so
 bobs a pixel instead of turning, which would hide it edge-on), with a small GlowLight that pulses; `point()` is
 where the hook catches it, `active` lets timeout anchors switch off (W7).
 
-`tools/reach.gd` knows the Tool Call: from where Clawd stands and at the top of a full jump he zips to every
+`tools/reach.gd` knows the Tool Call (and counts a webhook as an anchor where it spawns): from where Clawd stands and at the top of a full jump he zips to every
 anchor in reach and sight, and from an anchor he drifts down (with and without hover, to either side or none) or
 zips on to the next one 12 frames into his hop, so chains of anchors over a chasm count; anchors 6 tiles apart
-chain, 8 apart do not.
+chain, 8 apart do not. In levels with `subAgents` every jump is also tried from 18 px higher, standing on a
+sub-agent left where Clawd stood.
 
 ### Sub-agents, plates and gates
 
@@ -533,8 +536,8 @@ YOU · G SENDS ONE"; an older save with 3-1 cleared gets it when loaded). `scrip
 the recording over; a new level sends them all home. The HUD shows an AGENTS panel next to the weapon panel (or in
 its place) with a box per slot, cyan while free.
 
-`scripts/echo.gd` (`Echo`, group `echoes`): it replays the recording, one entry a physics frame, from where Clawd
-was, then stands where he was when he sent it for 8 s and fades (0.5 s, agentGone). Standing it is a platform (group
+`scripts/echo.gd` (`Echo`, group `echoes`): it replays the recording (without the time Clawd stood still at its
+start and end, so one sent after waiting stands at once), one entry a physics frame, from where Clawd was, then stands where he was when he sent it for 8 s and fades (0.5 s, agentGone). Standing it is a platform (group
 `platforms`, the MovingPlatform interface), so Clawd can stand on it to reach higher; his shots pass through it
 (`Bullet.blocked()` skips it). Its feet press plates whether it replays or stands. Drawn as Clawd tinted cyan
 (the voxel shader's `tint`), its pose from how it moves; it flickers like a hologram while it replays, in its last
@@ -543,7 +546,8 @@ second and as it fades.
 `scripts/plate.gd` (`Plate`, group `plates`; digits `1`-`9`, a run of one digit in a row is one plate): a slab on
 the floor under its cells in its digit's colour (`Plate.COLORS`), pressed while Clawd stands on it or a sub-agent's
 feet are on it (plateOn / plateOff); its top lights and it sinks a pixel. The level's `plateHold` (seconds per
-digit in `index.json`) keeps it pressed that long after it is let go, blinking faster as the time runs out.
+digit in `index.json`, read on its first frame since `Main` sets `info` after the level enters the tree) keeps it
+pressed that long after it is let go, blinking faster as the time runs out.
 
 `scripts/gate.gd` (`Gate`, group `gates`; letters `a`-`i` and `z`, all cells of one letter are one gate): shut, its
 cells are MeshLibrary item 4 (`Level.GATE`, a box shape with no mesh) in the Terrain GridMap, and `Level.tile()`
@@ -551,6 +555,16 @@ calls them SOLID, so Clawd, enemies, shots and the hook treat them as rock; it d
 in its plates' colour. `a` opens while every plate of digit 1 is pressed, `b` for 2, and so on (gateOpen); its
 cells empty and the bars slide up into the cell's top. `z` opens once the level's Retry Loops are gone (W6). A
 gate that should shut waits while Clawd or a sub-agent is in it (gateShut).
+
+### Webhook
+
+`scripts/webhook.gd` (`Webhook`, `W`): a callback on wings, 14 x 10 px, 3 hp (× 3), 15 tokens. It patrols a lazy
+figure round its post (40 px sideways, 6 up and down) and, every few seconds with Clawd within 120 px and below it,
+aims for 0.4 s (flashing red) and dives at him at 230 px/s for up to 0.5 s, then flies home. It is also an anchor
+(group `anchors`, the Anchor interface: `point()`, `active`, `targeted`, `catch()`; `ToolCall` takes any node in
+that group): the hook catches it, the zip follows it, and a caught webhook is stunned for 1.4 s, hanging still with
+no hurtbox, so Clawd hops off it. A voxel model in 1 px cells: the anchors' ring between two flapping wings, a hook
+of a tail under it; it shows its own brackets while the hook would catch it.
 
 ### Parser
 
@@ -580,6 +594,21 @@ slower) whose lacy crowns close into a canopy in the upper third; vines hang fro
 at each end (lanterns, not rings, so they never pass for anchors). Every few seconds a request runs down a vine as
 a light pulse, the lantern flashes, and its reply (OK, GET, PUT, POST in the swamp's 3 x 5 font) floats up and
 dithers away.
+
+### 3-2 Webhook Cliffs
+
+44 x 84 tiles, a climb between two cliff walls, where sub-agents come in (`subAgents` in `index.json`; 2-plates
+hold for 2.5 s). From the floor a ledge 5 tiles up that only a sub-agent's shoulders reach (the SUB-AGENTS sign); an
+anchor chain up the right to a second ledge, and two anchors on the left to a nook with a sub-agent; on the second
+ledge plate 1 and a parser, and the way up is gate `a` in a full-width ceiling, so a sub-agent has to hold the
+plate while Clawd zips through (the PLATES sign); above, a ceiling turret, webhooks to a ledge on the left and a
+shelf, anchors up the left to a hole in the upper floor; there two plates of 2 and gate `b` in the wall to the exit:
+a sub-agent on one, Clawd on the other, and the hold lets him run through (the TWO PLATES sign). 5 sparks, 2
+sub-agents, 31 tokens, 11 anchors, 3 webhooks.
+
+**Motif** (`shaders/motif_cliffs.gdshader`): two ranges of sheer cliff pillars with jagged tops, strata and a lit
+edge, which also move with the camera up and down; between the near pillars' tops a message (a 3 x 2 envelope)
+arcs on a dotted trail and comes back a moment later, as webhooks do.
 
 ## Checks
 
@@ -642,7 +671,10 @@ signs, the real player climbing the first wall with a jump, the hook straight up
 stopping shots and stomps, torn off once by the hook, then hurt and fast), sub-agents (their keys, none before 3-1
 is cleared, 1-3 slots by rescued sub-agents, sending one on the last 3 s, replay, standing as a platform Clawd stands
 on, shots passing through, a plate opening its gate for Clawd or a sub-agent, Clawd walking through, a gate not
-shutting on him, a plate's hold, a full slot calling the oldest home, the controls help line), shooting (fire rate and damage
+shutting on him, a plate's hold, a full slot calling the oldest home, the controls help line), 3-2 Webhook Cliffs
+(theme, motif, its enemies, plates and gates; the real player standing on a sub-agent to reach the first ledge;
+plate 1 opening the ceiling's gate and a sub-agent holding it; the two 2-plates and running through gate b on the
+hold; a webhook as an anchor, stunned and harmless when caught, diving at Clawd below it), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1069,6 +1101,8 @@ without COOP/COEP headers.
 | `scripts/weapon_pickup.gd`, `scripts/gun_sprite.gd` | The Token Blaster lying in the arena; voxel guns |
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
+| `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
+| `shaders/motif_cliffs.gdshader` | Cliffs motif (3-2): cliff pillars, callbacks flying between them |
 | `scripts/echo_control.gd`, `scripts/echo.gd` | World 3's sub-agents: the recording, sending, slots; a sub-agent replaying and standing |
 | `scripts/plate.gd`, `scripts/gate.gd` | World 3's pressure plates (`1`-`9`) and the gates they open (`a`-`i`, `z`) |
 | `shaders/motif_canopy.gdshader` | Canopy motif (3-1): giant trees, vines with endpoint lanterns, requests and replies |

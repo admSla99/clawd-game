@@ -136,6 +136,12 @@ func check_levels() -> bool:
 				var ch := rows[y][x]
 				if spawns.has(ch):
 					want[ch] = want.get(ch, 0) + 1
+				elif level_script.PLATE_CHARS.contains(ch):
+					# A plate per run of one digit, a gate per letter.
+					if x == 0 or rows[y][x - 1] != ch:
+						want[ch] = want.get(ch, 0) + 1
+				elif level_script.GATE_CHARS.contains(ch):
+					want[ch] = 1
 				elif ch != "." and ch != " " and not TILE_CHARS.contains(ch):
 					unported[ch] = unported.get(ch, 0) + 1
 				var c := Vector3i(x, -y - 1, 0)

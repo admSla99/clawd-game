@@ -147,10 +147,16 @@
     "theme": "cliffs",
     "music": "cliffs",
     "signs": [
-      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+      "TWO PLATES, ONE GATE: hold one with a\nsub-agent, stand on the other, then run",
+      "PLATES open the gates of their colour\nleave a sub-agent on it and go",
+      "SUB-AGENTS:  G · MIDDLE CLICK\nit replays your last 3 s · then stand on it"
     ],
     "index": 10,
-    "terrainSeed": 137
+    "terrainSeed": 137,
+    "subAgents": true,
+    "plateHold": {
+      "2": 2.5
+    }
   },
   {
     "id": "3-3",

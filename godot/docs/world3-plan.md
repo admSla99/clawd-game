@@ -143,8 +143,8 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] Plates `1`–`9` and gates `a`–`i` (and `z`, opened by W6's Retry Loops); checks.
 
 ### W5 3-2 Webhook Cliffs
-- [ ] Webhook (`W`).
-- [ ] The map (vertical), cliffs motif and music, check section.
+- [x] Webhook (`W`).
+- [x] The map (vertical), cliffs motif and music, check section.
 
 ### W6 3-3 The Sandbox
 - [ ] Brittle blocks `%` (MeshLibrary item, breaking by bullets, pound, orb, zip).

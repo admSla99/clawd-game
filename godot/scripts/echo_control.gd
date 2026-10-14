@@ -74,9 +74,21 @@ func send() -> Echo:
 		live[0].recall()
 	var e := Echo.new()
 	e.name = "Echo"
-	e.path = trail.duplicate()
+	e.path = _trimmed(trail)
 	main.level.add_child(e, true)
 	echoes.append(e)
 	Sound.play("agentSend")
 	Fx.burst(e, trail[0][0] + Vector2(0, -9), {count = 12, speed = 60, life = 0.4, color = [Echo.TINT, Color.WHITE]})
 	return e
+
+
+## The recording without the time Clawd stood still at its start and end, so a sub-agent sent after waiting stands
+## at once instead of replaying the wait.
+static func _trimmed(rec: Array) -> Array:
+	var a := 0
+	var b := rec.size() - 1
+	while a < b and rec[a][0].is_equal_approx(rec[a + 1][0]):
+		a += 1
+	while b > a and rec[b][0].is_equal_approx(rec[b - 1][0]):
+		b -= 1
+	return rec.slice(a, b + 1)

@@ -33,9 +33,10 @@ var state := IDLE
 var head := Vector2.ZERO
 var dir := Vector2.RIGHT
 var travelled := 0.0
-## The anchor it flies to or holds, and the aim assist's pick this frame.
-var target: Anchor = null
-var candidate: Anchor = null
+## The anchor it flies to or holds, and the aim assist's pick this frame: anything in the group "anchors" with
+## point(), active, targeted and catch() (an Anchor, or a Webhook, which moves and can die).
+var target: Node3D = null
+var candidate: Node3D = null
 var cooldown := 0.0
 ## Reach multiplier (the Stay on task prompt, W9).
 var reach_mult := 1.0
@@ -97,19 +98,19 @@ func aim() -> float:
 
 ## The anchor the hook would catch thrown along `angle`: within reach and the cone, in sight, the best mix of
 ## small angle and short distance; or null.
-func pick(angle: float) -> Anchor:
+func pick(angle: float) -> Node3D:
 	var from := hand()
-	var best: Anchor = null
+	var best: Node3D = null
 	var best_score := INF
-	for a: Anchor in get_tree().get_nodes_in_group("anchors"):
+	for a: Node3D in get_tree().get_nodes_in_group("anchors"):
 		if not a.active:
 			continue
-		var d := a.point() - from
-		var dist := d.length()
+		var d: Vector2 = a.point() - from
+		var dist: float = d.length()
 		var off := absf(angle_difference(angle, d.angle()))
 		if dist > REACH * reach_mult or off > CONE or not clear_line(from, a.point()):
 			continue
-		var score := off * 80.0 + dist * 0.3
+		var score: float = off * 80.0 + dist * 0.3
 		if score < best_score:
 			best_score = score
 			best = a
@@ -134,7 +135,11 @@ func _physics_process(dt: float) -> void:
 		return
 	cooldown = maxf(0.0, cooldown - dt)
 	var angle := aim()
-	var pick_now: Anchor = pick(angle) if state == IDLE and main.complete_t < 0 else null
+	var pick_now: Node3D = pick(angle) if state == IDLE and main.complete_t < 0 else null
+	if target and not is_instance_valid(target):
+		target = null
+	if candidate and not is_instance_valid(candidate):
+		candidate = null
 	if candidate and candidate != pick_now:
 		candidate.targeted = false
 	candidate = pick_now
@@ -147,7 +152,9 @@ func _physics_process(dt: float) -> void:
 		OUT:
 			_fly(dt)
 		HELD:
-			if player.state != &"zip":
+			if player.state != &"zip" or target == null:
+				if player.state == &"zip":
+					player.end_zip(false)
 				state = BACK
 			elif Input.is_action_just_pressed("tool"):
 				player.end_zip(false)
@@ -183,8 +190,9 @@ func throw(angle: float) -> void:
 
 func _fly(dt: float) -> void:
 	var step := SPEED * dt
+	# A target that died on the way leaves it flying straight on.
 	if target:
-		var to := target.point() - head
+		var to: Vector2 = target.point() - head
 		if not target.active:
 			state = BACK
 		elif to.length() <= step:

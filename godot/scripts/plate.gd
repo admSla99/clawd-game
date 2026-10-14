@@ -16,8 +16,10 @@ const H := 3
 @export var digit := 1
 ## Width in tiles.
 @export var cells := 1
-## Seconds it stays pressed after being let go (0: only while held).
+## Seconds it stays pressed after being let go (0: only while held); read from the level's info on the first frame
+## (Main sets `info` only after the level is in the tree).
 var hold := 0.0
+var _hold_read := false
 var pressed := false
 var held_t := 0.0
 var t := 0.0
@@ -36,9 +38,6 @@ func _ready() -> void:
 	_lit.mesh = Voxel.mesh(["L".repeat(w - 2)], {"L": col}, {"L": 6}, Px.M, Voxel.material(1.6))
 	_lit.position.y = 2 * Px.M
 	add_child(_lit)
-	var main := get_tree().get_first_node_in_group("main")
-	if main and main.info is Dictionary:
-		hold = float(main.info.get("plateHold", {}).get(str(digit), 0.0))
 
 
 func feet() -> Vector2:
@@ -63,6 +62,11 @@ func under(p: Vector2) -> bool:
 func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
+	if not _hold_read:
+		_hold_read = true
+		var main := get_tree().get_first_node_in_group("main")
+		if main and main.info is Dictionary:
+			hold = float(main.info.get("plateHold", {}).get(str(digit), hold))
 	t += dt
 	var was := active()
 	var player: Player = get_tree().get_first_node_in_group("player")

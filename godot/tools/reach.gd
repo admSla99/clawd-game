@@ -6,7 +6,9 @@
 # puzzles have check sections of their own). Boss levels are skipped.
 # World 3's anchors (`+`, `*`): from where he stands, and at the top of a jump, Clawd throws the Tool Call at every
 # anchor in reach and in sight and zips there (scripts/tool_call.gd, Player._zip()); after the hop off an anchor he
-# drifts (with and without hover) or zips on to the next anchor, so chains of anchors over a chasm count.
+# drifts (with and without hover) or zips on to the next anchor, so chains of anchors over a chasm count. A Webhook
+# (`W`) counts as an anchor where it spawns. In levels with `subAgents` in index.json Clawd may also stand on a
+# sub-agent (scripts/echo.gd) he left where he stood: every jump is tried from 18 px higher too.
 # The movement is a tile-based model of scripts/player.gd (its constants are read from it and from tool_call.gd);
 # the real player collides through move_and_slide(), so a target found here is reachable within a pixel or so.
 # Run from godot/: godot --headless --script tools/reach.gd [-- <id>...]   (no ids = every level)
@@ -28,6 +30,8 @@ var platforms: Array = [] # [x, y, w]
 var anchors: Array[Vector2] = [] # the middles of the anchors' tiles
 var targets := {} # name -> Rect2
 var reached := {}
+## Clawd can stand on his sub-agents in this level (index.json `subAgents`).
+var echo_boost := false
 
 
 func _init() -> void:
@@ -43,6 +47,8 @@ func _init() -> void:
 	var failed := false
 	for id in ids:
 		var t0 := Time.get_ticks_msec()
+		var info: Array = index.filter(func(l): return l.id == id)
+		echo_boost = not info.is_empty() and info[0].get("subAgents", false) == true
 		var missing := check_level(id)
 		var took := (Time.get_ticks_msec() - t0) / 1000.0
 		if missing.is_empty():
@@ -81,7 +87,7 @@ func check_level(id: String) -> Array:
 					counts.A += 1
 				"G":
 					targets["goal"] = Rect2(x - 8, y - 40, 16, 40)
-				"+", "*":
+				"+", "*", "W":
 					anchors.append(Vector2(x, y - TILE / 2))
 				"M":
 					for o in [-3.5, -1.75, 0.0, 1.75, 3.5]:
@@ -285,6 +291,17 @@ func explore(start: Vector2) -> void:
 				var b := Body.new(s.x, s.y, K)
 				b.step([], self)
 				enqueue.call(run(b, plan))
+		# Standing on a sub-agent left where he stood: the same jumps from its top.
+		if echo_boost:
+			var top := [s.x - W / 2, s.y - H, W]
+			platforms.append(top)
+			for dir in ["left", "right"]:
+				for plan in all_plans[dir].slice(3):
+					var b := Body.new(s.x, s.y - H, K)
+					b.step([], self)
+					if b.grounded:
+						enqueue.call(run(b, plan))
+			platforms.erase(top)
 		# The Tool Call, standing and at the top of a full jump.
 		if not anchors.is_empty():
 			for i in anchors_from(probe):

@@ -44,6 +44,7 @@ const INJECTOR := "res://scripts/injector.gd"
 const ANCHOR := "res://scripts/anchor.gd"
 const PARSER := "res://scripts/parser.gd"
 const PLATE := "res://scripts/plate.gd"
+const WEBHOOK := "res://scripts/webhook.gd"
 const GATE_SCRIPT := "res://scripts/gate.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
@@ -53,7 +54,7 @@ const GATE_SCRIPT := "res://scripts/gate.gd"
 # (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "P": "parser"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "P": "parser", "W": "webhook"}
 
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
@@ -376,6 +377,9 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"plate":
 			node = load(PLATE).new()
 			node.name = "Plate"
+		"webhook":
+			node = load(WEBHOOK).new()
+			node.name = "Webhook"
 		"gate":
 			node = load(GATE_SCRIPT).new()
 			node.name = "Gate"
