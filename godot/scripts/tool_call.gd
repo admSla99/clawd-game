@@ -212,6 +212,7 @@ func _fly(dt: float) -> void:
 		moved += 2.0
 		travelled += 2.0
 		if main.level.tile(head) in [Level.SOLID, Level.CORRUPT]:
+			Brittle.strike(main.level, head)
 			state = BACK
 			Sound.play("hookMiss")
 			main.particles.emit(head, {count = 5, speed = 50, life = 0.2, color = [Color.WHITE, CABLE]})

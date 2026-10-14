@@ -462,8 +462,17 @@ func _zip(dt: float) -> void:
 			end_zip(true)
 			event.emit(&"zip_end", pos)
 		elif (pos - before).length() < ZIP_SPEED * dt * 0.3:
-			# Something solid in the way: he stops there.
-			end_zip(false)
+			# Brittle blocks in the way break and he zips on; anything else solid stops him there.
+			var ahead := Rect2(pos - Vector2(SIZE.x / 2, SIZE.y) + (zip_target - pos).normalized() * 4, SIZE)
+			var smashed := false
+			for ty in range(floori(ahead.position.y / 16), floori((ahead.end.y - 0.01) / 16) + 1):
+				for tx in range(floori(ahead.position.x / 16), floori((ahead.end.x - 0.01) / 16) + 1):
+					var b := Brittle.at(level, Vector2(tx * 16 + 8, ty * 16 + 8))
+					if b:
+						b.smash()
+						smashed = true
+			if not smashed:
+				end_zip(false)
 	_check_hazards()
 	_update_visual()
 

@@ -63,6 +63,7 @@ Map legend:
 | `1`-`9` · `a`-`i` `z` | Pressure plate (a run of one digit is one plate) · gate (all cells of a letter; `a` opens with plates `1`, ...; `z` with the Retry Loops gone) |
 | `P` | Parser (world 3) |
 | `W` | Webhook (world 3), a flying anchor |
+| `%` · `L` | Brittle crate · Retry Loop (world 3) |
 | `M` `V` | Moving platform, horizontal / vertical |
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
@@ -566,6 +567,22 @@ that group): the hook catches it, the zip follows it, and a caught webhook is st
 no hurtbox, so Clawd hops off it. A voxel model in 1 px cells: the anchors' ring between two flapping wings, a hook
 of a tail under it; it shows its own brackets while the hook would catch it.
 
+### Brittle crates and Retry Loops
+
+`scripts/brittle.gd` (`Brittle`, `%`, group `brittle`): sandbox data in a tile. It puts MeshLibrary item 4 (the
+invisible solid box the gates use) in its tile, so `Level.tile()` calls it SOLID and everything treats it as rock,
+and draws itself as a voxel crate 16 px wide and as deep as the blocks (48 px): a sandy frame with diagonal braces,
+cracking as it is struck. `Level.brittle` maps tiles to crates. Three strikes break it (`strike()`: a bullet where
+it stops, the beam's end, the hook's clank); a ground pound on it (Clawd keeps falling, `continue_pound()`), an
+explosion reaching it, or Clawd zipping into it (every crate his body would enter; the zip goes on) smash it at once
+(break, sand-coloured debris through the depth). `tools/reach.gd` treats crates as broken.
+
+`scripts/retry_loop.gd` (`RetryLoop`, `L`, groups `enemies` and `retry_loops`): a `while (true)` hanging in place,
+16 x 16 px, 8 hp (× 3), 40 tokens. While Clawd is within 300 px it drops a tough bug (2 hp × 3) from its bottom every
+4 s (the first 1.5 s after he comes near), at most 3 of its own alive at once; destroyed, it leaves the group, and
+`z` gates open once the group is empty. A voxel loading spinner in eight frames: a dim red ring with a bright head of
+three segments running round it, faster in the last second before a spawn.
+
 ### Parser
 
 `scripts/parser.gd` (`Parser`, `P`): an armoured crawler, 18 x 8 px, 4 hp (× 3 like every enemy), 20 tokens. It
@@ -609,6 +626,19 @@ sub-agents, 31 tokens, 11 anchors, 3 webhooks.
 **Motif** (`shaders/motif_cliffs.gdshader`): two ranges of sheer cliff pillars with jagged tops, strata and a lit
 edge, which also move with the camera up and down; between the near pillars' tops a message (a 3 x 2 envelope)
 arcs on a dotted trail and comes back a moment later, as webhooks do.
+
+### 3-3 The Sandbox
+
+210 x 24 tiles of flat ground where everything breaks: a crate wall to shoot through at the start (THE SANDBOX
+sign), crate towers with a spark in a pocket, a parser and a bug, a spike pit spanned by a crate bridge with a
+parser on it and three anchors above (a spark over the middle one), a checkpoint, a crate maze with a tunnel (a
+shield bot in it, a turret on top), a pillar with a sub-agent boxed in on top, drones, a spam bot and a spark on a
+high ledge; then the arena: three Retry Loops over one-way shelves, crates for cover, a sub-agent in a crate box,
+a spark high over it, and the red gate `z` in the wall before the exit (the RETRY LOOPS sign), with the last spark
+behind a crate. 5 sparks, 2 sub-agents, 36 tokens, 212 crates. The Retry Loops make it a good place to farm tokens.
+
+**Motif** (`shaders/motif_sandbox.gdshader`): two ranges of stacked corrugated containers with lit rims and
+scaffolding poles; now and then a stack's top container crumbles into pixels and is built again row by row.
 
 ## Checks
 
@@ -674,7 +704,10 @@ on, shots passing through, a plate opening its gate for Clawd or a sub-agent, Cl
 shutting on him, a plate's hold, a full slot calling the oldest home, the controls help line), 3-2 Webhook Cliffs
 (theme, motif, its enemies, plates and gates; the real player standing on a sub-agent to reach the first ledge;
 plate 1 opening the ceiling's gate and a sub-agent holding it; the two 2-plates and running through gate b on the
-hold; a webhook as an anchor, stunned and harmless when caught, diving at Clawd below it), shooting (fire rate and damage
+hold; a webhook as an anchor, stunned and harmless when caught, diving at Clawd below it), 3-3 The Sandbox (theme,
+motif, its enemies, 212 crates, the red gate shut; a crate solid and stopping shots, broken by three shots, a pound
+drilling through, an explosion, a zip smashing through the maze; a Retry Loop dropping bugs, at most 3, and the red
+gate opening once every loop is destroyed), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1102,6 +1135,8 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
+| `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
+| `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_cliffs.gdshader` | Cliffs motif (3-2): cliff pillars, callbacks flying between them |
 | `scripts/echo_control.gd`, `scripts/echo.gd` | World 3's sub-agents: the recording, sending, slots; a sub-agent replaying and standing |
 | `scripts/plate.gd`, `scripts/gate.gd` | World 3's pressure plates (`1`-`9`) and the gates they open (`a`-`i`, `z`) |
@@ -1148,7 +1183,7 @@ without COOP/COEP headers.
 | `scripts/game.gd`, `scripts/game_camera.gd`, `scripts/noise.gd` | Autoload `Game` (game time, hitstop, pause); the camera (`src/core/camera.ts`); `DotNoise`, bit-exact noise ports |
 | `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps and metadata (edited by hand), and the 3D level scenes converted from them |
-| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3); 4 is a shut gate (a shape, no mesh). Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
+| `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3); 4 is an invisible solid box (a shape, no mesh) for shut gates and brittle crates. Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |
 | `tools/convert_level.gd`, `tools/reach.gd` | Level pipeline: map → scene, reachability, see *Levels* |
 | `addons/godot_ai/` | godot-ai editor plugin (MCP) |

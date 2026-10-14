@@ -103,6 +103,9 @@ func _physics_process(dt: float) -> void:
 	for i in steps:
 		pos = from.lerp(to, float(i + 1) / steps)
 		if blocked(level, pos):
+			# A brittle block takes the strike (an orb's blast breaks it in impact() anyway).
+			if splash.is_empty():
+				Brittle.strike(level, pos)
 			impact()
 			return
 	if kind == "orb" and randf() < 0.7:

@@ -166,7 +166,8 @@
     "theme": "sandbox",
     "music": "sandbox",
     "signs": [
-      "WORLD 3 IS STILL BEING TRAINED\nthe agents are on their way"
+      "THE SANDBOX: every crate here breaks\nshoot it three times, pound it or zip through",
+      "RETRY LOOPS keep spawning bugs\nbreak every loop to open the red gate"
     ],
     "index": 11,
     "terrainSeed": 150

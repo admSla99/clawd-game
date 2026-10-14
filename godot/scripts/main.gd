@@ -521,6 +521,10 @@ func _on_pound_land() -> void:
 	var broke := false
 	for tx in range(floori((p.x - Player.SIZE.x / 2) / 16), floori((p.x + Player.SIZE.x / 2 - 0.01) / 16) + 1):
 		broke = _break_corrupt(tx, ty) or broke
+		var b := Brittle.at(level, Vector2(tx * 16 + 8, ty * 16 + 8))
+		if b:
+			b.smash()
+			broke = true
 	if broke:
 		Sound.play("break")
 		Game.hitstop(0.06)
@@ -579,8 +583,14 @@ func explode(at: Vector2, radius: float, damage: float) -> void:
 	var broke := false
 	for ty in range(floori((at.y - radius) / 16), floori((at.y + radius) / 16) + 1):
 		for tx in range(floori((at.x - radius) / 16), floori((at.x + radius) / 16) + 1):
-			if level.tile(Vector2(tx * 16 + 8, ty * 16 + 8)) == Level.CORRUPT and Vector2(tx * 16 + 8, ty * 16 + 8).distance_to(at) <= radius + 8:
+			var mid := Vector2(tx * 16 + 8, ty * 16 + 8)
+			if mid.distance_to(at) > radius + 8:
+				continue
+			if level.tile(mid) == Level.CORRUPT:
 				broke = _break_corrupt(tx, ty) or broke
+			var b := Brittle.at(level, mid)
+			if b:
+				b.smash()
 	if broke:
 		Sound.play("break")
 
@@ -596,6 +606,7 @@ func fire_beam(from: Vector2, angle: float, damage: float) -> void:
 	while d < 300:
 		end = from + dir * d
 		if Bullet.blocked(level, end):
+			Brittle.strike(level, end)
 			break
 		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
 			if not e.dead and not hit.has(e) and e.rect().has_point(end):

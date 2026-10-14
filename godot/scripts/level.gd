@@ -11,8 +11,8 @@ const SOLID := 0
 const ONEWAY := 1
 const SPIKE := 2
 const CORRUPT := 3
-## A shut gate's cells (world 3, scripts/gate.gd): MeshLibrary item 4, solid but drawn by the gate; tile() calls it
-## SOLID, so everything treats it as rock.
+## A shut gate's cells and brittle blocks (world 3, scripts/gate.gd, brittle.gd): MeshLibrary item 4, solid but
+## drawn by their nodes; tile() calls it SOLID, so everything treats it as rock.
 const GATE := 4
 ## Plates (a run of one digit is one plate) and gates (every cell of one letter is one gate) in world-3 maps.
 const PLATE_CHARS := "123456789"
@@ -45,6 +45,8 @@ const ANCHOR := "res://scripts/anchor.gd"
 const PARSER := "res://scripts/parser.gd"
 const PLATE := "res://scripts/plate.gd"
 const WEBHOOK := "res://scripts/webhook.gd"
+const BRITTLE := "res://scripts/brittle.gd"
+const RETRY_LOOP := "res://scripts/retry_loop.gd"
 const GATE_SCRIPT := "res://scripts/gate.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
@@ -54,8 +56,10 @@ const GATE_SCRIPT := "res://scripts/gate.gd"
 # (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "P": "parser", "W": "webhook"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop"}
 
+## Brittle blocks by tile (scripts/brittle.gd adds itself).
+var brittle := {}
 ## The cell texture (bake_cells()) and its seed, kept for re-baking after blocks break.
 var _seed := 0
 var _cells_img: Image
@@ -309,6 +313,8 @@ static func build(rows: PackedStringArray) -> Level:
 				elif SPAWNS[ch] == "spark":
 					node.set("index", sparks)
 					sparks += 1
+				elif SPAWNS[ch] == "brittle":
+					node.set("cell", Vector2i(x, y))
 				elif SPAWNS[ch].begins_with("platform"):
 					node.set("phase", platform_phase)
 					platform_phase += 1.3
@@ -380,6 +386,12 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"webhook":
 			node = load(WEBHOOK).new()
 			node.name = "Webhook"
+		"brittle":
+			node = load(BRITTLE).new()
+			node.name = "Brittle"
+		"retryloop":
+			node = load(RETRY_LOOP).new()
+			node.name = "RetryLoop"
 		"gate":
 			node = load(GATE_SCRIPT).new()
 			node.name = "Gate"

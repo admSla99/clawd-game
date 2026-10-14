@@ -147,9 +147,10 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The map (vertical), cliffs motif and music, check section.
 
 ### W6 3-3 The Sandbox
-- [ ] Brittle blocks `%` (MeshLibrary item, breaking by bullets, pound, orb, zip).
-- [ ] Retry Loop (`L`) and `z` gates.
-- [ ] The map (arena run), sandbox motif and music, check section.
+- [x] Brittle blocks `%` (crate nodes on the invisible solid item; breaking by bullets, the beam, the hook, pound,
+      orb, zip).
+- [x] Retry Loop (`L`) and `z` gates.
+- [x] The map (arena run), sandbox motif and music, check section.
 
 ### W7 3-4 Timeout Ravine
 - [ ] Timeout anchors `*`, timed plates.
