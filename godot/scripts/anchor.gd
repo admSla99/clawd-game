@@ -76,6 +76,19 @@ func point() -> Vector2:
 	return feet() + Vector2(0, -8)
 
 
+## Turns it into a timeout anchor (the Router's timeout storm).
+func make_timeout() -> void:
+	if timeout:
+		return
+	timeout = true
+	_mesh.mesh = TIMEOUT_MESH
+	_ghost = MeshInstance3D.new()
+	_ghost.mesh = GHOST_MESH
+	_ghost.position.y = -7 * Px.M
+	_ghost.visible = false
+	_pivot.add_child(_ghost)
+
+
 ## Called by the Tool Call when the hook catches it.
 func catch() -> void:
 	caught_flash = 0.3

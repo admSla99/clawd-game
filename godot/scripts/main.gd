@@ -709,6 +709,8 @@ func _spawn_boss() -> Enemy:
 			return Hallucination.create(level, at + Vector2(0, -8), floor_top, level.pixel_size.x)
 		"codex":
 			return Codex.create(level, at.x, floor_top, level.pixel_size.x)
+		"router":
+			return Router.create(level, at.x, floor_top, level.pixel_size.x)
 	return null
 
 
@@ -718,6 +720,13 @@ func boss_defeated(_b: Enemy, at: Vector2) -> void:
 	if info.boss == "codex":
 		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y, "hook")
+	elif info.boss == "router":
+		# The exit opens in the middle of the arena.
+		overlay.popup("THE ROUTER IS DOWN", at + Vector2(0, -90), Color("#9CC2FF"), 3.0)
+		var goal: Goal = load("res://scripts/goal.gd").new()
+		goal.name = "Goal"
+		goal.position = Px.to3(Vector2(level.pixel_size.x / 2, at.y))
+		level.add_child(goal, true)
 	else:
 		overlay.popup("THE HALLUCINATION HAS BEEN GROUNDED", at + Vector2(0, -70), Color("#F0A585"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y)

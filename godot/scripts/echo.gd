@@ -7,10 +7,15 @@ extends Node3D
 ## Clawd can stand on; replaying or standing, its feet press plates (scripts/plate.gd). Clawd's shots pass through
 ## it (Bullet.blocked() skips it). Drawn as Clawd, tinted cyan, its pose worked out from how it moves, flickering
 ## like a hologram while it replays and as it fades. Group "echoes".
+## A `hostile` echo (the Router's loopback, scripts/router.gd) is red, presses nothing, is no platform, hurts Clawd
+## to touch while it replays and fades as soon as its replay ends.
 
 const STAND := 8.0
 const FADE := 0.5
 const TINT := Color(0.45, 0.92, 1.0, 0.6)
+const HOSTILE_TINT := Color(1.0, 0.3, 0.3, 0.65)
+
+var hostile := false
 
 ## [Vector2 feet, int facing] per physics frame.
 var path: Array = []
@@ -41,7 +46,7 @@ func _ready() -> void:
 
 ## Still around (not fading out).
 func alive() -> bool:
-	return fade_t == 0.0
+	return fade_t == 0.0 and not hostile
 
 
 func replaying() -> bool:
@@ -73,6 +78,12 @@ func _physics_process(dt: float) -> void:
 			return
 	elif replaying():
 		i += 1
+		if hostile:
+			var player: Player = get_tree().get_first_node_in_group("player")
+			if player and player.in_play() and player.hitbox().intersects(rect().grow(-3)):
+				player.hurt(feet.x)
+	elif hostile:
+		recall()
 	else:
 		stand_t += dt
 		if stand_t >= STAND:
@@ -83,7 +94,7 @@ func _physics_process(dt: float) -> void:
 
 
 func _update() -> void:
-	var standing := not replaying() and alive()
+	var standing := not replaying() and alive() and not hostile
 	var was := active
 	active = standing
 	if active and not was:
@@ -105,8 +116,9 @@ func _update() -> void:
 		o.arms = "swingA" if phase < 2 else "swingB"
 	_body.mesh = ClawdSprite.mesh(o)
 	_body.rotation.y = 0.0 if facing > 0 else PI
-	var c := TINT.srgb_to_linear()
-	_body.set_instance_shader_parameter("tint", Vector4(c.r, c.g, c.b, TINT.a))
+	var tint := HOSTILE_TINT if hostile else TINT
+	var c := tint.srgb_to_linear()
+	_body.set_instance_shader_parameter("tint", Vector4(c.r, c.g, c.b, tint.a))
 	# A hologram: it flickers while replaying and as it fades, and blinks in its last second.
 	var flicker := (replaying() and floori(t * 30) % 7 == 0) or (fade_t > 0 and floori(t * 24) % 2 == 0) \
 		or (standing and stand_t > STAND - 1.0 and floori(t * 10) % 2 == 0)

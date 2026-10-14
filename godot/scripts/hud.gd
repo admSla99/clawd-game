@@ -459,18 +459,18 @@ func _draw_weapon() -> void:
 		draw_crosshair(self, (gun.mouse_view + Vector2.ONE * Main.PAD).round(), RED if hot else Settings.crosshair_color())
 
 
-## World 3's sub-agents (once Clawd can send them): a panel next to the weapon panel (or in its place) with a
-## box per slot, cyan while free, dark while that sub-agent is out.
+## World 3's sub-agents (once Clawd can send them): a panel in the bottom-right corner (clear of the weapon panel
+## and a boss's bar) with a box per slot, cyan while free, dark while that sub-agent is out.
 func _draw_agents() -> void:
 	var main := get_tree().get_first_node_in_group("main")
 	if main == null or not main.echoes.available():
 		return
 	var view := get_viewport_rect().size - Vector2.ONE * Main.PAD * 2
-	var x := Main.PAD + 8.0 + (154.0 if main.gun.armed else 0.0)
-	var y := Main.PAD + view.y - 30
 	var slots: int = main.echoes.slots()
 	var free: int = main.echoes.free_slots()
 	var w := 12.0 + PixelFont.width("AGENTS") + slots * 10
+	var x := Main.PAD + view.x - 8.0 - w
+	var y := Main.PAD + view.y - 30
 	panel(self, Rect2(x, y, w, 22), BORDER)
 	PixelFont.draw(self, "AGENTS", Vector2(x + 6, y + 4), TEXT)
 	PixelFont.draw(self, Settings.keys_text([&"agent"]).split(" ")[0], Vector2(x + 6, y + 13), TEXT_DIM)

@@ -157,7 +157,7 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The map, ravine motif and music, check section.
 
 ### W8 3-B The Router
-- [ ] The boss, its arena, router motif and music; WORLD 3 CLEAR and the ending.
+- [x] The boss, its arena, router motif and music; WORLD 3 CLEAR and the ending.
 
 ### W9 System Prompts
 - [ ] Progress (owned, equipped), the shop's SYSTEM PROMPTS section and equipping, Longer System Prompt.

@@ -536,8 +536,8 @@ YOU · G SENDS ONE"; an older save with 3-1 cleared gets it when loaded). `scrip
 `REPLAY` (3) seconds; the `agent` action (G / the middle mouse button) sends out a sub-agent on that recording
 (agentSend, a burst where it starts). How many can be out at once: 1, 2 from 10 sub-agents rescued in all levels,
 3 from 18 (`slots()`; the Delegate prompt adds one, W9); sending one more calls the oldest home. A respawn starts
-the recording over; a new level sends them all home. The HUD shows an AGENTS panel next to the weapon panel (or in
-its place) with a box per slot, cyan while free.
+the recording over; a new level sends them all home. The HUD shows an AGENTS panel in the bottom-right corner (clear
+of the weapon panel and a boss's bar) with a box per slot, cyan while free.
 
 `scripts/echo.gd` (`Echo`, group `echoes`): it replays the recording (without the time Clawd stood still at its
 start and end, so one sent after waiting stands at once), one entry a physics frame, from where Clawd was, then stands where he was when he sent it for 8 s and fades (0.5 s, agentGone). Standing it is a platform (group
@@ -656,6 +656,33 @@ sub-agent, and a spark over a lone timeout anchor before the exit. 5 sparks, 2 s
 **Motif** (`shaders/motif_ravine.gdshader`): two ranges of ravine walls hanging from the top and rising from the
 bottom; between them clock faces whose hands sweep round and flash red as they pass twelve, and loading spinners.
 
+### 3-B The Router
+
+The arena of 2-B (40 x 18 tiles) with five anchors under its ceiling and on its sides, theme `router`, music
+`router`. `scripts/router.gd` (`Router`, `Main` spawns it at `B` for `boss: "router"`): a switchboard drifting over
+the arena 160 px above the floor, 120 hp on the boss bar (`TITLE` THE ROUTER), harmless to touch (no hurtbox). Its
+core hides behind a firewall of three bars: while any is up, shots and the beam glance off it
+(`blocks_direction()`) and `hit()` refuses everything. It is an anchor (group `anchors`, the Anchor interface; the
+hook picks it like any): each catch tears a bar off (break) and Clawd zips up under it; with all three gone the core
+is exposed for 6 s ("FIREWALL DOWN", not hookable then), then the firewall is restored. It says its lines in pixel
+text over itself ("> routing table loaded" during its 3 s intro).
+
+- **Routing** (all phases): a packet runs along one of its four cables (the Overlay draws them, dotted, to ports in
+  the walls at two heights) to a port away from Clawd, and the port fires a burst of 3 + phase `#` code shots at him.
+- **Loopback** (from phase 1, at 2/3 hp): now and then a hostile echo (`Echo.hostile`: red, no platform, presses
+  nothing) replays Clawd's last 3 s from the Router's own recording and hurts him to touch, then fades.
+- **Timeout storm** (phase 2, at 1/3 hp): packets go out in pairs and faster, every anchor in the arena becomes a
+  timeout anchor (`Anchor.make_timeout()`), and the floor's four outermost tiles on each side turn to spikes.
+
+Each phase change reroutes (1.8 s untouchable, the firewall back up, bossHit, a burst). At 0 hp: "CONNECTION
+RESET", 2.6 s of bursts, then `Main.boss_defeated()`: "THE ROUTER IS DOWN" and the exit opens in the middle of the
+arena. As the last level its results say WORLD 3 CLEAR and THANKS FOR PLAYING! with "The Router is down. Every
+request goes through Clawd now." under it. A voxel model in 2 px cells: a dark switchboard with rows of port LEDs
+blinking between two frames round a glowing core, the firewall's red bars across it 8 px in front.
+
+**Motif** (`shaders/motif_router.gdshader`): two layers of a network, nodes on a jittered grid linked to their
+neighbours by dotted lines, packets running along the links and nodes blinking; it moves with the camera both ways.
+
 ## Checks
 
 ```bash
@@ -726,7 +753,10 @@ drilling through, an explosion, a zip smashing through the maze; a Retry Loop dr
 gate opening once every loop is destroyed), 3-4 Timeout Ravine (theme, motif, its timeout and plain anchors,
 plates and gates; a timeout anchor caught, timing out 1.2 s later, unpickable, back 3 s later; gate a open 3.5 s
 after Clawd steps off its plate; the pit's 2-plate alone, then with a sub-agent in the pit and Clawd on the cliff),
-shooting (fire rate and damage
+3-B The Router (120 hp, the motif, anchors, no damage in its intro or by touch, the firewall stopping shots, three
+catches exposing the core, damage, the firewall back, a packet and a port's burst, rerouting at 2/3, a loopback echo
+hurting Clawd and fading, the timeout storm's anchors and spikes, CONNECTION RESET, THE ROUTER IS DOWN, the exit,
+WORLD 3 CLEAR and THANKS FOR PLAYING!), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1157,6 +1187,7 @@ without COOP/COEP headers.
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |
+| `scripts/router.gd`, `shaders/motif_router.gdshader` | World 3's boss the Router (`B` in 3-B) and its network motif |
 | `shaders/motif_cliffs.gdshader` | Cliffs motif (3-2): cliff pillars, callbacks flying between them |
 | `scripts/echo_control.gd`, `scripts/echo.gd` | World 3's sub-agents: the recording, sending, slots; a sub-agent replaying and standing |
 | `scripts/plate.gd`, `scripts/gate.gd` | World 3's pressure plates (`1`-`9`) and the gates they open (`a`-`i`, `z`) |
