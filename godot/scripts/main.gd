@@ -646,6 +646,16 @@ func _apply_loadout() -> void:
 	player.max_hearts = Player.MAX_HEARTS + Progress.upgrade("hearts")
 	player.hover_duration = Player.HOVER_DURATION * (1 + 0.3 * Progress.upgrade("hover"))
 	player.shield = Progress.in_stock("firewall") > 0
+	# The System Prompts that are on (scripts/prompts.gd).
+	if Prompts.on("expert"):
+		player.max_hearts = maxi(1, player.max_hearts - 1)
+	var steps := Prompts.on("steps")
+	player.hover_duration *= 1.6 if steps else 1.0
+	player.run_speed = Player.RUN_SPEED * (0.9 if steps else 1.0)
+	var ontask := Prompts.on("ontask")
+	player.zip_speed = Player.ZIP_SPEED * (1.25 if ontask else 1.0)
+	tool_call.reach_mult = 1.5 if ontask else 1.0
+	echoes.extra = 1 if Prompts.on("delegate") else 0
 
 
 ## The Spark Radar's target: the nearest spark in the level that was never found (no ghost), or null.

@@ -756,7 +756,9 @@ after Clawd steps off its plate; the pit's 2-plate alone, then with a sub-agent 
 3-B The Router (120 hp, the motif, anchors, no damage in its intro or by touch, the firewall stopping shots, three
 catches exposing the core, damage, the firewall back, a packet and a port's burst, rerouting at 2/3, a loopback echo
 hurting Clawd and fading, the timeout storm's anchors and spikes, CONNECTION RESET, THE ROUTER IS DOWN, the exit,
-WORLD 3 CLEAR and THANKS FOR PLAYING!), shooting (fire rate and damage
+WORLD 3 CLEAR and THANKS FOR PLAYING!), System Prompts (none before world 3, the section, the budget, buying
+switches one on, switching off and on, one that doesn't fit, Longer System Prompt, every prompt's effect, a bug's
+tokens with Cite, Reflect catching a shot and throwing it back), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -765,7 +767,8 @@ explosion breaking 1-1's corrupted blocks with splash damage, damage numbers add
 bars only on hurt enemies, 2-1's tough bugs and spam bots, the bar draining), the controls help (shooting lines once a weapon
 is found), and the shop (every played sound is rendered, locked until 1-1 is cleared, the spark prices add up
 to the sparks in the levels, each item's price and
-effect in a level, refusals, fortunes read from the map, saving, back to the map; with a weapon the ARMORY and
+effect in a level, refusals, fortunes read from the map, saving, back to the map, the 55 sparks of the levels
+buying every spark price; with a weapon the ARMORY and
 GUN MODS rows, scrolling, buying and equipping weapons, the gun mods' prices and effects, the map's Clawd holding the equipped weapon in
 world 2 only).
 
@@ -966,12 +969,33 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
   consumables, up to 3 in stock: **Firewall** (40; up at the start of every level while one is in stock, it
   takes the next hit instead of a heart and is only used up when it breaks) and **Double Tokens** (100; every
   token counts twice, used up when a level is cleared).
-- Balance (M12): with 5× tokens a full clear of world 1 brings about 175 tokens (1-1 69, 1-2 64, 1-3 43) and of
-  world 2 about 1190 (2-1 264, 2-2 269, 2-3 397, 2-4 259; the bosses drop none), against 750 for the world-1
-  upgrades and radar and 2880 for the ARMORY and GUN MODS. One run through the game buys about two upgrades in
-  world 1 and then a weapon or a mod after each world-2 level; everything takes about two more runs of world 2.
-  The TS prices stay; the port's own items are priced for that income: Double Tokens pays off in world 2 only,
-  and the radar costs no sparks, so as in TS the 35 sparks of the levels buy every spark price exactly (checked).
+- **SYSTEM PROMPT** (world 3, once Codex dropped the Tool Call): Hollow Knight's charms. `scripts/prompts.gd`
+  (`Prompts`) defines eight prompts, each bought once (kind `prompt`) and then switched on and off with Space within
+  the context budget: 4, plus 2 per level of **Longer System Prompt** (150 + 3 sparks / 350 + 6). A new prompt is
+  switched on when it fits; one that doesn't stays off ("full": HAIKU says so). The row shows its cost as cyan pips
+  and ON / OFF; the card its cost and the budget used. Bought prompts and the ones on are saved
+  (`Progress.prompts`, `prompts_on`), and the pause menu lists the ones on under its panel.
+
+  | Prompt | Cost | Price | Effect (where) |
+  |---|---|---|---|
+  | Be concise. | 1 | 120 + 1 | +20 % fire rate, −15 % damage (`Weapons.rate_mult()`, `damage_mult()`) |
+  | Cite your sources. | 1 | 150 + 1 | enemies drop 30 % more tokens (`Enemy.die()`, `token_total()`) |
+  | Temperature 1.5 | 1 | 120 + 1 | +0.06 rad spread, one shot in seven deals double (`Gun.fire()`) |
+  | Think step by step. | 2 | 160 + 1 | hover × 1.6, run speed × 0.9 (`Main._apply_loadout()`: `Player.run_speed`) |
+  | Stay on task. | 2 | 200 + 2 | the hook's reach × 1.5, zips × 1.25 (`ToolCall.reach_mult`, `Player.zip_speed`) |
+  | Delegate. | 2 | 220 + 2 | one more sub-agent out at once (`EchoControl.extra`) |
+  | You are an expert. | 3 | 260 + 2 | damage × 1.35, one heart less |
+  | Reflect. | 3 | 240 + 1 | the hook, thrown straight, catches an enemy shot and throws it back as a 4-damage token |
+
+- Balance (M12, world 3 since W9/W10): with 5× tokens a full clear of world 1 brings about 175 tokens (1-1 69,
+  1-2 64, 1-3 43), of world 2 about 1190 (2-1 264, 2-2 269, 2-3 397, 2-4 259; the bosses drop none) and of world 3
+  about 1030 (3-1 349, 3-2 191, 3-3 296 plus whatever the Retry Loops' bugs bring, 3-4 196), against 750 for the
+  world-1 upgrades and radar, 2880 for the ARMORY and GUN MODS and 1970 for the System Prompts. One run through the
+  game buys about two upgrades in world 1, then a weapon or a mod after each world-2 level and a prompt after each
+  world-3 level; everything takes about two more runs of worlds 2 and 3 (3-3's Retry Loops are the place to farm).
+  The TS prices stay; the port's own items are priced for that income: Double Tokens pays off from world 2 on,
+  the radar costs no sparks, and the 55 sparks of the levels buy every spark price exactly: 35 for worlds 1-2's
+  items, 20 for the System Prompts and Longer System Prompt (checked).
 
 ## Menus and key bindings
 
@@ -1184,6 +1208,7 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
+| `scripts/prompts.gd` | World 3's System Prompts: definitions, budget, switching, the multipliers others read |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

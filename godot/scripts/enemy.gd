@@ -111,7 +111,7 @@ func die(kind: StringName) -> void:
 	dead = true
 	remove_from_group("enemies")
 	var mid := rect().get_center()
-	for i in tokens:
+	for i in roundi(tokens * Prompts.token_mult()):
 		Token.pop(level, mid)
 	var main := get_tree().get_first_node_in_group("main")
 	if main and not projectile:
@@ -150,7 +150,7 @@ func bar_y() -> float:
 
 ## Every token it gives when defeated, including what it leaves behind (Main counts the level's total).
 func token_total() -> int:
-	return tokens
+	return roundi(tokens * Prompts.token_mult())
 
 
 ## moveX() in src/world/collision.ts for the `size` box: moves `dx` px unless a solid or corrupted tile

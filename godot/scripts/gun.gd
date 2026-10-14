@@ -187,12 +187,16 @@ func fire(dt: float, trigger: bool) -> bool:
 	heat += w.heat
 	var muzzle := pivot() + Vector2(cos(angle), sin(angle)) * 16
 	var damage: float = w.damage * Weapons.damage_mult()
+	# Temperature 1.5 (a System Prompt): wilder aim, now and then a double hit.
+	var temp := Prompts.on("temperature")
+	if temp and randf() < Prompts.TEMP_CRIT:
+		damage *= 2.0
 	if w.kind == "beam":
 		main.fire_beam(muzzle, angle, damage)
 	else:
 		for i in w.pellets:
 			var fan_offset: float = -w.fan / 2 + w.fan * i / (w.pellets - 1) if w.pellets > 1 else 0.0
-			var a: float = angle + fan_offset + (randf() - 0.5) * 2 * w.spread
+			var a: float = angle + fan_offset + (randf() - 0.5) * 2 * (w.spread + (Prompts.TEMP_SPREAD if temp else 0.0))
 			var speed: float = w.speed * (0.85 + randf() * 0.3 if w.pellets > 1 else 1.0)
 			Bullet.fire(main.level, muzzle, a, speed, w, damage)
 	shot_count += 1

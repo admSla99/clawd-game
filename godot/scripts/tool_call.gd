@@ -15,6 +15,8 @@ const CONE := deg_to_rad(35.0)
 const SPEED := 900.0
 const BACK_SPEED := 1400.0
 const HOOK_DAMAGE := 2.0
+## A shot thrown back with the Reflect prompt.
+const REFLECT_DAMAGE := 4.0
 const COOLDOWN := 0.15
 ## The zip pulls Clawd's feet this far under the anchor, so it ends at his chest.
 const ZIP_BELOW := 12.0
@@ -218,8 +220,18 @@ func _fly(dt: float) -> void:
 			main.particles.emit(head, {count = 5, speed = 50, life = 0.2, color = [Color.WHITE, CABLE]})
 			return
 		for e: Enemy in get_tree().get_nodes_in_group("enemies"):
-			if e.dead or e.projectile or e == main.boss or not e.rect().has_point(head):
+			if e.dead or e == main.boss or not e.rect().has_point(head):
 				continue
+			if e.projectile:
+				# Reflect (a System Prompt): the hook catches the shot and throws it back as Clawd's own.
+				if not Prompts.on("reflect"):
+					continue
+				e.remove()
+				Bullet.fire(main.level, head, (-dir).angle(), 380.0, Weapons.get_def("blaster"), REFLECT_DAMAGE * Weapons.damage_mult())
+				Sound.play("deflect")
+				main.particles.emit(head, {count = 8, speed = 70, life = 0.3, color = [Color.WHITE, Anchor.ORANGE_LIGHT]})
+				state = BACK
+				return
 			_hook_enemy(e)
 			state = BACK
 			return

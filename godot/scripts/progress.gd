@@ -27,6 +27,9 @@ var weapons: Array = []
 var equipped := ""
 ## World 3's tools owned: "hook" (the Tool Call, dropped by Codex), "agents" (sending sub-agents, from clearing 3-1).
 var tools: Array = []
+## System Prompts bought, and the ones switched on (scripts/prompts.gd).
+var prompts: Array = []
+var prompts_on: Array = []
 
 
 func _ready() -> void:
@@ -44,6 +47,8 @@ func load_file() -> void:
 	weapons = []
 	equipped = ""
 	tools = []
+	prompts = []
+	prompts_on = []
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -58,6 +63,8 @@ func load_file() -> void:
 		weapons = data.get("weapons", [])
 		equipped = data.get("equipped", "")
 		tools = data.get("tools", [])
+		prompts = data.get("prompts", [])
+		prompts_on = data.get("prompts_on", [])
 		# Codex beaten before it dropped the Tool Call (saves from before world 3): the hook is Clawd's.
 		if progress_for("2-B").completed and not tools.has("hook"):
 			tools.append("hook")
@@ -69,7 +76,8 @@ func save() -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
-			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools}))
+			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
+			"prompts": prompts, "prompts_on": prompts_on}))
 
 
 ## progressFor(): a level's progress, or an empty one.

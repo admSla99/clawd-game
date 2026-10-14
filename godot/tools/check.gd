@@ -91,6 +91,7 @@ func _init() -> void:
 	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
 	await section("the Tool Call: hook, anchors, zip (world 3)", check_tool_call)
 	await section("sub-agents, plates and gates (world 3)", check_echoes)
+	await section("System Prompts (world 3)", check_prompts)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1315,6 +1316,93 @@ func check_echoes() -> bool:
 	return true
 
 
+func check_prompts() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var prompts = load("res://scripts/prompts.gd")
+	var shop_items = load("res://scripts/shop.gd")
+	var weapons = load("res://scripts/weapons.gd")
+	var saved := {"tools": progress.tools.duplicate(), "weapons": progress.weapons.duplicate(), "wallet": progress.wallet,
+		"spent": progress.sparks_spent, "levels": progress.levels.duplicate(true), "upgrades": progress.upgrades.duplicate()}
+	progress.weapons = ["blaster"]
+	progress.tools = []
+	progress.prompts = []
+	progress.prompts_on = []
+	progress.upgrades = {}
+	ok(not shop_items.items().any(func(it): return it.kind == "prompt"), "no System Prompts in the shop before world 3")
+	progress.tools = ["hook"]
+	var rows: Array = shop_items.items().filter(func(it): return it.section == "SYSTEM PROMPT")
+	ok(rows.size() == 9 and rows[0].id == "sysprompt" and rows.slice(1).map(func(it): return it.id) == prompts.ORDER,
+		"with world 3 open: Longer System Prompt and the eight prompts")
+	ok(prompts.budget() == 4 and prompts.used() == 0, "the budget is 4")
+	# Buying: paid, owned and switched on.
+	progress.wallet = 5000
+	progress.levels = {"1-1": {"completed": true, "sparks": [true, true, true, true, true], "agents": [], "best_time": null},
+		"1-2": {"completed": true, "sparks": [true, true, true, true, true], "agents": [], "best_time": null}}
+	progress.sparks_spent = 0
+	var item := func(id): return shop_items.item(id)
+	ok(shop_items.buy(item.call("concise"), m.level_ids) == "bought" and progress.wallet == 5000 - 120 and progress.sparks_spent == 1
+		and prompts.on("concise") and prompts.used() == 1, "bought, Be concise. is switched on (120 tokens, 1 spark)")
+	ok(shop_items.buy(item.call("concise"), m.level_ids) == "off" and not prompts.on("concise")
+		and shop_items.buy(item.call("concise"), m.level_ids) == "on", "buying an owned prompt switches it off and on")
+	shop_items.buy(item.call("steps"), m.level_ids)
+	shop_items.buy(item.call("cite"), m.level_ids)
+	ok(prompts.used() == 4 and shop_items.buy(item.call("expert"), m.level_ids) == "bought" and not prompts.on("expert")
+		and shop_items.buy(item.call("expert"), m.level_ids) == "full", "a prompt that doesn't fit is bought but stays off")
+	ok(shop_items.buy(item.call("sysprompt"), m.level_ids) == "bought" and prompts.budget() == 6
+		and shop_items.buy(item.call("cite"), m.level_ids) == "off" and shop_items.buy(item.call("expert"), m.level_ids) == "on",
+		"Longer System Prompt makes room for 2 more")
+	# Effects.
+	ok(is_equal_approx(weapons.damage_mult(), 0.85 * 1.35) and is_equal_approx(weapons.rate_mult(), 1.2), "concise and expert: damage x0.85 x1.35, fire rate x1.2")
+	m.load_level("3-1")
+	await frames(3)
+	ok(p.max_hearts == 2 and is_equal_approx(p.hover_duration, 0.85 * 1.6) and is_equal_approx(p.run_speed, 135.0),
+		"expert takes a heart, Think step by step: hover x1.6, run x0.9")
+	progress.prompts_on = ["cite", "ontask", "delegate"]
+	m.load_level("3-1")
+	await frames(3)
+	ok(is_equal_approx(prompts.token_mult(), 1.3) and m.tool_call.reach_mult == 1.5 and is_equal_approx(p.zip_speed, 550.0) and m.echoes.extra == 1,
+		"cite: tokens x1.3; on task: reach x1.5, zips x1.25; delegate: a sub-agent more")
+	var bug = load("res://scenes/bug.tscn").instantiate()
+	m.level.add_child(bug)
+	ok(bug.token_total() == 13, "a bug then drops 13 tokens")
+	bug.queue_free()
+	# Reflect: the hook catches an enemy shot and throws it back.
+	progress.prompts_on = ["reflect"]
+	m.load_level("3-1")
+	await frames(3)
+	flat_ground(m)
+	p.invuln = 1000
+	p.pos = Vector2(10 * TILE + 8, 16 * TILE)
+	p.facing = 1
+	m.gun.mouse_moved = -1_000_000
+	await frames(3)
+	var shot = load("res://scripts/shot.gd").fire(m.level, p.pos + Vector2(70, -9), Vector2(-30, 0), Color.RED, true, 10.0)
+	var bullets0: int = get_nodes_in_group("bullets").size()
+	var seen := {"more": false}
+	await drive(func(i):
+		seen.more = seen.more or get_nodes_in_group("bullets").size() > bullets0
+		return null if i > 12 else (["tool"] if i < 2 else []), 20)
+	ok(not is_instance_valid(shot) or shot.dead, "Reflect: the hook catches an enemy shot")
+	ok(seen.more, "and throws it back as Clawd's own")
+	m.menu.handle(key(KEY_P))
+	await frames(2)
+	m.menu.close()
+	progress.prompts = []
+	progress.prompts_on = []
+	progress.tools = saved.tools
+	progress.weapons = saved.weapons
+	progress.wallet = saved.wallet
+	progress.sparks_spent = saved.spent
+	progress.levels = saved.levels
+	progress.upgrades = saved.upgrades
+	p.invuln = 0
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
 func check_caves() -> bool:
 	var m = current_scene
 	var p = m.player
@@ -2353,13 +2441,14 @@ func check_shop() -> bool:
 			spark_prices += s
 	for w in load("res://scripts/weapons.gd").WEAPONS.values():
 		spark_prices += w.sparks
-	# World 3's sparks go to the System Prompts (docs/world3-plan.md, W9); until they are in the shop the prices
-	# match worlds 1 and 2.
+	# World 3's sparks buy the System Prompts and Longer System Prompt.
+	spark_prices += shop_items.SYSPROMPT.sparks.reduce(func(a, b): return a + b, 0)
+	for d in load("res://scripts/prompts.gd").DEFS.values():
+		spark_prices += d.sparks
 	var level_sparks := 0
 	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
-		if int(l.world) < 3:
-			level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
-	ok(spark_prices == level_sparks, "the shop's spark prices add up to the sparks in worlds 1 and 2 (%d / %d)" % [spark_prices, level_sparks])
+		level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
+	ok(spark_prices == level_sparks and level_sparks == 55, "the shop's spark prices add up to the sparks in the levels (%d / %d)" % [spark_prices, level_sparks])
 
 	# Extra Heart: 100 tokens.
 	shop.sel = 0

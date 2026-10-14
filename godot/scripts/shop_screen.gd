@@ -21,6 +21,7 @@ const IDLE := [
 const THANKS := [["thank you, come again", "your wallet is lighter now", "your claws are not, though"]]
 const DENIED := [["not enough to pay", "go collect a few more, then", "come back, little crab"]]
 const LOCKED := [["the armory sleeps", "until a weapon is found", "beyond the first boss"]]
+const NO_ROOM := [["your prompt is full", "a long one helps no model", "switch one off, then try"]]
 ## Small talk once the ARMORY is open (IDLE_HAIKUS in shop.ts).
 const ARMORY_IDLE := [
 	["a bigger model", "is not always the answer", "but it sure helps here"],
@@ -51,6 +52,8 @@ const ICONS := {
 	"damage": [".........", "...ooo...", "...oLo...", ".oooLooo.", ".oLLLLLo.", ".oooLooo.", "...oLo...", "...ooo...", "........."],
 	"rate": [".........", "o...o....", "oo..oo...", "oLo.oLo..", "oLLooLLo.", "oLo.oLo..", "oo..oo...", "o...o....", "........."],
 	"context": [".........", ".........", "ggggggggg", "gooooo..g", "gLLLLL..g", "gooooo..g", "ggggggggg", ".........", "........."],
+	"sysprompt": ["ggggggggg", "gLLLLLL.g", "g.......g", "gLLLL...g", "g.......g", "gLLLLLLLg", "g.......g", "gLL.....g", "ggggggggg"],
+	"prompt": [".ggggggg.", ".gW....g.", ".g.LLL.g.", ".g.....g.", ".g.LLLLg.", ".g.....g.", ".g.LL..g.", ".gggggg..", "........."],
 }
 ## The list ends this far above the bottom of the view (the help line is below it).
 const LIST_BOTTOM := 16
@@ -151,8 +154,11 @@ func _activate() -> void:
 		"bought":
 			Sound.play("buy")
 			say(Progress.fortune if it.kind == "fortune" else THANKS[0])
-		"equipped":
+		"equipped", "on", "off":
 			Sound.play("select")
+		"full":
+			Sound.play("denied")
+			say(NO_ROOM[0])
 		"poor":
 			Sound.play("denied")
 			say(DENIED[0])
@@ -295,7 +301,7 @@ func _icon(id: String) -> ImageTexture:
 		if GunSprite.SPRITES.has(id):
 			_icons[id] = Spark._texture(GunSprite.SPRITES[id], GunSprite.PALETTE)
 		else:
-			_icons[id] = Spark._texture(ICONS[id], {"o": Color("#D97757"), "L": Color("#F0A585"), "W": Color("#FFF1E6"), "g": Color("#5A5A5A")})
+			_icons[id] = Spark._texture(ICONS[id if ICONS.has(id) else "prompt"], {"o": Color("#D97757"), "L": Color("#F0A585"), "W": Color("#FFF1E6"), "g": Color("#5A5A5A")})
 	return _icons[id]
 
 
@@ -388,6 +394,16 @@ func _draw_list() -> void:
 					PixelFont.draw(self, s, Vector2(right - PixelFont.width(s), y), Hud.ORANGE if eq else Color("#6A6A6A"))
 				else:
 					_draw_price(right, y, Shop.price(it, main.level_ids))
+			"prompt":
+				# Its cost in the budget as pips, then ON / OFF once owned.
+				for k in int(it.cost):
+					draw_rect(Rect2(r.end.x - 74 + k * 5, y + 1, 3, 3), Echo.TINT)
+				if Progress.prompts.has(it.id):
+					var on := Prompts.on(it.id)
+					var s := "ON" if on else "OFF"
+					PixelFont.draw(self, s, Vector2(right - PixelFont.width(s), y), Hud.ORANGE if on else Color("#6A6A6A"))
+				else:
+					_draw_price(right, y, Shop.price(it, main.level_ids))
 
 
 ## Words of `s` wrapped to `w` px, from `at` down, 8 px a line. Returns the y after the last line.
@@ -412,7 +428,13 @@ func _draw_detail() -> void:
 	var d := _detail_rect()
 	var it: Dictionary = items[sel]
 	Hud.panel(self, d, Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.95), true)
-	_big(String(it.name).to_upper(), d.position + Vector2(8, 7), Hud.TEXT if it.kind != "locked" else Color("#8A8A8A"))
+	# The name at twice the size when it fits the card, else at the normal size (the longer prompts).
+	var title := String(it.name).to_upper()
+	var title_col := Hud.TEXT if it.kind != "locked" else Color("#8A8A8A")
+	if PixelFont.width(title) * 2 <= d.size.x - 16:
+		_big(title, d.position + Vector2(8, 7), title_col)
+	else:
+		_text(title, d.position + Vector2(8, 11), title_col)
 	var y := _wrap(it.desc, d.position + Vector2(8, 26), d.size.x - 16, Hud.TEXT_DIM)
 	y += 4
 	var info := ""
@@ -425,6 +447,8 @@ func _draw_detail() -> void:
 		"fortune":
 			var left := Shop.secrets(main.level_ids).size()
 			info = "%d STILL HIDDEN IN THE OPEN LEVELS" % left if left > 0 else "NOTHING LEFT TO FIND"
+		"prompt":
+			info = "COST %d · USED %d / %d" % [it.cost, Prompts.used(), Prompts.budget()]
 	if info != "":
 		PixelFont.draw(self, info, Vector2(d.position.x + 8, y), info_col)
 		y += 10
@@ -449,6 +473,11 @@ func _draw_detail() -> void:
 		hint = "SPACE / CLICK: EQUIP"
 		if Progress.equipped == it.id:
 			hint = "EQUIPPED · SWITCH: 1-5 / %s / WHEEL" % Settings.keys_text(["prev", "next"])
+	elif it.kind == "prompt" and Progress.prompts.has(it.id):
+		hint = "SPACE / CLICK: SWITCH OFF" if Prompts.on(it.id) else "SPACE / CLICK: SWITCH ON"
+		if not Prompts.on(it.id) and not Prompts.fits(it.id):
+			hint = "NO ROOM · SWITCH ONE OFF"
+			col = Hud.RED
 	elif p.is_empty():
 		hint = "FULLY UPGRADED" if it.kind == "upgrade" else "STOCK FULL" if it.kind == "stock" else "NOTHING LEFT TO TELL"
 		col = Color("#6A6A6A")
@@ -464,6 +493,10 @@ func _draw_detail() -> void:
 
 ## What a gun mod does now, and after the next level: damage and fire rate multipliers, the context size.
 func _mod_effect(it: Dictionary) -> String:
+	if it.id == "sysprompt":
+		var sl := Progress.upgrade(it.id)
+		var now := Prompts.BUDGET + 2 * sl
+		return "BUDGET %d" % now if sl >= it.prices.size() else "BUDGET %d → %d" % [now, now + 2]
 	if it.section != "GUN MODS":
 		return ""
 	var lv := Progress.upgrade(it.id)
@@ -512,6 +545,8 @@ func _draw_bubble() -> void:
 	for line in haiku:
 		w = maxi(w, PixelFont.width(line))
 	var r := Rect2(feet.x + 34, feet.y - 52, w + 14, 32)
+	# Kept inside the view (a long line would run off its right edge).
+	r.position.x = minf(r.position.x, _view().end.x - 4 - r.size.x)
 	Hud.panel(self, r, BUBBLE, Color(0.07, 0.08, 0.1, 0.95))
 	for i in 3:
 		draw_rect(Rect2(r.position.x - 1 - i, r.end.y - 10 + i, 1 + i, 1), BUBBLE)

@@ -53,15 +53,15 @@ Five levels, each with its own theme, motif and music:
 ### System Prompts (builds)
 *Hollow Knight's charms.*
 
-- Bought in the shop (a SYSTEM PROMPTS section from world 3 on, priced in tokens and sparks) and equipped within a
-  **context budget** of 4 (upgrade *Longer System Prompt*: 6, 8). Equipped prompts show in the pause menu.
+- Bought in the shop (a SYSTEM PROMPT section from world 3 on, priced in tokens and sparks) and switched on within a
+  **context budget** of 4 (upgrade *Longer System Prompt*: 6, 8). The ones on show under the pause menu.
 - First set (cost in budget):
 
 | Prompt | Cost | Effect |
 |---|---|---|
 | Be concise. | 1 | +20 % fire rate, −15 % damage |
 | Cite your sources. | 1 | enemies drop +30 % tokens |
-| Temperature 1.5 | 1 | wider spread, 15 % of hits deal double damage |
+| Temperature 1.5 | 1 | wider spread, one shot in seven deals double damage |
 | Think step by step. | 2 | +60 % hover time, −10 % run speed |
 | Stay on task. | 2 | Tool Call reach +50 %, faster zips |
 | Delegate. | 2 | +1 sub-agent at once |
@@ -160,8 +160,8 @@ Beaten: WORLD 3 CLEAR, the ending, and a teaser for what comes next.
 - [x] The boss, its arena, router motif and music; WORLD 3 CLEAR and the ending.
 
 ### W9 System Prompts
-- [ ] Progress (owned, equipped), the shop's SYSTEM PROMPTS section and equipping, Longer System Prompt.
-- [ ] The eight prompts' effects; the pause menu lists them; checks.
+- [x] Progress (owned, on), the shop's SYSTEM PROMPT section and switching, Longer System Prompt.
+- [x] The eight prompts' effects; the pause menu lists them; checks.
 
 ### W10 Finish
 - [ ] Prices and spark sum (55), token income per level in *Shop*, README / CLAUDE.md, a playthrough list for the

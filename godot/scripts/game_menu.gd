@@ -452,6 +452,11 @@ func _draw_pause(l: Dictionary) -> void:
 			PixelFont.draw(self, ">", r.position + Vector2(6 + (1 if fmod(_t, 0.8) < 0.4 else 0), 3), Hud.ORANGE)
 		PixelFont.draw(self, label, r.position + Vector2(16, 3), Hud.TEXT if sel else Hud.TEXT_DIM)
 	_hint(p, "↑↓ SELECT · ←→ COLOUR · ESC RESUME" if PAUSE_ITEMS[pause_index] == "CROSSHAIR" else "↑↓ SELECT · ENTER OK · ESC RESUME")
+	# The System Prompts that are on, under the panel.
+	if not Progress.prompts_on.is_empty():
+		var names := Prompts.ORDER.filter(func(id): return Prompts.on(id)).map(func(id): return Prompts.DEFS[id].short)
+		var line := "SYSTEM PROMPT: " + " · ".join(PackedStringArray(names))
+		PixelFont.draw_centred(self, line, p.get_center().x, p.end.y + 6, Hud.TEXT_DIM)
 
 
 func _draw_controls(l: Dictionary) -> void:

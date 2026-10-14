@@ -38,11 +38,11 @@ static func get_def(id: String) -> Dictionary:
 
 ## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level.
 static func damage_mult() -> float:
-	return 1.0 + 0.25 * Progress.upgrade("damage")
+	return (1.0 + 0.25 * Progress.upgrade("damage")) * Prompts.damage_mult()
 
 
 static func rate_mult() -> float:
-	return 1.0 + 0.15 * Progress.upgrade("rate")
+	return (1.0 + 0.15 * Progress.upgrade("rate")) * Prompts.rate_mult()
 
 
 static func heat_cap() -> float:

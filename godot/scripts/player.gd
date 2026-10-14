@@ -111,6 +111,9 @@ var riding = null
 var on_ground := false
 ## Where the zip pulls his feet (level px); the Tool Call keeps it on a moving anchor.
 var zip_target := Vector2.ZERO
+## RUN_SPEED and ZIP_SPEED as the System Prompts change them (Main._apply_loadout()).
+var run_speed := RUN_SPEED
+var zip_speed := ZIP_SPEED
 
 @onready var visual: Node3D = $Visual
 @onready var body: MeshInstance3D = $Visual/Body
@@ -289,7 +292,7 @@ func _physics_process(dt: float) -> void:
 				accel = GROUND_ACCEL
 		else:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
-		vel.x = move_toward(vel.x, dir * RUN_SPEED, accel * dt)
+		vel.x = move_toward(vel.x, dir * run_speed, accel * dt)
 		if dir != 0 and not armed:
 			if int(dir) != facing and grounded:
 				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
@@ -441,15 +444,15 @@ func _zip(dt: float) -> void:
 		jumping = true
 		squash = Vector2(0.72, 1.3)
 		event.emit(&"jump", pos)
-	elif to.length() <= ZIP_SPEED * dt or state_timer <= 0:
-		vel = to / dt if to.length() <= ZIP_SPEED * dt else to.normalized() * ZIP_SPEED
+	elif to.length() <= zip_speed * dt or state_timer <= 0:
+		vel = to / dt if to.length() <= zip_speed * dt else to.normalized() * zip_speed
 	else:
-		vel = to.normalized() * ZIP_SPEED
+		vel = to.normalized() * zip_speed
 		if absf(to.x) > 1:
 			facing = 1 if to.x > 0 else -1
 		squash = squash.lerp(Vector2(1.15, 0.85), 0.5)
 	var before := pos
-	var arriving := state == &"zip" and to.length() <= ZIP_SPEED * dt
+	var arriving := state == &"zip" and to.length() <= zip_speed * dt
 	# One-way platforms let him through on the way up, like a jump.
 	set_collision_mask_value(4, vel.y >= 0 and drop_timer <= 0 and not _in_one_way_strip())
 	velocity = Vector3(vel.x, -vel.y, 0) * Px.M
@@ -461,7 +464,7 @@ func _zip(dt: float) -> void:
 		if arriving or state_timer <= 0:
 			end_zip(true)
 			event.emit(&"zip_end", pos)
-		elif (pos - before).length() < ZIP_SPEED * dt * 0.3:
+		elif (pos - before).length() < zip_speed * dt * 0.3:
 			# Brittle blocks in the way break and he zips on; anything else solid stops him there.
 			var ahead := Rect2(pos - Vector2(SIZE.x / 2, SIZE.y) + (zip_target - pos).normalized() * 4, SIZE)
 			var smashed := false
