@@ -782,7 +782,10 @@ bug in 1-1 at level 13), items (the tables and the font, 3000 rolled items withi
 30 % magic, more with item rarity, a magic item's name and lines, rings into the free slot, gear and tree adding
 up, an equipped weapon item as the gun with its local damage and critical chance and no switching, back without
 it, the items file, a drop landing, the target in reach, E picking it up, INVENTORY FULL, a bug's drop chance, a
-boss's three, an old key file's E moving to PICK UP ITEM), shooting (fire rate and damage
+boss's three, an old key file's E moving to PICK UP ITEM), hit points in the endgame (the numbers and caps, life
+from levels, gear and the tree, hearts in the campaign, a hit less armour without a heart, the popup and HUD
+flash, spikes' share, evasion at its cap, regeneration, dying from a hit or a fall and coming back full, a fall's
+share, tokens healing), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1117,6 +1120,16 @@ the campaign too (the user's call), at the area level.
   22 px, the nearest: `Main.loot_target`) a tooltip: name, base, kind and item level, implicit and affix lines
   (the endgame-only ones dimmed with a *), and `E · PICK UP` or INVENTORY FULL. The `pickup` action (E) takes it
   (`Main.pick_up()`): its name pops up, `itemPick` plays.
+- **Hit points in the endgame** (`Main.endgame`, set by the hideout and maps later; the campaign keeps hearts):
+  `Player.hp_mode` with `life` / `max_life`, set in `_apply_loadout()` from `Stats`: life is 50 + 5 a character
+  level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes). An enemy's hit costs
+  `Stats.enemy_hit()` of the area level, 8 x 1.06^level (8.5 at 1, 46 at 30, 264 at 60), less armour
+  (armour / (armour + 5 x damage), at most 90 %, Path of Exile's formula); evasion avoids a hit (no damage, no
+  knock-back) with a chance of evasion / (evasion + 100 + 20 x area level), at most 75 %, "EVADE" popping up.
+  Spikes take 15 % of the life (not evadable), falling out 20 %; at 0 Clawd dies and comes back at the checkpoint
+  with full life (maps will add portals and the XP loss); `regen` heals per second, a checkpoint fills it, a heart's
+  worth of tokens heals a quarter. The hit pops up as "-n"; the HUD shows a 64 px red life bar with "life / max"
+  instead of the hearts (the part just lost drains after a hit), the Firewall's slot after it.
 
 ## Menus and key bindings
 

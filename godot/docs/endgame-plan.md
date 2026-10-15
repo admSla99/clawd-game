@@ -104,10 +104,10 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 - [x] E0 The interview and this plan.
 - [x] E1 Character level: XP, levels, area levels, points from levels in the tree, the HUD bar, checks, README.
       Campaign area levels are 1 + 2n in play order (3-B 27); the campaign ends at about level 13.
-- [ ] E2 Items and stats: the item model, bases, affix tables, rarity, the stat model, numeric HP in the endgame,
+- [x] E2 Items and stats: the item model, bases, affix tables, rarity, the stat model, numeric HP in the endgame,
       drops on the ground and pickup, checks, README. Items drop in the campaign too, E picks them up (next weapon
-      moved to R), one equipped weapon item is the gun Clawd holds (the user's calls). Done: items, gear, stats,
-      drops and pickup; left: numeric HP.
+      moved to R), one equipped weapon item is the gun Clawd holds (the user's calls). HP: 50 + 5 a level, enemy
+      hits 8 x 1.06^area level, PoE's armour, evasion as a chance; `Main.endgame` turns it on (nothing does yet).
 - [ ] E3 Inventory and stash: the grid UI, equipping, tooltips with comparison, the stash, `items.json`, checks.
 - [ ] E4 The hideout: the room, the stash, the vendor, the terminal, the entry from the world map.
 - [ ] E5 Maps: chunks of world 1, the generator and its check, map items and mods, the Map Device, portals, the

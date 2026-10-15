@@ -32,3 +32,40 @@ static func crit_chance() -> float:
 
 static func crit_mult() -> float:
 	return (CRIT_MULTI + total("crit_multi")) / 100.0
+
+
+# --- The endgame's hit points (Main.endgame: the hideout and maps) -------------------------------------------
+
+## Life: BASE_LIFE, LIFE_PER_LEVEL per character level, the gear's `life`, and LIFE_PER_HEART for every heart the
+## prompt tree and the shop's Extra Heart give or take in the campaign.
+const BASE_LIFE := 50.0
+const LIFE_PER_LEVEL := 5.0
+const LIFE_PER_HEART := 25.0
+## An enemy's hit in an area of level a: ENEMY_HIT * ENEMY_GROWTH^a (8.5 at 1, 46 at 30, 264 at 60).
+const ENEMY_HIT := 8.0
+const ENEMY_GROWTH := 1.06
+## Armour takes armour / (armour + 5 x damage) off a hit, at most ARMOUR_CAP (Path of Exile's formula).
+const ARMOUR_CAP := 0.9
+## Evasion avoids a hit with a chance of evasion / (evasion + 100 + 20 x area level), at most EVADE_CAP.
+const EVADE_CAP := 0.75
+
+
+static func max_life() -> float:
+	var hearts := Prompts.stat("hearts") + Progress.upgrade("hearts")
+	return maxf(1.0, BASE_LIFE + LIFE_PER_LEVEL * Progress.char_level + total("life") + LIFE_PER_HEART * hearts)
+
+
+static func enemy_hit(area: int) -> float:
+	return ENEMY_HIT * pow(ENEMY_GROWTH, area)
+
+
+static func armour_reduction(armour: float, damage: float) -> float:
+	if armour <= 0 or damage <= 0:
+		return 0.0
+	return minf(ARMOUR_CAP, armour / (armour + 5.0 * damage))
+
+
+static func evade_chance(evasion: float, area: int) -> float:
+	if evasion <= 0:
+		return 0.0
+	return minf(EVADE_CAP, evasion / (evasion + 100.0 + 20.0 * area))

@@ -96,6 +96,7 @@ func _init() -> void:
 	await section("sub-agents that shoot (the prompt tree's Tool use.)", check_minions)
 	await section("character level and XP (docs/endgame-plan.md E1)", check_xp)
 	await section("items, gear and drops (docs/endgame-plan.md E2)", check_items)
+	await section("hit points in the endgame (docs/endgame-plan.md E2)", check_life)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1736,6 +1737,104 @@ func check_items() -> bool:
 	progress.equipped = saved.equipped
 	progress.upgrades = saved.upgrades
 	progress.tree = saved.tree
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+func check_life() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var gear = load("res://scripts/gear.gd")
+	var stats = load("res://scripts/stats.gd")
+	var saved := {"upgrades": progress.upgrades.duplicate(), "tree": progress.tree.duplicate()}
+	progress.upgrades = {}
+	progress.tree = []
+	progress.char_level = 10
+	progress.gear = {}
+	gear.invalidate()
+	# The numbers.
+	ok(is_equal_approx(stats.max_life(), 100.0) and is_equal_approx(stats.enemy_hit(1), 8.48) and stats.enemy_hit(60) > 250
+		and is_equal_approx(stats.armour_reduction(100, 20), 0.5) and stats.armour_reduction(1e9, 1) == 0.9
+		and is_equal_approx(stats.evade_chance(120, 1), 0.5) and stats.evade_chance(1e9, 1) == 0.75 and stats.evade_chance(0, 1) == 0.0,
+		"life 50 + 5 a level (100 at 10), an enemy's hit grows with the area, armour and evasion with their caps")
+	gear.equip({"base": "scrap_plating", "rarity": "magic", "ilvl": 10, "affixes": [{"id": "life", "tier": 1, "value": 20}]})
+	progress.tree = ["hover1", "hover2", "run1", "guardrails"]
+	ok(is_equal_approx(stats.max_life(), 145.0), "+20 life from gear and a heart from the tree (25) count")
+	# In the campaign: hearts as ever.
+	m.endgame = false
+	m.load_level("1-1")
+	await frames(3)
+	flat_ground(m)
+	p.pos = Vector2(10 * TILE, 16 * TILE)
+	p.invuln = 0
+	ok(not p.hp_mode and p.hurt(p.pos.x + 5) and p.hearts == p.max_hearts - 1, "in the campaign a hit costs a heart")
+	# In the endgame: hit points.
+	m.endgame = true
+	m.load_level("1-1")
+	await frames(3)
+	flat_ground(m)
+	p.pos = Vector2(10 * TILE, 16 * TILE)
+	p.vel = Vector2.ZERO
+	await frames(2)
+	var hit: float = stats.enemy_hit(1) * (1.0 - stats.armour_reduction(12, stats.enemy_hit(1)))
+	ok(p.hp_mode and is_equal_approx(p.max_life, 145.0) and is_equal_approx(p.life, 145.0) and p.armour == 12.0, "in the endgame Clawd has 145 life and the chassis' 12 armour")
+	var hearts: int = p.hearts
+	p.evasion = 0.0
+	p.invuln = 0
+	ok(p.hurt(p.pos.x + 5) and is_equal_approx(p.life, 145.0 - hit) and p.hearts == hearts,
+		"an enemy's hit takes %.1f life (8.5 less 12 armour), no heart" % hit)
+	await frames(2)
+	ok(m.overlay.popups.any(func(pp): return pp.text == "-%d" % ceili(hit)) and m.hud._hurt > 0, "the damage pops up over Clawd, the HUD's bar flashes")
+	p.invuln = 0
+	p.life = 100.0
+	p.hurt(p.pos.x + 5, p.max_life * p.SPIKE_LIFE, false)
+	ok(is_equal_approx(p.life, 100.0 - 145.0 * 0.15 * (1.0 - stats.armour_reduction(12, 145.0 * 0.15))), "spikes take 15% of the life, less armour")
+	# Evasion: with evasion maxed three in four hits are evaded.
+	p.evasion = 1e9
+	var evaded := 0
+	seed(5)
+	for i in 200:
+		p.invuln = 0
+		p.life = p.max_life
+		if not p.hurt(p.pos.x + 5):
+			evaded += 1
+	ok(evaded > 130 and evaded < 170, "evasion at its cap avoids about 75%% of hits (%d of 200)" % evaded)
+	p.evasion = 0.0
+	# Regeneration, the death, falling out.
+	p.regen = 30.0
+	p.invuln = 0
+	p.life = 50.0
+	await frames(60)
+	ok(p.life > 70.0 and p.life < 85.0, "30 life a second regenerates (%.1f after a second)" % p.life)
+	p.regen = 0.0
+	var died := {"n": 0}
+	var on_die := func(kind, _at) -> void:
+		if kind == &"die":
+			died.n += 1
+	p.event.connect(on_die)
+	p.invuln = 0
+	p.life = 3.0
+	p.hurt(p.pos.x + 5)
+	p.life = 10.0
+	p.fall_out()
+	ok(died.n == 2 and is_equal_approx(p.life, p.max_life), "at 0 life Clawd dies (a hit or falling out) and comes back with full life")
+	p.fall_out()
+	ok(is_equal_approx(p.life, p.max_life * 0.8), "falling out takes 20% of the life")
+	p.event.disconnect(on_die)
+	# Tokens heal instead of giving hearts.
+	p.life = 50.0
+	m.tokens = m.TOKENS_PER_HEART - 1
+	m.collect_token(p.pos)
+	ok(is_equal_approx(p.life, 50.0 + 145.0 * 0.25) and p.hearts == hearts, "a heart's worth of tokens heals a quarter of the life")
+	m.endgame = false
+	progress.gear = {}
+	progress.save_items()
+	gear.invalidate()
+	progress.upgrades = saved.upgrades
+	progress.tree = saved.tree
+	progress.char_level = 1
 	m.load_level("1-1")
 	await frames(3)
 	return true

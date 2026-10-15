@@ -499,6 +499,10 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			particles.emit(at + Vector2(0, -9), {count = 14, speed = 100, life = 0.5, color = [ORANGE, Color.WHITE], gravity = 300})
 			shake(0.35)
 			Game.hitstop(0.08)
+			if player.hp_mode:
+				overlay.popup("-%d" % ceili(player.last_damage), at + Vector2(0, -26), RED, 0.9)
+		&"evade":
+			overlay.popup("EVADE", at + Vector2(0, -26), Color("#8CE0FF"), 0.9)
 		&"pound_land":
 			_on_pound_land()
 		&"zip_end":
@@ -749,6 +753,13 @@ func _apply_loadout() -> void:
 	player.max_hearts = Player.MAX_HEARTS + Progress.upgrade("hearts")
 	player.hover_duration = Player.HOVER_DURATION * (1 + 0.3 * Progress.upgrade("hover"))
 	player.shield = Progress.in_stock("firewall") > 0
+	# The endgame's hit points (Stats).
+	player.hp_mode = endgame
+	player.max_life = Stats.max_life()
+	player.armour = Stats.total("armour")
+	player.evasion = Stats.total("evasion")
+	player.regen = Stats.total("regen")
+	player.area_level = area_level
 	# The prompt tree's allocated nodes (scripts/prompts.gd).
 	player.max_hearts = maxi(1, player.max_hearts + int(Prompts.stat("hearts")))
 	# With the gear's (Stats).
@@ -801,7 +812,13 @@ func collect_token(at: Vector2) -> void:
 	tokens += n
 	Sound.play("token")
 	hud.collect_token(overlay.to_view(at), n)
-	if tokens / TOKENS_PER_HEART > before / TOKENS_PER_HEART and player.hearts < maxi(HEART_CAP, player.max_hearts):
+	if tokens / TOKENS_PER_HEART > before / TOKENS_PER_HEART and player.hp_mode and player.life < player.max_life:
+		# In the endgame a heart's worth of tokens heals a quarter of the life.
+		var heal := minf(player.max_life - player.life, player.max_life * 0.25)
+		player.life += heal
+		Sound.play("heart")
+		overlay.popup("+%d LIFE" % roundi(heal), player.pos + Vector2(0, -28), RED)
+	elif tokens / TOKENS_PER_HEART > before / TOKENS_PER_HEART and not player.hp_mode and player.hearts < maxi(HEART_CAP, player.max_hearts):
 		player.hearts += 1
 		Sound.play("heart")
 		overlay.popup("+1 HEART", player.pos + Vector2(0, -28), RED)
@@ -881,8 +898,9 @@ func weapon_found(p: WeaponPickup) -> void:
 func activate_checkpoint(cp: Checkpoint) -> void:
 	player.spawn_point = cp.feet()
 	Sound.play("checkpoint")
-	# Refill, but keep hearts won from tokens (`if (hearts < maxHearts)` in TS).
+	# Refill, but keep hearts won from tokens (`if (hearts < maxHearts)` in TS); in the endgame the life.
 	player.hearts = maxi(player.hearts, player.max_hearts)
+	player.life = player.max_life
 	particles.emit(cp.feet() + Vector2(0, -22), {count = 24, speed = 90, life = 0.7, color = [ORANGE, Color("#F0A585")], gravity = 120})
 	overlay.popup("STATE SAVED", cp.feet() + Vector2(0, -36), Color("#F0A585"), 1.5, Checkpoint.Z, 6.0)
 

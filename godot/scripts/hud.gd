@@ -26,6 +26,8 @@ const ZERO_DIM := Color("#4A4A4E")
 const SHADOW := Color(0, 0, 0, 0.55)
 ## Heart slot pitch and the token flight time.
 const HEART_STEP := 11
+## The endgame's life bar width (px).
+const LIFE_W := 64
 const FLIGHT := 0.45
 const STAGGER := 0.04
 ## The counter coin turns once every SPIN_EVERY seconds, taking SPIN_TIME.
@@ -118,6 +120,8 @@ var _shield_up := false
 ## The XP bar's fill shown (it eases toward Experience.fraction()), the level it belongs to, and the seconds of
 ## the level-up flash left.
 var _xp_shown := -1.0
+## The life bar's light part (a share of the life), draining down to the life after a hit.
+var _life_shown := 1.0
 var _xp_level := 0
 var _level_flash := 0.0
 var _shield_break := 0.0
@@ -164,6 +168,9 @@ func collect_token(from: Vector2, n := 1) -> void:
 
 
 func _on_player_event(kind: StringName, _at: Vector2) -> void:
+	if kind in [&"hurt", &"fell", &"die"] and _player.hp_mode:
+		_hurt = 0.3
+		return
 	if kind == &"die" and _hearts > 0:
 		# The last heart breaks, then all of them come back.
 		_lose(_hearts - 1)
@@ -197,6 +204,12 @@ func _process(dt: float) -> void:
 	_spark_flash = maxf(0.0, _spark_flash - dt)
 	_shield_break = maxf(0.0, _shield_break - dt)
 	_level_flash = maxf(0.0, _level_flash - dt)
+	if _player and _player.hp_mode:
+		var frac := clampf(_player.life / _player.max_life, 0, 1)
+		if frac >= _life_shown:
+			_life_shown = frac
+		elif _hurt <= 0.15:
+			_life_shown = move_toward(_life_shown, frac, dt * 0.8)
 	var lv := Progress.char_level
 	if _xp_shown < 0 or lv < _xp_level:
 		_xp_shown = Experience.fraction()
@@ -258,6 +271,21 @@ func _process(dt: float) -> void:
 	queue_redraw()
 
 
+## The endgame's life bar in the panel: dark track, the life in red with the part just lost in light red draining
+## after it, "life / max" over it; it flashes white when hit.
+func _draw_life(o: Vector2) -> void:
+	var r := Rect2(o.x + 5, o.y + 3, LIFE_W, 10)
+	var frac := clampf(_player.life / _player.max_life, 0, 1)
+	draw_rect(r, BORDER)
+	draw_rect(r.grow(-1), Color(0.03, 0.03, 0.04))
+	var inner := r.grow(-1)
+	draw_rect(Rect2(inner.position, Vector2(roundf(inner.size.x * clampf(_life_shown, 0, 1)), inner.size.y)), RED.lightened(0.45))
+	draw_rect(Rect2(inner.position, Vector2(roundf(inner.size.x * frac), inner.size.y)), Color.WHITE if _hurt > 0.2 else RED)
+	var text := "%d / %d" % [ceili(_player.life), roundi(_player.max_life)]
+	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 2, SHADOW)
+	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 1, TEXT)
+
+
 func _slots() -> int:
 	return maxi(_player.max_hearts if _player else Player.MAX_HEARTS, _hearts)
 
@@ -268,6 +296,9 @@ func _shield_slot() -> bool:
 
 
 func _heart_pos(i: int) -> Vector2:
+	# In the endgame only the Firewall's slot is drawn, after the life bar.
+	if _player and _player.hp_mode:
+		return ORIGIN + _shake() + Vector2(5 + LIFE_W + 3, 4)
 	return ORIGIN + _shake() + Vector2(5 + i * HEART_STEP, 4)
 
 
@@ -276,6 +307,8 @@ func _shake() -> Vector2:
 
 
 func _hearts_w() -> int:
+	if _player and _player.hp_mode:
+		return 5 + LIFE_W + (HEART_STEP if _shield_slot() else 0) + 5
 	return 5 + (_slots() + (1 if _shield_slot() else 0)) * HEART_STEP - 2 + 5
 
 
@@ -318,9 +351,11 @@ func _draw() -> void:
 		var flash := _level_flash > 0 and fmod(_level_flash, 0.24) < 0.12
 		draw_xp(self, Vector2(o.x + 1, o.y + H + 4), _xp_level, _xp_shown, Color.WHITE if flash else Experience.COLOR)
 
-	# Hearts.
+	# Hearts, or in the endgame the life bar.
 	var beat := _hearts == 1 and _slots() > 1 and fmod(_t, 0.9) < 0.14
-	for i in _slots():
+	if _player and _player.hp_mode:
+		_draw_life(o)
+	for i in (0 if _player and _player.hp_mode else _slots()):
 		var p := _heart_pos(i)
 		var g: float = _gained.get(i, 1.0)
 		if i >= _hearts or g < 0:

@@ -58,6 +58,9 @@ const SPIN_RING_Y := 10.0
 const SIZE := Vector2(18, 18)
 const HITBOX := Rect2(-7, -15, 14, 15)
 const SPIKE_PROBE := Rect2(-6, -6, 12, 6)
+## In the endgame: spikes take this share of the life, falling out of the level this share.
+const SPIKE_LIFE := 0.15
+const FALL_LIFE := 0.2
 
 static var FLASH := flash_material()
 
@@ -76,6 +79,18 @@ var max_hearts := MAX_HEARTS
 var hover_duration := HOVER_DURATION
 ## A Firewall from the shop is up: the next hit costs no heart.
 var shield := false
+## The endgame (Main.endgame, docs/endgame-plan.md E2): hit points instead of hearts. A hit costs the area level's
+## enemy hit (Stats.enemy_hit()) less armour, evasion may avoid it, spikes take a share of the life and falling out
+## more; life regenerates `regen` a second. Main sets these per level (_apply_loadout()).
+var hp_mode := false
+var life := 100.0
+var max_life := 100.0
+var armour := 0.0
+var evasion := 0.0
+var regen := 0.0
+var area_level := 1
+## What the last hit took (after armour), for the popup.
+var last_damage := 0.0
 var invuln := 0.0
 var hurt_timer := 0.0
 var coyote := 0.0
@@ -155,6 +170,7 @@ func enter_level(l: Level, start: Vector2, level_bottom: float) -> void:
 	spawn_point = start
 	kill_y = level_bottom + 24
 	hearts = max_hearts
+	life = max_life
 	respawn()
 
 
@@ -193,6 +209,14 @@ func in_play() -> bool:
 ## fellOut() in TS (out of the level's bottom, or caught by the rising void): a heart less, and back to the
 ## checkpoint ("die" when it was the last one, which refills them).
 func fall_out() -> void:
+	if hp_mode:
+		last_damage = max_life * FALL_LIFE
+		life -= last_damage
+		event.emit(&"die" if life <= 0 else &"fell", pos)
+		if life <= 0:
+			life = max_life
+		respawn()
+		return
 	hearts -= 1
 	event.emit(&"die" if hearts <= 0 else &"fell", pos)
 	if hearts <= 0:
@@ -208,15 +232,30 @@ func hitbox() -> Rect2:
 ## Knocks Clawd away from from_x. Returns false when invulnerable or when the last heart was lost
 ## (Clawd then respawns with full hearts).
 ## A Firewall takes the hit instead: Clawd is knocked back and briefly invulnerable, but keeps his hearts.
-func hurt(from_x: float) -> bool:
+## In the endgame (hp_mode) the hit takes `damage` life (an enemy's hit of the area level when negative), less
+## armour; an `evadable` one may be evaded ("evade": no damage, no knock-back, a short grace).
+func hurt(from_x: float, damage := -1.0, evadable := true) -> bool:
 	if invuln > 0:
 		return false
 	var blocked := shield
 	if blocked:
 		shield = false
+	elif hp_mode:
+		var dmg := damage if damage >= 0 else Stats.enemy_hit(area_level)
+		if evadable and randf() < Stats.evade_chance(evasion, area_level):
+			invuln = HURT_INVULN * 0.5
+			event.emit(&"evade", pos)
+			return false
+		last_damage = dmg * (1.0 - Stats.armour_reduction(armour, dmg))
+		life -= last_damage
+		if life <= 0:
+			event.emit(&"die", pos)
+			life = max_life
+			respawn()
+			return false
 	else:
 		hearts -= 1
-	if hearts <= 0:
+	if not hp_mode and hearts <= 0:
 		event.emit(&"die", pos)
 		hearts = max_hearts
 		respawn()
@@ -243,6 +282,8 @@ func _physics_process(dt: float) -> void:
 	squash = squash.lerp(Vector2.ONE, minf(1.0, dt * 12))
 	invuln = maxf(0.0, invuln - dt)
 	hurt_timer = maxf(0.0, hurt_timer - dt)
+	if hp_mode:
+		life = minf(max_life, life + regen * dt)
 	jump_buffer = maxf(0.0, jump_buffer - dt)
 	spin_cooldown -= dt
 	drop_timer -= dt
@@ -561,7 +602,7 @@ func _check_hazards() -> void:
 		fall_out()
 		return
 	if invuln <= 0 and _touches_tile(Level.SPIKE, SPIKE_PROBE):
-		if hurt(pos.x + 10.0 * signf(vel.x)):
+		if hurt(pos.x + 10.0 * signf(vel.x), max_life * SPIKE_LIFE, false):
 			vel.y = -HURT_KNOCK_Y * 1.3
 
 	var hb := Rect2(pos + HITBOX.position, HITBOX.size)
