@@ -8,6 +8,10 @@ buy better weapons and upgrades in the shop. The boss of World 2 is **Codex**, w
 **World 3** Clawd hooks onto API endpoints and zips across chasms, sends sub-agents that replay his last moves to
 hold pressure plates, and builds himself in the prompt tree.
 
+After the Router (3-B) the **endgame** opens, an action RPG in the manner of Path of Exile: Clawd gains levels
+from XP, enemies drop gear with random affixes, his hideout has a stash, a vendor and the **Map Device**, and maps
+are generated levels with mods, a boss and more maps to find (being built: `godot/docs/endgame-plan.md`).
+
 The game lives in [`godot/`](godot/); [`godot/README.md`](godot/README.md) is its detailed design doc (rendering,
 levels, every system, checks, layout). It started as a port of a TypeScript browser game, which is kept on the
 `ts-legacy` branch; the 2D Godot port is on `godot-2d-port`.
@@ -20,6 +24,8 @@ Open `godot/project.godot` in Godot 4.7.2 and press F5, or from `godot/`:
 godot --path .                                   # play
 godot --headless --script tools/check.gd         # every check, exits non-zero on failure
 godot --headless --script tools/reach.gd         # every level's exit, sparks and sub-agents are reachable
+godot --headless --script tools/reach.gd -- chunks   # every map chunk can be crossed
+godot --headless --script tools/reach.gd -- maps     # generated maps T1-T5: the boss can be reached
 ```
 
 ## Controls
@@ -36,8 +42,10 @@ godot --headless --script tools/reach.gd         # every level's exit, sparks an
 | ↓ / S in the air | Ground pound (breaks purple "corrupted" blocks) |
 | ↓ + Space | Drop through a platform |
 | Mouse | World 2: aim (↑ / ↓ + X aims without a mouse) |
-| 1–5 · Q E · mouse wheel | Switch weapon |
-| B (on the map) | Shop |
+| 1–5 · Q R · mouse wheel | Switch weapon (not while a weapon item is equipped) |
+| E | Pick up the item you stand by · use a hideout station |
+| I | Inventory (with the stash on the map) |
+| B · T · O (on the map) | Shop · prompt tree · hideout (after 3-B) |
 | Esc / P · M · H | Pause · mute · controls |
 | Pause → Keybindings | Rebind keys |
 
@@ -70,9 +78,21 @@ Spreader, Stream Output, Attention Beam, Opus Cannon.
 **Shop**: upgrades (Extra Heart, Bigger Model, Faster Inference, Longer Context, Jet Tuning, Token Magnet), tools
 (Spark Radar, Fortune Haiku), consumables (Firewall, Double Tokens) and, once a weapon is found, the armory.
 
-**Prompt tree** (world 3, T on the map): a passive tree like Path of Exile's, with points from world 3's sparks and
-more for tokens; small nodes and notables such as Be concise. (faster, weaker shots), Delegate. (one more sub-agent),
-Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back). Refunds are free.
+**Prompt tree** (world 3, T on the map): a passive tree like Path of Exile's, with a point per character level,
+one per world 3 spark and more for tokens; small nodes and notables such as Be concise. (faster, weaker shots),
+Delegate. (one more sub-agent), Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back).
+Refunds are free.
+
+**Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T5)
+- Character level: XP from every enemy (less from ones far below Clawd), up to level 100; about 13 by the end of 3-B.
+- Items drop everywhere: weapons (the five guns), context windows, chassis, actuators, treads, cores and plugins,
+  normal / magic / rare with tiered affixes; E picks them up, I opens the inventory (equip, compare, stash).
+- Hit points instead of hearts in the hideout and maps: life, armour, evasion, regeneration, resistances.
+- The hideout (O on the map after 3-B): the stash, a vendor (buys anything, sells a stock that changes after each
+  cleared level), a terminal for the prompt tree, a portal, and the Map Device.
+- Maps: items with a tier and mods (more enemies, tougher enemies, less life ...) that raise item quantity and
+  rarity; the device turns one into a generated level of world 1's chunks with six portals (a death costs one and
+  some XP) and THE OVERFITTER at its end, who drops more maps.
 
 Tokens collected in a level are added to your wallet when you finish it; every 300 tokens in a level give a heart.
 Sparks are spent in the shop but still count as found on the map.
@@ -83,5 +103,6 @@ Sparks are spent in the shop but still count as found on the map.
 |---|---|
 | `godot/` | The game (scenes, scripts, shaders, levels, tools); see `godot/README.md` |
 | `godot/docs/` | Plans: `port-plan.md` (the finished port), `world3-plan.md`, `prompt-tree-plan.md`, `endgame-plan.md` (the ARPG endgame, in progress), `scenery-themes.md` |
+| `godot/levels/` | The campaign's levels (`<id>.txt` maps, converted `.tscn`, `index.json`), the hideout, and `chunks/` for maps |
 | `docs/` | Images for this README |
 | `references/` | Reference images |

@@ -64,12 +64,19 @@ The game targets desktop (keyboard and mouse; no gamepad or touch, the user's ca
 - **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute, crosshair colour →
   `user://settings.cfg`), `Sound` (synthesizes effects/music offline into AudioStreamWAVs; every
   `Sound.play("x")` needs `x` in `Sound.PRELOAD`, checked), `Progress` (cleared levels, sparks, sub-agents, wallet,
-  shop state, weapons → `user://progress.json`).
+  shop state, weapons, the prompt tree, character level and XP, runs, maps done → `user://progress.json`; the
+  equipped gear, inventory, stash, vendor stock and the Map Device's map → `user://progress_items.json`,
+  `Progress.items_path()`, next to whatever `path` is, so check.gd's own file covers both).
 - **UI** is pixel art drawn in the SubViewport's `Ui` CanvasLayer with `PixelFont` (`Hud`, `Overlay`, `FrontEnd`,
-  `Shop`, `Menu`). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
+  `Shop`, `Menu`, and made in code by Main: `Tree`, `Items` (the inventory), `Loot` (labels and tooltips of items
+  on the ground and the hideout's stations)). The SubViewport is `Main.PAD` px larger than the screen on every side, so screen-space UI is
   offset by PAD. Screen-fixed 3D props hang on the camera; anything in front of z = 0 is drawn shifted down by z/3.
 - **Spawns**: `Level.SPAWNS` in `scripts/level.gd` maps map characters to nodes (`B` is a marker where `Main`
-  spawns the level's `boss`); numbered spawns (signs, sub-agents, sparks) get `index` in map order.
+  spawns the level's `boss`); numbered spawns (signs, sub-agents, sparks) get `index` in map order. Maps are built
+  at runtime with `Level.build()` from `MapGen`'s rows (no `.tscn`); their chunks use `&` / `~` as enemy slots.
+- **Endgame stats**: `Stats.total(key)` = the prompt tree (`Prompts.stat()`) + the equipped gear (`Gear.stat()`);
+  read it (or `Stats.damage_mult()` etc.) for anything gear can change. `Main.endgame` (the hideout and maps) turns
+  on hit points (`Player.hp_mode`) instead of hearts.
 
 ## Status and plans
 
@@ -88,13 +95,17 @@ crosshair, and the shop's ARMORY and GUN MODS once a weapon is found.
 
 **`godot/docs/world3-plan.md` is world 3's plan** (design, decisions, milestones W0-W10, all done), and
 **`godot/docs/prompt-tree-plan.md`** the changes after its playthrough (the prompt tree, sub-agents that shoot, a
-longer 3-4). **`godot/docs/endgame-plan.md` is the next work**: a Path of Exile-like ARPG endgame (character
+longer 3-4). **`godot/docs/endgame-plan.md` is the current work**: a Path of Exile-like ARPG endgame (character
 levels from XP, gear with affixes, a grid inventory and stash, currency orbs, a playable hideout with a Map
 Device, procedural maps from chunks, elements and resistances, the Atlas, Delirium, Breaches, pinnacle bosses),
-the user's decisions and milestones E0-E13; HP replaces hearts only in the hideout and maps, the campaign keeps
-hearts. E1-E5 are done (character level, items and drops, the inventory and stash, the hideout: `levels/hideout.txt`
-+ `hideout.json`, outside index.json's play order, opened from the map with O once 3-B is beaten; maps: `maps.gd`,
-`map_gen.gd` building levels at runtime from `levels/chunks/<theme>/*.txt`, checked by `reach.gd -- chunks` / `-- maps`).
+the user's decisions and milestones E0-E13.
+E1-E5, the vertical slice, are done and played (2026-10-16), then tuned harder: character level and XP
+(`experience.gd`), items, gear and drops (`items.gd`, `gear.gd`, `stats.gd`, `item_drop.gd`, `loot_view.gd`), hit
+points in the endgame, the inventory and stash (`inventory_screen.gd`, `item_tooltip.gd`), the hideout
+(`levels/hideout.txt` + `hideout.json`, outside index.json's play order, O on the map once 3-B is beaten;
+`station.gd`, `vendor.gd`) and maps (`maps.gd`, `map_gen.gd` building levels at runtime from
+`levels/chunks/<theme>/*.txt`, checked by `reach.gd -- chunks` / `-- maps`; `map_boss.gd`; `Main.map_run`). E6, the
+currency orbs, is next.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
 
@@ -105,9 +116,18 @@ hit enemies show damage numbers and, once hurt, a health bar (`Overlay`); the sh
 Spark Radar, Fortune Haiku, Firewall and Double Tokens besides the TS items; weapons/mods are a locked ARMORY row
 until Clawd finds a weapon. Prices are tuned to the 5× income, and the shop's spark prices must add up to the
 levels' sparks (checked; *Shop* in `godot/README.md` has the token income per level).
+The endgame's (keep them too): items drop in the campaign as well, at the area level (1 + 2n in play order);
+E picks items up and uses stations (next weapon moved to R); one equipped weapon item is the gun Clawd holds (no
+switching then); hit points only in the hideout and maps, the campaign keeps hearts; prompt points from character
+levels, world 3's sparks and bought ones; maps have six portals, a death costs one and 10 % of the level's XP and
+the map waits in the device; tokens fly to the HUD fast (a pile lands at once).
 
 A new level: write `levels/<id>.txt` and its `index.json` entry, `convert_level.gd -- <id>`, `reach.gd -- <id>`, a
 `tools/checks/<id>.gd` section, then check it looks right (capture screenshots of the real window).
+
+A new map chunk: a 20-row `levels/chunks/<theme>/<name>.txt` whose first and last columns are open above row 15
+and solid from it, then `reach.gd -- chunks` and `reach.gd -- maps`. Capture scripts must point `Progress.path` at
+a file of their own (kills and drops write XP and items).
 
 A new entity: a script in `godot/scripts/`, a `Level.SPAWNS` entry and map character (add it to the legend in
 `godot/README.md`), re-convert the levels using it, sounds through `Sound`, a `tools/check.gd` section, and a

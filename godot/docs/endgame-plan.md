@@ -1,5 +1,8 @@
 # Endgame plan: THE ATLAS (2026-10-15)
 
+> **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
+> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) is next.
+
 After world 3 the game grows an ARPG endgame in the manner of Path of Exile: farming maps for gear, currency and
 levels that feed the prompt tree. Chosen by the user in an interview on 2026-10-15 (every pick below is theirs).
 Tick the boxes in the commit that finishes a task; record extras the user asks for under *Added beyond the plan*.
