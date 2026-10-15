@@ -36,17 +36,18 @@ static func get_def(id: String) -> Dictionary:
 	return WEAPONS.get(id, WEAPONS.blaster)
 
 
-## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level.
+## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level; times the prompt
+## tree's and the gear's (Stats) and the equipped weapon item's own (local) damage and fire rate.
 static func damage_mult() -> float:
-	return (1.0 + 0.25 * Progress.upgrade("damage")) * Prompts.damage_mult()
+	return (1.0 + 0.25 * Progress.upgrade("damage")) * Stats.damage_mult() * (1.0 + Gear.stat("local_damage") / 100.0)
 
 
 static func rate_mult() -> float:
-	return (1.0 + 0.15 * Progress.upgrade("rate")) * Prompts.rate_mult()
+	return (1.0 + 0.15 * Progress.upgrade("rate")) * Stats.rate_mult() * (1.0 + Gear.stat("local_rate") / 100.0)
 
 
 static func heat_cap() -> float:
-	return 100.0 + 40.0 * Progress.upgrade("context")
+	return (100.0 + 40.0 * Progress.upgrade("context")) * (1.0 + Stats.total("heat") / 100.0)
 
 
 ## The owned weapons in slot order.

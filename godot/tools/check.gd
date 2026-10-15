@@ -67,6 +67,7 @@ func _init() -> void:
 	var real_progress: String = progress.path
 	progress.path = "user://progress_check_%d.json" % OS.get_process_id()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.items_path()))
 	progress.load_file()
 	# The same for the settings: sections that press M or rebind keys save them, and parallel runs writing the
 	# player's settings.cfg left the game muted.
@@ -94,6 +95,7 @@ func _init() -> void:
 	await section("the prompt tree (world 3, docs/prompt-tree-plan.md)", check_prompts)
 	await section("sub-agents that shoot (the prompt tree's Tool use.)", check_minions)
 	await section("character level and XP (docs/endgame-plan.md E1)", check_xp)
+	await section("items, gear and drops (docs/endgame-plan.md E2)", check_items)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -101,6 +103,7 @@ func _init() -> void:
 	await section("sparks in 1-1 (src/entities/collectibles.ts)", check_sparks)
 	await section("shop (src/scenes/shop.ts, src/weapons.ts)", check_shop)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.items_path()))
 	progress.path = real_progress
 	progress.load_file()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.path))
@@ -1555,6 +1558,196 @@ func check_xp() -> bool:
 	return true
 
 
+func check_items() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var settings = root.get_node("Settings")
+	var items = load("res://scripts/items.gd")
+	var gear = load("res://scripts/gear.gd")
+	var stats = load("res://scripts/stats.gd")
+	var weapons = load("res://scripts/weapons.gd")
+	var saved := {"weapons": progress.weapons.duplicate(), "equipped": progress.equipped, "upgrades": progress.upgrades.duplicate(),
+		"tree": progress.tree.duplicate()}
+	progress.gear = {}
+	progress.inventory = []
+	progress.upgrades = {}
+	progress.tree = []
+	gear.invalidate()
+	# The tables: affixes roll on kinds that exist, tiers go up, every text fits the font.
+	var kinds: Array = items.KIND_NAME.keys()
+	var bad := []
+	var text := ""
+	for id in items.AFFIXES:
+		var a: Dictionary = items.AFFIXES[id]
+		var prev := 0
+		for t in a.tiers:
+			if t[0] < prev or t[1] > t[2]:
+				bad.append(id)
+			prev = t[0]
+		if not a.kinds.all(func(k): return k in kinds) or a.type not in ["prefix", "suffix"]:
+			bad.append(id)
+		text += a.text + " ".join(a.names)
+	for id in items.BASES:
+		if items.BASES[id].kind not in kinds:
+			bad.append(id)
+		text += items.BASES[id].name
+	text += " ".join(items.RARE_FIRST) + " ".join(items.KIND_NAME.values()) + "* only in the endgame (hit points) · INVENTORY FULL PICK UP ITEM LEVEL"
+	for k in items.RARE_SECOND:
+		text += " ".join(items.RARE_SECOND[k])
+	var missing := []
+	for ch in text:
+		if ch != " " and not PixelFont.GLYPHS.has(ch) and ch not in missing:
+			missing.append(ch)
+	ok(bad.is_empty() and missing.is_empty(), "%d bases and %d affixes: tiers go up, kinds exist, the font has every character %s %s"
+		% [items.BASES.size(), items.AFFIXES.size(), bad, missing])
+	# Rolling: 3000 items at levels 1-80.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var count := {"normal": 0, "magic": 0, "rare": 0}
+	var wrong := []
+	for i in 3000:
+		var lvl := 1 + i % 80
+		var it: Dictionary = items.roll(lvl, rng)
+		count[it.rarity] += 1
+		var pre: int = items.count_type(it, "prefix")
+		var suf: int = items.count_type(it, "suffix")
+		var ids: Array = it.affixes.map(func(a): return a.id)
+		var ok_tiers: bool = it.affixes.all(func(a):
+			var t: Array = items.AFFIXES[a.id].tiers[a.tier]
+			return t[0] <= lvl and a.value >= t[1] and a.value <= t[2] and items.kind(it) in items.AFFIXES[a.id].kinds)
+		var fine: bool = items.BASES[it.base].level <= lvl and ok_tiers and ids.size() == _as_set(ids).size()
+		match it.rarity:
+			"normal": fine = fine and ids.is_empty()
+			"magic": fine = fine and ids.size() >= 1 and pre <= 1 and suf <= 1
+			"rare": fine = fine and ids.size() >= 3 and pre <= 3 and suf <= 3 and it.has("name")
+		if not fine:
+			wrong.append(it)
+	ok(wrong.is_empty(), "3000 rolled items: bases and tiers their level allows, values in range, no affix twice; magic 1-2, rare 3-6 affixes %s" % [wrong.slice(0, 2)])
+	ok(abs(count.rare / 3000.0 - 0.06) < 0.02 and abs(count.magic / 3000.0 - 0.3) < 0.04,
+		"about 6%% rare and 30%% magic (%d rare, %d magic, %d normal)" % [count.rare, count.magic, count.normal])
+	rng.seed = 11
+	var more := 0
+	for i in 1000:
+		if items.roll(30, rng, "", "", 100.0).rarity != "normal":
+			more += 1
+	ok(more > 600, "item rarity +100%% makes more magic and rare items (%d of 1000)" % more)
+	var magic := {"base": "iron_plugin", "rarity": "magic", "ilvl": 30, "affixes": [{"id": "damage", "tier": 1, "value": 10}, {"id": "rate", "tier": 0, "value": 4}]}
+	ok(items.name_of(magic) == "Biting Iron Plugin of Haste" and items.lines(magic).map(func(l): return l[0]) == ["+5% damage", "+10% damage", "+4% fire rate"],
+		"a magic item's name and lines: %s, %s" % [items.name_of(magic), items.lines(magic).map(func(l): return l[0])])
+	# Gear adds up with the tree.
+	var ring2 := {"base": "iron_plugin", "rarity": "normal", "ilvl": 1, "affixes": []}
+	ok(gear.slot_for(magic) == "ring1" and gear.equip(magic).is_empty() and gear.slot_for(ring2) == "ring2" and gear.equip(ring2).is_empty(),
+		"plugins go into the first free ring slot")
+	ok(gear.stat("damage") == 20.0 and is_equal_approx(stats.damage_mult(), 1.2) and is_equal_approx(stats.rate_mult(), 1.04)
+		and is_equal_approx(weapons.damage_mult(), 1.2), "two plugins: +20% damage, +4% fire rate, read by the weapons")
+	progress.tree = ["dmg1"]
+	ok(is_equal_approx(stats.damage_mult(), 1.28), "the tree's +8% adds to the gear's (x1.28)")
+	progress.tree = []
+	var gun_item := {"base": "spreader", "rarity": "magic", "ilvl": 20, "affixes": [{"id": "local_damage", "tier": 2, "value": 50}]}
+	gear.equip(gun_item)
+	progress.weapons = ["blaster"]
+	progress.equipped = "blaster"
+	m.load_level("2-1")
+	await frames(3)
+	ok(m.gun.weapon.id == "spreader" and is_equal_approx(weapons.damage_mult(), 1.2 * 1.5) and is_equal_approx(stats.crit_chance(), 0.05)
+		and is_equal_approx(stats.crit_mult(), 1.5), "an equipped weapon item is the gun Clawd holds; its local damage and 5% critical chance count")
+	Input.action_press("prev")
+	await frames(2)
+	Input.action_release("prev")
+	ok(m.gun.weapon.id == "spreader", "no switching weapons while one is equipped")
+	gear.unequip("weapon")
+	m.load_level("2-1")
+	await frames(3)
+	ok(m.gun.weapon.id == "blaster" and is_equal_approx(stats.crit_chance(), 0.0), "without it, the weapon picked with 1-5 again")
+	# Saved to a file of their own, numbers whole again.
+	progress.inventory = [gun_item.duplicate(true)]
+	progress.save_items()
+	progress.load_file()
+	ok(progress.gear.ring1.affixes[0].value == 10 and typeof(progress.gear.ring1.affixes[0].value) == TYPE_INT
+		and progress.inventory.size() == 1 and progress.inventory[0].base == "spreader" and FileAccess.file_exists(progress.items_path()),
+		"the gear and the inventory are saved in %s" % progress.items_path().get_file())
+	# Drops: one lands, Clawd stands by it, E picks it up.
+	gear.unequip("ring1")
+	gear.unequip("ring2")
+	progress.inventory = []
+	m.load_level("1-1")
+	await frames(3)
+	flat_ground(m)
+	p.pos = Vector2(10 * TILE, 16 * TILE)
+	p.vel = Vector2.ZERO
+	var d = m.drop_item(Vector2(30 * TILE, 15 * TILE))
+	await frames(60)
+	ok(d.landed and is_equal_approx(d.fpos.y, 16 * TILE) and d.item.ilvl == 1 and m.loot_target == null,
+		"a dropped item of the area level falls onto the ground; out of reach it is no target")
+	p.pos = Vector2(d.fpos.x + 6, 16 * TILE)
+	await frames(3)
+	ok(m.loot_target == d, "standing by it makes it the target (its tooltip shows)")
+	ok(settings.bindings[&"pickup"] == [KEY_E] and settings.bindings[&"next"] == [KEY_R], "E picks up, R is the next weapon")
+	Input.action_press("pickup")
+	await frames(2)
+	Input.action_release("pickup")
+	await frames(2)
+	ok(progress.inventory.size() == 1 and not is_instance_valid(d) and m.overlay.popups.any(func(pp): return pp.text == items.name_of(progress.inventory[0])),
+		"E takes it into the inventory, its name pops up")
+	d = m.drop_item(p.pos)
+	await frames(60)
+	progress.inventory = []
+	for i in 10:
+		progress.inventory.append({"base": "scrap_plating", "rarity": "normal", "ilvl": 1, "affixes": []})
+	ok(gear.cells_used() == 60 and not m.pick_up(d) and is_instance_valid(d) and m.overlay.popups.any(func(pp): return pp.text == "INVENTORY FULL"),
+		"a full inventory (60 cells) takes nothing: INVENTORY FULL")
+	# A bug's chance and a boss's drops.
+	var drops := func() -> Array: return get_nodes_in_group("loot")
+	for n in drops.call():
+		n.free()
+	m.loot_rng.seed = 3
+	for i in 1000:
+		m.roll_drop(3.0, p.pos)
+	var n_bug: int = drops.call().size()
+	ok(n_bug > 25 and n_bug < 60, "a bug (3 hp) drops an item about 4%% of the time (%d of 1000)" % n_bug)
+	for n in drops.call():
+		n.free()
+	var had_boss = m.info.get("boss")
+	m.info.boss = "router"
+	m.boss_defeated(null, p.pos)
+	ok(drops.call().size() == m.BOSS_DROPS, "a boss drops %d items" % m.BOSS_DROPS)
+	if had_boss == null:
+		m.info.erase("boss")
+	else:
+		m.info.boss = had_boss
+	progress.char_level = 1
+	progress.xp = 0
+	# The saved key bindings from before PICK UP ITEM: E moves to it.
+	var cfg := ConfigFile.new()
+	for a in settings.BINDABLE:
+		if a != &"pickup":
+			cfg.set_value("keys", a, settings.DEFAULTS[a] if a != &"next" else [KEY_E])
+	cfg.save(settings.path)
+	settings._ready()
+	ok(settings.bindings[&"pickup"] == [KEY_E] and settings.bindings[&"next"] == [KEY_R] and settings.bindings[&"jump"].has(KEY_W)
+		and settings.bindings[&"up"].has(KEY_W), "an old save's E (next weapon) becomes PICK UP ITEM, next weapon gets R")
+	settings.reset_defaults()
+	progress.gear = {}
+	progress.inventory = []
+	progress.save_items()
+	gear.invalidate()
+	progress.weapons = saved.weapons
+	progress.equipped = saved.equipped
+	progress.upgrades = saved.upgrades
+	progress.tree = saved.tree
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+static func _as_set(a: Array) -> Dictionary:
+	var out := {}
+	for x in a:
+		out[x] = true
+	return out
+
+
 func check_minions() -> bool:
 	var m = current_scene
 	var p = m.player
@@ -2340,9 +2533,9 @@ func check_menus() -> bool:
 	var hook_lines: Array = menu.control_lines().map(func(l): return l[1])
 	progress.weapons = had
 	progress.tools = had_tools
-	ok(plain == 8 and armed_lines.size() == 12 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
-		"with a weapon found it adds shooting, aiming and switching")
-	ok(hook_lines.size() == 13 and hook_lines[-3].begins_with("Tool Call"), "with the Tool Call, a line for it")
+	ok(plain == 9 and "Pick up the item you stand by" in armed_lines and armed_lines.size() == 13 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
+		"picking up items, and with a weapon found it adds shooting, aiming and switching")
+	ok(hook_lines.size() == 14 and hook_lines[-4].begins_with("Tool Call"), "with the Tool Call, a line for it")
 
 	# Keybindings: rebind jump's second slot.
 	menu.handle(key(KEY_ENTER))

@@ -6,8 +6,8 @@ extends Node3D
 ## overflows the gun for 1.3 s while it cools. Heat drains 32 a second, three quarters of the cap a second while
 ## overflowed. It runs after the player (process_physics_priority), so Clawd faces where he aims.
 ## Aim: the mouse while it moved in the last 4 s or a mouse button is held (MouseAiming()), else the keys: up /
-## down (down only in the air) with or without a side, else straight ahead. Switching: next / prev (Q / E, the
-## wheel) through the owned weapons, 1-5 for a slot; the weapon's name shows over Clawd for a moment.
+## down (down only in the air) with or without a side, else straight ahead. Switching: next / prev (R / Q, the
+## wheel) through the owned weapons, 1-5 for a slot (not while a weapon item is equipped: then Clawd holds its gun); the weapon's name shows over Clawd for a moment.
 ## Drawn as the voxel gun (GunSprite) in Clawd's hands, turned to the aim around its grip (upside down when
 ## aiming left, like the 2D sprite), kicking back on each shot, with a muzzle flash.
 
@@ -70,6 +70,9 @@ func arm(on: bool, id := "blaster") -> void:
 	recoil = 0.0
 	shrink = 1.0
 	label_t = 2.5 if on else 0.0
+	# An equipped weapon item (Gear) decides the gun.
+	if not Gear.weapon().is_empty():
+		id = Items.BASES[Gear.weapon().base].weapon
 	set_weapon(id if Weapons.WEAPONS.has(id) else "blaster")
 	_update_visual()
 
@@ -149,6 +152,8 @@ func _physics_process(dt: float) -> void:
 
 ## updateWeapon(): next / prev cycle through the owned weapons, 1-5 pick a slot.
 func _switch() -> void:
+	if not Gear.weapon().is_empty():
+		return
 	var owned := Weapons.owned()
 	var cur := owned.find(weapon.id)
 	var next := ""
@@ -191,6 +196,9 @@ func fire(dt: float, trigger: bool) -> bool:
 	var temp := Prompts.on("temperature")
 	if temp and randf() < Prompts.TEMP_CRIT:
 		damage *= 2.0
+	# Critical strikes (gear): the weapon item's base chance and `crit`, for 150 % plus `crit_multi`.
+	if randf() < Stats.crit_chance():
+		damage *= Stats.crit_mult()
 	if w.kind == "beam":
 		main.fire_beam(muzzle, angle, damage)
 	else:

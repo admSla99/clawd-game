@@ -10,7 +10,7 @@ extends Node
 var path := "user://settings.cfg"
 const SLOTS := 3
 ## Actions the player can rebind, in the order the keybinding menu lists them.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"agent", &"prev", &"next", &"pause", &"shop", &"tree", &"mute", &"controls"]
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"agent", &"pickup", &"prev", &"next", &"pause", &"shop", &"tree", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -21,6 +21,7 @@ const LABELS := {
 	&"spin": "SPIN",
 	&"tool": "TOOL CALL (HOOK)",
 	&"agent": "SEND SUB-AGENT",
+	&"pickup": "PICK UP ITEM",
 	&"prev": "PREV WEAPON",
 	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
@@ -39,8 +40,9 @@ const DEFAULTS := {
 	&"spin": [KEY_C, KEY_L],
 	&"tool": [KEY_SHIFT, KEY_F],
 	&"agent": [KEY_G],
+	&"pickup": [KEY_E],
 	&"prev": [KEY_Q],
-	&"next": [KEY_E],
+	&"next": [KEY_R],
 	&"pause": [KEY_P],
 	&"shop": [KEY_B],
 	&"tree": [KEY_T],
@@ -98,6 +100,16 @@ func _ready() -> void:
 			var keys: Array = cfg.get_value("keys", a, [])
 			if not keys.is_empty() and keys.all(func(k): return k is int):
 				bindings[a] = keys.slice(0, SLOTS)
+		# An action added after the file was saved takes its default keys from the actions that had them (E went
+		# from NEXT WEAPON to PICK UP ITEM); an action left without keys gets its own defaults back.
+		for a in BINDABLE:
+			if cfg.has_section("keys") and not cfg.has_section_key("keys", a):
+				for b in BINDABLE:
+					if b != a:
+						bindings[b] = bindings[b].filter(func(k): return k == KEY_W or k not in DEFAULTS[a])
+		for a in BINDABLE:
+			if bindings[a].is_empty():
+				bindings[a] = DEFAULTS[a].filter(func(k): return conflict(a, k) == &"")
 		crt = cfg.get_value("video", "crt", true)
 		muted = cfg.get_value("audio", "muted", false)
 		var name: String = str(cfg.get_value("video", "crosshair", "WHITE"))

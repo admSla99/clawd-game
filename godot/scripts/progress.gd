@@ -6,7 +6,8 @@ extends Node
 ## one or the one before it was completed (App.isUnlocked() in src/app.ts).
 ## The shop's state lives here too (the rest of SaveData): upgrade levels, sparks spent, the stock of
 ## consumables, which hidden things HAIKU has already told about, and the last fortune; and the prompt tree's,
-## and Clawd's character level (scripts/experience.gd).
+## and Clawd's character level (scripts/experience.gd). Items (the equipped gear and the inventory) are saved to a
+## file of their own next to it (items_path(), save_items()).
 
 ## Where it is saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://progress.json"
@@ -34,6 +35,9 @@ var points_bought := 0
 ## Clawd's character level and the XP gathered toward the next one (scripts/experience.gd).
 var char_level := 1
 var xp := 0
+## Items (scripts/items.gd): slot -> the item equipped there (Gear), and the items carried.
+var gear := {}
+var inventory: Array = []
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
 ## levels: refunded when an old save is loaded (they became the prompt tree).
 const OLD_PROMPTS := {"concise": [120, 1], "cite": [150, 1], "temperature": [120, 1], "steps": [160, 1],
@@ -60,6 +64,7 @@ func load_file() -> void:
 	points_bought = 0
 	char_level = 1
 	xp = 0
+	_load_items()
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -105,6 +110,44 @@ func save() -> void:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
 			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp}))
+
+
+## Where the items are saved: next to the progress, "<name>_items.json".
+func items_path() -> String:
+	return path.get_basename() + "_items.json"
+
+
+func save_items() -> void:
+	var f := FileAccess.open(items_path(), FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory}))
+
+
+func _load_items() -> void:
+	gear = {}
+	inventory = []
+	if FileAccess.file_exists(items_path()):
+		var data = JSON.parse_string(FileAccess.get_file_as_string(items_path()))
+		if data is Dictionary:
+			for slot in data.get("gear", {}):
+				var it = data.gear[slot]
+				if slot in Items.SLOTS and _valid_item(it):
+					gear[slot] = it
+			inventory = data.get("inventory", []).filter(_valid_item)
+	Gear.invalidate()
+
+
+## JSON reads numbers back as floats: whole numbers again, and items whose base or affixes no longer exist go.
+static func _valid_item(it) -> bool:
+	if not (it is Dictionary and Items.BASES.has(it.get("base", ""))):
+		return false
+	it.ilvl = int(it.get("ilvl", 1))
+	for a in it.get("affixes", []):
+		if not (a is Dictionary and Items.AFFIXES.has(a.get("id", ""))):
+			return false
+		a.tier = int(a.tier)
+		a.value = int(a.value)
+	return true
 
 
 ## progressFor(): a level's progress, or an empty one.

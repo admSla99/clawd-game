@@ -778,7 +778,11 @@ shoot (not without Tool use.; with it one turns to a bug and hits it, one pellet
 Shared Weights, Async Calls and Parallel tool calls.' numbers and two pellets at once), the character level (XP to
 the next level growing, the area levels, the penalty far below, a bug's XP in 1-1, a level-up: a prompt point, LEVEL
 n and the point popping up, the HUD flash, saved; two levels at once, losing XP, the cap, the Router's XP, 1 XP for a
-bug in 1-1 at level 13), shooting (fire rate and damage
+bug in 1-1 at level 13), items (the tables and the font, 3000 rolled items within their rules, about 6 % rare and
+30 % magic, more with item rarity, a magic item's name and lines, rings into the free slot, gear and tree adding
+up, an equipped weapon item as the gun with its local damage and critical chance and no switching, back without
+it, the items file, a drop landing, the target in reach, E picking it up, INVENTORY FULL, a bug's drop chance, a
+boss's three, an old key file's E moving to PICK UP ITEM), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1077,6 +1081,43 @@ holds the numbers, `Progress.char_level` / `xp` (XP toward the next level) the s
   is his, "+n PROMPT POINT(S)", a gold burst and the `levelUp` arpeggio. The world map has the same LV and bar
   after its title, the prompt tree after its points.
 
+## Items and gear
+
+The second step of the endgame (`docs/endgame-plan.md`, E2), Path of Exile's items in small. Items drop everywhere,
+the campaign too (the user's call), at the area level.
+
+- **Items** (`scripts/items.gd`, `Items`, static tables): an item is a Dictionary `{base, rarity, ilvl, affixes:
+  [{id, tier, value}], name}`. 37 bases in seven kinds: the five guns (weapons, from the area levels where the
+  shop sells them, each with a base critical strike chance), context windows (helmets), chassis (body), actuators
+  (gloves) and treads (boots) with armour or evasion in three tiers of base (levels 1, 15, 30), cores (amulets)
+  and plugins (rings) with an implicit stat. Rarity: normal, magic (one prefix and/or one suffix, named like
+  "Biting Iron Plugin of Haste"), rare (3-6 affixes, at most three of each, a made-up name like "Hollow Circuit");
+  dropped items are rare 6 % and magic 30 % of the time, more with item rarity. 19 affixes with up to six tiers
+  gated by item level (higher tiers rarer), values rolled within the tier: weapon damage and fire rate (local),
+  damage, fire rate, critical chance and damage, life, armour, evasion, context window, run speed, hover time,
+  item rarity, tokens, hook reach, life regeneration, overheat / latency / voltage resistance. `roll()`,
+  `add_affix()`, `name_of()`, `lines()` (the tooltip's lines). Life, armour, evasion, regeneration and the
+  resistances only count in the endgame (`Items.ENDGAME`; `Main.endgame`, where Clawd will have hit points).
+- **Gear** (`scripts/gear.gd`, `Gear`): the equipped items by slot (weapon, helmet, body, gloves, boots, amulet,
+  two rings) in `Progress.gear`, the carried ones in `Progress.inventory` (60 cells for now; the grid and
+  equipping by hand come with the inventory window, E3), saved to `<progress>_items.json` (`Progress.save_items()`;
+  whole numbers again on load, items whose base or affixes no longer exist dropped). `stat()` sums the equipped
+  items' stats, cached until `invalidate()`. An equipped weapon item is the gun Clawd holds (`Gun.arm()`), and
+  switching with 1-5 / Q / R stops while it is; without one the shop's weapons work as before.
+- **Stats** (`scripts/stats.gd`, `Stats`): the prompt tree's and the gear's stats added up (`total()`), per cent
+  ones before they multiply: `damage_mult()`, `rate_mult()`, `token_mult()`, critical strikes (`crit_chance()`,
+  `crit_mult()`: 150 % plus `crit_multi`, rolled in `Gun.fire()`). `Weapons` multiplies in the weapon item's local
+  damage and fire rate and the context window; `Main._apply_loadout()` reads hover, run, zip and reach through it.
+- **Drops** (`Main.roll_drop()`, `drop_item()`): a defeated enemy drops an item with a chance of 3 % plus 0.4 % per
+  hit point (a world 1 bug 4 %, a shield bot 14 %, at most 40 %), a boss three with +200 % rarity.
+  `scripts/item_drop.gd` (`ItemDrop`, group `loot`) jumps out, falls onto solid, one-way or spike tiles and bobs:
+  a weapon as its gun, the rest as a small voxel icon per kind in the rarity's colour (normal white, magic blue,
+  rare yellow). `scripts/loot_view.gd` (`LootView`, made by Main under Ui over the HUD) gives every item a dark
+  label with its name in that colour (labels stack up instead of overlapping) and the one Clawd stands by (within
+  22 px, the nearest: `Main.loot_target`) a tooltip: name, base, kind and item level, implicit and affix lines
+  (the endgame-only ones dimmed with a *), and `E · PICK UP` or INVENTORY FULL. The `pickup` action (E) takes it
+  (`Main.pick_up()`): its name pops up, `itemPick` plays.
+
 ## Menus and key bindings
 
 `scripts/game_menu.gd` (`GameMenu`, `Ui/Menu`, drawn over everything) holds the in-level menus of
@@ -1102,8 +1143,9 @@ resumes two physics frames later, so the Space that picked RESUME is not also a 
 
 `scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
 positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
-the InputMap actions of the same names (`left right up down jump attack spin prev next pause shop mute controls`;
-prev / next weapon are Q / E). Fixed keys like `FIXED_KEYS` in TS: Escape pauses and goes back, Enter / Space
+the InputMap actions of the same names (`left right up down jump attack spin tool agent pickup prev next pause shop
+tree mute controls`; E picks up items, prev / next weapon are Q / R: E was next weapon before items, and a saved
+file without `pickup` gives its E to it and next weapon its default R). Fixed keys like `FIXED_KEYS` in TS: Escape pauses and goes back, Enter / Space
 confirm, Backspace goes back, 1-5 pick a weapon slot (`slot1`-`slot5`). The mouse buttons are added to the
 actions too (`MOUSE`, like `mouseButton()` in `src/core/input.ts`): left = attack, right = spin, wheel down /
 up = next / previous weapon. `Settings.key_label()` is `keyLabel()`
@@ -1290,6 +1332,8 @@ without COOP/COEP headers.
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
 | `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: nodes, links, points, allocating, the stats others read; its window |
 | `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
+| `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |
+| `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

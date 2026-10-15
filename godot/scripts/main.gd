@@ -12,6 +12,12 @@ extends Node
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
+## Item drops (roll_drop()): an enemy's chance, and what a boss drops.
+const DROP_BASE := 0.03
+const DROP_PER_HP := 0.004
+const DROP_MAX := 0.4
+const BOSS_DROPS := 3
+const BOSS_RARITY := 200.0
 ## Extra pixels the SubViewport renders on every side, hidden by offsetting the container (see
 ## GameCamera.pad): the oblique projection draws block fronts up to 8 px below their real position.
 const PAD := 16
@@ -111,6 +117,14 @@ var beams: BeamFx
 @onready var shop: ShopScreen = $View/SubViewport/World/Ui/Shop
 ## The prompt tree's window, made in _ready() under Ui, below the menus.
 var tree: TreeScreen
+## Items lying in the level: their labels and tooltip (made in _ready() under Ui, over the HUD), the one Clawd
+## stands by, and the dice for drops.
+var loot: LootView
+var loot_target: ItemDrop
+var loot_rng := RandomNumberGenerator.new()
+## The endgame (the hideout and maps, docs/endgame-plan.md): Clawd has hit points instead of hearts there, and the
+## gear's life, armour, evasion and resistances count.
+var endgame := false
 
 
 func _ready() -> void:
@@ -150,6 +164,12 @@ func _ready() -> void:
 	tree.main = self
 	menu.get_parent().add_child(tree)
 	menu.get_parent().move_child(tree, menu.get_index())
+	loot = LootView.new()
+	loot.name = "Loot"
+	loot.main = self
+	hud.get_parent().add_child(loot)
+	hud.get_parent().move_child(loot, hud.get_index() + 1)
+	loot_rng.randomize()
 	if start_mode == Mode.PLAY:
 		play(start_level)
 	else:
@@ -378,6 +398,7 @@ func _physics_process(dt: float) -> void:
 	camera.follow(dt, player.pos + Vector2(0, -Player.SIZE.y / 2), player.facing, player.on_ground, player.vel.y)
 	scenery.update(camera.top_left)
 	_update_complete(dt)
+	_update_loot()
 	_update_shadows()
 	_update_reveal()
 	var decor: Decor = level.get_node_or_null("Decor")
@@ -500,6 +521,7 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 ## Enemy.die() in src/entities/entity.ts: two bursts from the enemy's middle, enemyDie, hitstop and shake.
 func enemy_died(e: Enemy, at: Vector2) -> void:
 	gain_xp(e.xp_worth())
+	roll_drop(e.xp_worth(), at)
 	particles.emit(at, {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
 	particles.emit(at, {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
 	Sound.play("enemyDie")
@@ -523,6 +545,47 @@ func gain_xp(hp: float) -> void:
 		color = [Experience.COLOR, Color.WHITE, Hud.ORANGE_LIGHT], gravity = -40, drag = 2, size = 1.5})
 	hud.level_up()
 	Sound.play("levelUp")
+
+
+## A defeated enemy worth `hp` hit points drops an item (docs/endgame-plan.md E2) with a chance of DROP_BASE plus
+## DROP_PER_HP per hit point, at most DROP_MAX.
+func roll_drop(hp: float, at: Vector2) -> void:
+	if mode == Mode.PLAY and loot_rng.randf() < minf(DROP_MAX, DROP_BASE + hp * DROP_PER_HP):
+		drop_item(at)
+
+
+## A random item of the area level at `at`, rarer with item rarity (Stats) and `rarity_bonus` per cent.
+func drop_item(at: Vector2, rarity_bonus := 0.0) -> ItemDrop:
+	var it := Items.roll(area_level, loot_rng, "", "", Stats.total("rarity") + rarity_bonus)
+	return ItemDrop.drop(level, at, it)
+
+
+## The item Clawd stands by (the nearest in reach), picked up with the `pickup` action.
+func _update_loot() -> void:
+	loot_target = null
+	if complete_t >= 0 or not player.in_play():
+		return
+	var best := INF
+	for d: ItemDrop in get_tree().get_nodes_in_group("loot"):
+		if not d.is_queued_for_deletion() and d.in_reach(player) and d.fpos.distance_to(player.pos) < best:
+			best = d.fpos.distance_to(player.pos)
+			loot_target = d
+	if loot_target and Input.is_action_just_pressed("pickup"):
+		pick_up(loot_target)
+
+
+## Into the inventory with its name popping up, or INVENTORY FULL. Returns whether it was taken.
+func pick_up(d: ItemDrop) -> bool:
+	if not Gear.take(d.item):
+		Sound.play("denied")
+		overlay.popup("INVENTORY FULL", d.fpos + Vector2(0, -22), Hud.RED, 1.2)
+		return false
+	Sound.play("itemPick")
+	overlay.popup(Items.name_of(d.item), d.fpos + Vector2(0, -22), Items.color(d.item), 1.4)
+	d.remove_from_group("loot")
+	d.queue_free()
+	loot_target = null
+	return true
 
 
 ## The sound of a player event (handlePlayerEvents(), hurtPlayer(), die() and the stomp in src/scenes/game.ts;
@@ -688,10 +751,11 @@ func _apply_loadout() -> void:
 	player.shield = Progress.in_stock("firewall") > 0
 	# The prompt tree's allocated nodes (scripts/prompts.gd).
 	player.max_hearts = maxi(1, player.max_hearts + int(Prompts.stat("hearts")))
-	player.hover_duration *= 1.0 + Prompts.stat("hover") / 100.0
-	player.run_speed = Player.RUN_SPEED * (1.0 + Prompts.stat("run") / 100.0)
-	player.zip_speed = Player.ZIP_SPEED * (1.0 + Prompts.stat("zip") / 100.0)
-	tool_call.reach_mult = 1.0 + Prompts.stat("reach") / 100.0
+	# With the gear's (Stats).
+	player.hover_duration *= 1.0 + Stats.total("hover") / 100.0
+	player.run_speed = Player.RUN_SPEED * (1.0 + Stats.total("run") / 100.0)
+	player.zip_speed = Player.ZIP_SPEED * (1.0 + Stats.total("zip") / 100.0)
+	tool_call.reach_mult = 1.0 + Stats.total("reach") / 100.0
 	echoes.extra = int(Prompts.stat("slots"))
 	echoes.stand = Echo.STAND + Prompts.stat("stand")
 
@@ -766,6 +830,9 @@ func _spawn_boss() -> Enemy:
 ## exit there) drops into the middle of the arena, leftover shots vanish and the map tune plays.
 func boss_defeated(_b: Enemy, at: Vector2) -> void:
 	gain_xp(Experience.BOSS_WORTH.get(info.boss, 100.0))
+	# Bosses drop BOSS_DROPS items, rarer than enemies'.
+	for i in BOSS_DROPS:
+		drop_item(at + Vector2(0, -20), BOSS_RARITY)
 	if info.boss == "codex":
 		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y, "hook")
