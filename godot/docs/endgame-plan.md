@@ -128,4 +128,7 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 
 ## Added beyond the plan
 
-(nothing yet)
+- After the first playtest of the slice (2026-10-16, "too easy, drops ok, the token flight drags"): enemy hits
+  11 x 1.045^area level (was 8), maps' enemy life 1.08^(area level - 24) (was 1.05), 80 % of the slots filled (was
+  65 %), the map boss 40 x a shield bot's life (was 25); tokens fly to the HUD in 0.3 s with at most 0.15 s of
+  stagger, and past six waiting the next ones join the last flight.

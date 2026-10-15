@@ -11,8 +11,8 @@ const MAX_TIER := 5
 const AREA_BASE := 30
 const QUANTITY_PER_MOD := 8.0
 const RARITY_PER_MOD := 5.0
-## Enemies' life in a map: x HP_GROWTH^(area level - 24) (x1.5 at T1, x2.2 at T5) on top of Enemy.HP_FACTOR.
-const HP_GROWTH := 1.05
+## Enemies' life in a map: x HP_GROWTH^(area level - 24) (x1.85 at T1, x3.4 at T5) on top of Enemy.HP_FACTOR.
+const HP_GROWTH := 1.08
 ## A defeated enemy drops a map with MAP_DROP chance (raised by quantity); a map is a tier higher UP_CHANCE of
 ## the time.
 const MAP_DROP := 0.03

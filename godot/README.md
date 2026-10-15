@@ -890,7 +890,8 @@ so through hitstop:
   on the last heart (Player emits `die`) it breaks first and the hearts come back one by one 0.55 s later;
 - refilled hearts pop up 1 px with a fading white outline; the last heart left beats;
 - a collected token (`Main.collect_token()`) flies from where it was along an arc to the counter coin, tokens
-  picked up together 0.04 s apart, and the count shown (`Hud.shown`) ticks up when each lands: the coin
+  picked up together 0.015 s apart (0.15 s at most; past six waiting the next ones ride along with the last,
+  so a big pile lands at once) in 0.3 s, and the count shown (`Hud.shown`) ticks up when each lands: the coin
   glints and the digits jump 1 px in light orange;
 - it fades out under the level-complete panel.
 
@@ -1114,7 +1115,7 @@ map is a generated level with a boss that drops more maps.
   planks, mound, spikebed, limiter, ferry, decks), 20 rows each with the ground's surface at row 15 on their edge
   columns so any two join. A map is the start (the portal home, '@'), 8 + tier / 2 middle chunks drawn by the seed
   (never one twice in a row) and the boss arena (closed by a wall). Every third middle chunk starts with a
-  checkpoint; '&' becomes a bug, spam bot, shield bot (T2+) or turret (T3+), '~' a drone, each with a 65 % chance
+  checkpoint; '&' becomes a bug, spam bot, shield bot (T2+) or turret (T3+), '~' a drone, each with an 80 % chance
   raised by pack size, which can also put a second one beside it. `tools/reach.gd -- chunks` crosses every chunk
   between a flat start and exit; `-- maps` generates three maps a tier (T1-T5, +30 % pack size) and reaches each
   boss from the start (all pass, 7-12 s a map).
@@ -1122,10 +1123,10 @@ map is a generated level with a boss that drops more maps.
   (put it there, or right click / Ctrl + click / X / C a map in the inventory), its lines, and `O · OPEN THE MAP`
   (O or a click). With none anywhere and none open, the device gives a normal T1 map, so Clawd is never stuck.
 - **A run** (`Main.map_run`, `start_map()`, `enter_map()`): `Level.build()` on the generated rows; the level id
-  `map`, `Main.endgame` on (hit points), its area level; enemies get x 1.05^(area level - 24) life (x1.48 at T1)
+  `map`, `Main.endgame` on (hit points), its area level; enemies get x 1.08^(area level - 24) life (x1.85 at T1, x3.4 at T5)
   and the map's mod on top, once (a level entered again keeps its enemies, decor and scaling: `entered` meta,
   `SideWalls` added once). The map boss, THE OVERFITTER (`scripts/map_boss.gd`, `MapBoss`: a shield bot 1.8
-  times as big with 25 times its life, the HUD's boss bar within 320 px), stands at 'B'. The map's mods on Clawd go
+  times as big with 40 times its life, the HUD's boss bar within 320 px), stands at 'B'. The map's mods on Clawd go
   in through `_apply_loadout()` (`Player.hit_mult`, less life, regeneration, armour, evasion). Six portals: the
   start's portal (HIDEOUT) or QUIT TO MAP goes home with the tokens banked and the level kept, and the device's
   `O · BACK INTO THE MAP` goes back in at the last checkpoint. Dying there (`_map_death()`) costs a tenth of the
@@ -1220,7 +1221,7 @@ the campaign too (the user's call), at the area level.
 - **Hit points in the endgame** (`Main.endgame`, set by the hideout and maps later; the campaign keeps hearts):
   `Player.hp_mode` with `life` / `max_life`, set in `_apply_loadout()` from `Stats`: life is 50 + 5 a character
   level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes). An enemy's hit costs
-  `Stats.enemy_hit()` of the area level, 8 x 1.045^level (8.4 at 1, 30 at 30, 33 in a T1 map, 112 at 60), less armour
+  `Stats.enemy_hit()` of the area level, 11 x 1.045^level (11.5 at 1, 41 at 30, 45 in a T1 map, 154 at 60), less armour
   (armour / (armour + 5 x damage), at most 90 %, Path of Exile's formula); evasion avoids a hit (no damage, no
   knock-back) with a chance of evasion / (evasion + 100 + 20 x area level), at most 75 %, "EVADE" popping up.
   Spikes take 15 % of the life (not evadable), falling out 20 %; at 0 Clawd dies and comes back at the checkpoint

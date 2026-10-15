@@ -28,8 +28,12 @@ const SHADOW := Color(0, 0, 0, 0.55)
 const HEART_STEP := 11
 ## The endgame's life bar width (px).
 const LIFE_W := 64
-const FLIGHT := 0.45
-const STAGGER := 0.04
+const FLIGHT := 0.3
+const STAGGER := 0.015
+## The stagger never queues tokens longer than this, and past QUEUE_MAX tokens waiting to leave the next ones join the
+## last of them (one flight counting several), so a big pile lands in a moment.
+const STAGGER_MAX := 0.15
+const QUEUE_MAX := 6
 ## The counter coin turns once every SPIN_EVERY seconds, taking SPIN_TIME.
 const SPIN_EVERY := 3.0
 const SPIN_TIME := 0.5
@@ -163,8 +167,12 @@ func bind(player: Player) -> void:
 ## A token was collected at `from` (view pixels): it flies to the counter and is counted when it lands.
 ## Tokens picked up together leave one after another (a bug's ten stream in instead of flying as one clump).
 func collect_token(from: Vector2, n := 1) -> void:
+	var waiting := _flights.filter(func(f: Dictionary) -> bool: return f.t < 0)
+	if waiting.size() >= QUEUE_MAX:
+		waiting[-1].n += n
+		return
 	_flights.append({"from": from, "t": -_stagger, "arc": randf_range(18, 34), "n": n})
-	_stagger += STAGGER
+	_stagger = minf(_stagger + STAGGER, STAGGER_MAX)
 
 
 func _on_player_event(kind: StringName, _at: Vector2) -> void:

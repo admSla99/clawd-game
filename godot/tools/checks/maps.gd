@@ -80,7 +80,7 @@ func run(c) -> bool:
 	var life: float = maps.life_mult(32)
 	var bugs: Array = c.get_nodes_in_group("enemies").filter(func(e): return e.get_script() == load("res://scripts/bug.gd"))
 	var boss = m.map_run.boss
-	c.ok(not bugs.is_empty() and is_equal_approx(bugs[0].hp, 2.0 * 3.0 * life) and is_equal_approx(boss.hp, 9 * 25 * life) and m.boss == boss
+	c.ok(not bugs.is_empty() and is_equal_approx(bugs[0].hp, 2.0 * 3.0 * life) and is_equal_approx(boss.hp, 9 * boss.BOSS_HP * life) and m.boss == boss
 		and boss.max_hp == boss.hp, "its enemies have x%.2f life (a bug %.1f), the boss %d with the HUD's bar" % [life, bugs[0].hp if not bugs.is_empty() else 0.0, boss.hp])
 	var map_level = m.level
 	# Home through the start's portal, and back in.
@@ -92,7 +92,7 @@ func run(c) -> bool:
 	await c.frames(2)
 	m.items.handle(key)
 	await c.frames(5)
-	c.ok(m.level_id == "map" and is_same(m.level, map_level) and is_same(m.map_run.boss, boss) and is_equal_approx(boss.hp, 9 * 25 * life),
+	c.ok(m.level_id == "map" and is_same(m.level, map_level) and is_same(m.map_run.boss, boss) and is_equal_approx(boss.hp, 9 * boss.BOSS_HP * life),
 		"O goes back into the same map, its enemies not scaled twice")
 	# Dying costs a portal and a tenth of the level's XP.
 	p.invuln = 0

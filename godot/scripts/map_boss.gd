@@ -7,7 +7,7 @@ extends ShieldBot
 
 const TITLE := "THE OVERFITTER"
 const SCALE := 1.8
-const BOSS_HP := 25.0
+const BOSS_HP := 40.0
 
 
 func _init() -> void:

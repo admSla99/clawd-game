@@ -41,9 +41,9 @@ static func crit_mult() -> float:
 const BASE_LIFE := 50.0
 const LIFE_PER_LEVEL := 5.0
 const LIFE_PER_HEART := 25.0
-## An enemy's hit in an area of level a: ENEMY_HIT * ENEMY_GROWTH^a (8.4 at 1, 30 at 30, 112 at 60; a T1 map, area
-## level 32, hits for 33).
-const ENEMY_HIT := 8.0
+## An enemy's hit in an area of level a: ENEMY_HIT * ENEMY_GROWTH^a (11.5 at 1, 41 at 30, 154 at 60; a T1 map, area
+## level 32, hits for 45; raised after the first playtest: too easy).
+const ENEMY_HIT := 11.0
 const ENEMY_GROWTH := 1.045
 ## Armour takes armour / (armour + 5 x damage) off a hit, at most ARMOUR_CAP (Path of Exile's formula).
 const ARMOUR_CAP := 0.9

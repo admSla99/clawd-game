@@ -14,7 +14,7 @@ const ROWS := 20
 const GROUND := 15
 const MID_MIN := 8
 ## A slot's chance to hold an enemy, and the ground pool [char, weight, lowest tier].
-const FILL := 0.65
+const FILL := 0.8
 const GROUND_POOL := [["E", 5, 1], ["F", 2, 1], ["H", 2, 2], ["T", 1, 3]]
 
 static var _chunks := {}
