@@ -35,9 +35,12 @@ var points_bought := 0
 ## Clawd's character level and the XP gathered toward the next one (scripts/experience.gd).
 var char_level := 1
 var xp := 0
-## Items (scripts/items.gd): slot -> the item equipped there (Gear), and the items carried.
+## Items (scripts/items.gd): slot -> the item equipped there (Gear), the items carried and the stash's (grids).
 var gear := {}
 var inventory: Array = []
+var stash: Array = []
+## The weapons found before items existed were given as normal items into the stash (once).
+var weapon_items := false
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
 ## levels: refunded when an old save is loaded (they became the prompt tree).
 const OLD_PROMPTS := {"concise": [120, 1], "cite": [150, 1], "temperature": [120, 1], "steps": [160, 1],
@@ -102,6 +105,12 @@ func load_file() -> void:
 			tools.append("hook")
 		if progress_for("3-1").completed and not tools.has("agents"):
 			tools.append("agents")
+	# The weapons found before items: a normal item of each into the stash, once.
+	if not weapon_items:
+		weapon_items = true
+		for id in weapons:
+			Gear.place(stash, Gear.STASH_SIZE, weapon_item(id))
+		save_items()
 
 
 func save() -> void:
@@ -120,12 +129,14 @@ func items_path() -> String:
 func save_items() -> void:
 	var f := FileAccess.open(items_path(), FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory}))
+		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory, "stash": stash, "weapon_items": weapon_items}))
 
 
 func _load_items() -> void:
 	gear = {}
 	inventory = []
+	stash = []
+	weapon_items = false
 	if FileAccess.file_exists(items_path()):
 		var data = JSON.parse_string(FileAccess.get_file_as_string(items_path()))
 		if data is Dictionary:
@@ -134,6 +145,12 @@ func _load_items() -> void:
 				if slot in Items.SLOTS and _valid_item(it):
 					gear[slot] = it
 			inventory = data.get("inventory", []).filter(_valid_item)
+			stash = data.get("stash", []).filter(_valid_item)
+			weapon_items = data.get("weapon_items", false) == true
+	# Every item on a spot of its own; what the inventory cannot hold goes to the stash.
+	for it in Gear.normalize(inventory, Gear.INV_SIZE):
+		Gear.place(stash, Gear.STASH_SIZE, it)
+	Gear.normalize(stash, Gear.STASH_SIZE)
 	Gear.invalidate()
 
 
@@ -256,8 +273,16 @@ func use_stock(id: String) -> void:
 func grant_weapon(id: String) -> void:
 	if not weapons.has(id):
 		weapons.append(id)
+		# And a normal item of it into the stash (docs/endgame-plan.md: the weapons are item bases).
+		Gear.place(stash, Gear.STASH_SIZE, weapon_item(id))
+		save_items()
 	equipped = id
 	save()
+
+
+## A normal item of weapon `id`.
+static func weapon_item(id: String) -> Dictionary:
+	return {"base": id, "rarity": "normal", "ilvl": 1, "affixes": []}
 
 
 ## Owns world 3's tool `id` from now on (saved).

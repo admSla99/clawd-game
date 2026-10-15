@@ -782,7 +782,11 @@ bug in 1-1 at level 13), items (the tables and the font, 3000 rolled items withi
 30 % magic, more with item rarity, a magic item's name and lines, rings into the free slot, gear and tree adding
 up, an equipped weapon item as the gun with its local damage and critical chance and no switching, back without
 it, the items file, a drop landing, the target in reach, E picking it up, INVENTORY FULL, a bug's drop chance, a
-boss's three, an old key file's E moving to PICK UP ITEM), hit points in the endgame (the numbers and caps, life
+boss's three, an old key file's E moving to PICK UP ITEM), the inventory and the stash (the found weapons into the
+stash once and later ones too, the grid's order, two items on one spot, I on the map with the stash, picking up,
+putting down, swapping, a slot of the wrong kind, equipping into a slot, right click on and off, Ctrl + click into
+the stash, Delete twice, the comparison, Escape with an item held, I in a level pausing, the arrows, X, up into the
+slots, closing with the weapon item in Clawd's hands), hit points in the endgame (the numbers and caps, life
 from levels, gear and the tree, hearts in the campaign, a hit less armour without a heart, the popup and HUD
 flash, spikes' share, evasion at its cap, regeneration, dying from a hit or a fall and coming back full, a fall's
 share, tokens healing), shooting (fire rate and damage
@@ -1102,9 +1106,13 @@ the campaign too (the user's call), at the area level.
   `add_affix()`, `name_of()`, `lines()` (the tooltip's lines). Life, armour, evasion, regeneration and the
   resistances only count in the endgame (`Items.ENDGAME`; `Main.endgame`, where Clawd will have hit points).
 - **Gear** (`scripts/gear.gd`, `Gear`): the equipped items by slot (weapon, helmet, body, gloves, boots, amulet,
-  two rings) in `Progress.gear`, the carried ones in `Progress.inventory` (60 cells for now; the grid and
-  equipping by hand come with the inventory window, E3), saved to `<progress>_items.json` (`Progress.save_items()`;
-  whole numbers again on load, items whose base or affixes no longer exist dropped). `stat()` sums the equipped
+  two rings) in `Progress.gear`, the carried ones in `Progress.inventory` (a 12 x 5 grid) and the stash's in
+  `Progress.stash` (12 x 12), saved to `<progress>_items.json` (`Progress.save_items()`; whole numbers again on
+  load, items whose base or affixes no longer exist dropped, every item given a spot of its own: `normalize()`,
+  what the inventory cannot hold into the stash). In a grid every item has its top-left cell in `at`;
+  `find_spot()` fills column by column from the top left, `place()`, `item_at()`, `overlapping()`. The weapons
+  found before items became normal items in the stash once (`Progress.weapon_items`), and `grant_weapon()` puts one
+  there for every weapon found or bought later. `stat()` sums the equipped
   items' stats, cached until `invalidate()`. An equipped weapon item is the gun Clawd holds (`Gun.arm()`), and
   switching with 1-5 / Q / R stops while it is; without one the shop's weapons work as before.
 - **Stats** (`scripts/stats.gd`, `Stats`): the prompt tree's and the gear's stats added up (`total()`), per cent
@@ -1119,7 +1127,23 @@ the campaign too (the user's call), at the area level.
   label with its name in that colour (labels stack up instead of overlapping) and the one Clawd stands by (within
   22 px, the nearest: `Main.loot_target`) a tooltip: name, base, kind and item level, implicit and affix lines
   (the endgame-only ones dimmed with a *), and `E · PICK UP` or INVENTORY FULL. The `pickup` action (E) takes it
-  (`Main.pick_up()`): its name pops up, `itemPick` plays.
+  (`Main.pick_up()`): its name pops up, `itemPick` plays. The tooltip (`scripts/item_tooltip.gd`, `ItemTooltip`,
+  shared with the inventory) also says what equipping it would change (`compare_rows()`: every stat's difference
+  to the item in its slot, better in green, worse in red).
+- **The inventory window** (`scripts/inventory_screen.gd`, `InventoryScreen`, made by Main under Ui): I (the
+  `inventory` action) or the map's `I · ITEMS` button opens it with the stash (`Main.Mode.ITEMS`, over the drifting
+  backdrop); I in a level opens it without the stash, hides the HUD and pauses the game, and closing it applies
+  the gear (`Main.gear_changed()`: the stats again with the life keeping its share, the gun again for a weapon
+  item). On the right the equipment slots (empty ones show their kind's ghost; the slot the held item fits lights
+  orange) over the 12 x 5 inventory; on the left the 12 x 12 stash, or in a level Clawd's stats from the tree and
+  the gear (the endgame-only ones marked). Items show their icon (weapons as their gun pointing up) on a tile tinted
+  by rarity. The mouse: a left click picks an item up onto the cursor and puts it down centred on it (on exactly
+  one item the two swap; into a slot of its kind it is equipped, swapping with what was there), a right click
+  equips (what it replaces goes into its spot) or takes off into the inventory, Ctrl + click moves between
+  inventory and stash, Delete twice destroys. The keys: arrows move a cursor over the cells and slots (starting
+  where the mouse points; across into the next area at an edge), Space / Enter, X and C do the same, I or Escape
+  closes (a held item goes back where it was, else into the inventory, the stash, or onto the ground). The hovered
+  item's tooltip sits beside it with what equipping it would change, and the equipped one's beside that.
 - **Hit points in the endgame** (`Main.endgame`, set by the hideout and maps later; the campaign keeps hearts):
   `Player.hp_mode` with `life` / `max_life`, set in `_apply_loadout()` from `Stats`: life is 50 + 5 a character
   level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes). An enemy's hit costs
@@ -1157,7 +1181,7 @@ resumes two physics frames later, so the Space that picked RESUME is not also a 
 `scripts/settings.gd` (autoload `Settings`) keeps the bindings (physical keycodes, so they follow key
 positions, not the keyboard layout) and the CRT filter in `user://settings.cfg`, and writes the bindings into
 the InputMap actions of the same names (`left right up down jump attack spin tool agent pickup prev next pause shop
-tree mute controls`; E picks up items, prev / next weapon are Q / R: E was next weapon before items, and a saved
+tree mute controls` and `inventory`, I; E picks up items, prev / next weapon are Q / R: E was next weapon before items, and a saved
 file without `pickup` gives its E to it and next weapon its default R). Fixed keys like `FIXED_KEYS` in TS: Escape pauses and goes back, Enter / Space
 confirm, Backspace goes back, 1-5 pick a weapon slot (`slot1`-`slot5`). The mouse buttons are added to the
 actions too (`MOUSE`, like `mouseButton()` in `src/core/input.ts`): left = attack, right = spin, wheel down /
@@ -1347,6 +1371,7 @@ without COOP/COEP headers.
 | `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
 | `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |
 | `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
+| `scripts/item_tooltip.gd`, `scripts/inventory_screen.gd` | The item tooltip, comparison and icons; the inventory window with the stash |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

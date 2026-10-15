@@ -97,6 +97,7 @@ func _init() -> void:
 	await section("character level and XP (docs/endgame-plan.md E1)", check_xp)
 	await section("items, gear and drops (docs/endgame-plan.md E2)", check_items)
 	await section("hit points in the endgame (docs/endgame-plan.md E2)", check_life)
+	await section("the inventory and the stash (docs/endgame-plan.md E3)", check_inventory)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1694,10 +1695,10 @@ func check_items() -> bool:
 	d = m.drop_item(p.pos)
 	await frames(60)
 	progress.inventory = []
-	for i in 10:
-		progress.inventory.append({"base": "scrap_plating", "rarity": "normal", "ilvl": 1, "affixes": []})
-	ok(gear.cells_used() == 60 and not m.pick_up(d) and is_instance_valid(d) and m.overlay.popups.any(func(pp): return pp.text == "INVENTORY FULL"),
-		"a full inventory (60 cells) takes nothing: INVENTORY FULL")
+	for i in 60:
+		gear.place(progress.inventory, gear.INV_SIZE, {"base": "iron_plugin", "rarity": "normal", "ilvl": 1, "affixes": []})
+	ok(progress.inventory.size() == 60 and not gear.fits(d.item) and not m.pick_up(d) and is_instance_valid(d)
+		and m.overlay.popups.any(func(pp): return pp.text == "INVENTORY FULL"), "a full inventory (12 x 5 cells) takes nothing: INVENTORY FULL")
 	# A bug's chance and a boss's drops.
 	var drops := func() -> Array: return get_nodes_in_group("loot")
 	for n in drops.call():
@@ -1836,6 +1837,141 @@ func check_life() -> bool:
 	progress.tree = saved.tree
 	progress.char_level = 1
 	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+func check_inventory() -> bool:
+	var m = current_scene
+	var progress = root.get_node("Progress")
+	var gear = load("res://scripts/gear.gd")
+	var tip = load("res://scripts/item_tooltip.gd")
+	var inv = m.items
+	var saved := {"weapons": progress.weapons.duplicate(), "equipped": progress.equipped}
+	# The window's layout needs a real view (the headless one is tiny).
+	var vp_size: Vector2i = m.subviewport.size
+	m.subviewport.size = Vector2i(480, 270) + Vector2i.ONE * m.PAD * 2
+	var ring := func(dmg: int) -> Dictionary:
+		return {"base": "iron_plugin", "rarity": "magic", "ilvl": 10, "affixes": [{"id": "damage", "tier": 0, "value": dmg}]}
+	var plate := {"base": "scrap_plating", "rarity": "normal", "ilvl": 1, "affixes": []}
+	# The weapons found before items become normal items in the stash, once.
+	progress.weapons = ["blaster", "spreader"]
+	progress.save()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.items_path()))
+	progress.load_file()
+	var bases: Array = progress.stash.map(func(it): return it.base)
+	progress.load_file()
+	ok(bases == ["blaster", "spreader"] and progress.stash.size() == 2 and progress.stash.all(func(it): return it.rarity == "normal"),
+		"the weapons found before items are normal items in the stash, once")
+	progress.grant_weapon("stream")
+	ok(progress.stash.size() == 3 and progress.stash[2].base == "stream", "a weapon found or bought later goes into the stash too")
+	# The grid: column by column, a spot of its own for every item.
+	progress.gear = {}
+	progress.inventory = []
+	progress.stash = []
+	gear.invalidate()
+	var a: Dictionary = ring.call(10)
+	var b := plate.duplicate(true)
+	ok(gear.place(progress.inventory, gear.INV_SIZE, b) and gear.at_of(b) == Vector2i(0, 0) and gear.find_spot(progress.inventory, gear.INV_SIZE, Vector2i.ONE) == Vector2i(0, 3),
+		"items fill the grid column by column from the top left")
+	var twins := [ring.call(1), ring.call(2)]
+	for it in twins:
+		it.at = [4, 4]
+	gear.normalize(twins, gear.INV_SIZE)
+	ok(gear.at_of(twins[0]) == Vector2i(4, 4) and gear.at_of(twins[1]) != Vector2i(4, 4), "two items on one spot get one each")
+	# From the map: I opens it with the stash, Escape goes back.
+	m.show_map()
+	await frames(3)
+	var key := func(code: int) -> InputEventKey:
+		var e := InputEventKey.new()
+		e.physical_keycode = code
+		e.pressed = true
+		return e
+	m.front.handle(key.call(KEY_I))
+	await frames(2)
+	ok(m.mode == m.Mode.ITEMS and inv.visible and inv.stash_open, "I on the map opens the inventory with the stash")
+	progress.inventory = []
+	gear.place(progress.inventory, gear.INV_SIZE, a, Vector2i(0, 0))
+	gear.place(progress.inventory, gear.INV_SIZE, b, Vector2i(2, 0))
+	var centre := func(area: String, cell: Vector2i) -> Vector2: return inv.cell_rect(area, Rect2i(cell, Vector2i.ONE)).get_center()
+	var click := func(p: Vector2, button := MOUSE_BUTTON_LEFT, ctrl := false) -> void:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.pressed = true
+		e.position = p
+		e.ctrl_pressed = ctrl
+		inv.handle(e)
+	click.call(centre.call("inv", Vector2i(0, 0)))
+	ok(is_same(inv.held, a) and not progress.inventory.has(a), "a click picks an item up onto the cursor")
+	click.call(centre.call("inv", Vector2i(5, 1)))
+	ok(inv.held.is_empty() and gear.at_of(a) == Vector2i(5, 1), "a click puts it down where the cursor is")
+	click.call(centre.call("inv", Vector2i(5, 1)))
+	click.call(centre.call("inv", Vector2i(2, 0)))
+	ok(is_same(inv.held, b) and gear.at_of(a) == Vector2i(2, 0), "put down on another item, the two swap")
+	click.call(inv.slot_rect("helmet").get_center())
+	ok(is_same(inv.held, b) and progress.gear.is_empty(), "a chassis does not go into the context window's slot")
+	click.call(inv.slot_rect("body").get_center())
+	ok(inv.held.is_empty() and is_same(progress.gear.body, b) and gear.stat("armour") == 12.0, "into the chassis slot it is equipped (+12 armour)")
+	click.call(centre.call("inv", Vector2i(2, 0)), MOUSE_BUTTON_RIGHT)
+	ok(is_same(progress.gear.ring1, a) and not progress.inventory.has(a) and gear.stat("damage") == 15.0, "a right click equips a plugin at once")
+	click.call(inv.slot_rect("ring1").get_center(), MOUSE_BUTTON_RIGHT)
+	ok(not progress.gear.has("ring1") and progress.inventory.has(a), "a right click on an equipped item takes it off into the inventory")
+	click.call(centre.call("inv", gear.at_of(a)), MOUSE_BUTTON_LEFT, true)
+	ok(progress.stash.has(a) and not progress.inventory.has(a), "Ctrl + click moves it into the stash")
+	var motion := InputEventMouseMotion.new()
+	motion.position = centre.call("stash", gear.at_of(a))
+	inv.handle(motion)
+	inv.handle(key.call(KEY_DELETE))
+	ok(progress.stash.has(a), "one Delete only asks")
+	inv.handle(key.call(KEY_DELETE))
+	ok(not progress.stash.has(a), "the second destroys it")
+	# Comparing: a better plugin than the equipped one.
+	gear.equip(ring.call(4), "ring1")
+	var cmp: Array = tip.compare_rows(ring.call(10), progress.gear.ring1)
+	ok(cmp.size() == 3 and cmp[2][0] == "+6% damage" and cmp[2][1] == tip.BETTER, "the tooltip says what equipping changes: %s" % [cmp.map(func(r): return r[0] if not r.is_empty() else "|")])
+	inv.handle(motion)
+	await frames(2)
+	# A held item goes back when the window closes.
+	gear.place(progress.inventory, gear.INV_SIZE, ring.call(7), Vector2i(8, 2))
+	click.call(centre.call("inv", Vector2i(8, 2)))
+	inv.handle(key.call(KEY_ESCAPE))
+	await frames(2)
+	ok(m.mode == m.Mode.MAP and not inv.visible and inv.held.is_empty() and gear.item_at(progress.inventory, Vector2i(8, 2)).get("affixes", [{}])[0].get("value", 0) == 7,
+		"Escape closes it back to the map, the held item back in its place")
+	# In a level: I pauses and opens it without the stash; equipping a weapon there arms Clawd with it.
+	progress.weapons = ["blaster"]
+	progress.equipped = "blaster"
+	progress.gear = {}
+	progress.inventory = []
+	gear.invalidate()
+	gear.place(progress.inventory, gear.INV_SIZE, {"base": "spreader", "rarity": "normal", "ilvl": 9, "affixes": []})
+	m.play("2-1")
+	await frames(5)
+	m._input(key.call(KEY_I))
+	await frames(2)
+	ok(inv.visible and not inv.stash_open and root.get_node("Game").paused and m.gun.weapon.id == "blaster", "I in a level opens it and pauses the game")
+	# The keys start from where the mouse points: away from the grids.
+	motion.position = Vector2(-100, -100)
+	inv.handle(motion)
+	inv.handle(key.call(KEY_DOWN))
+	ok(inv.keys and inv.cur.area == "inv" and inv.cur.cell == Vector2i(0, 1), "the arrows move the cursor over the cells")
+	inv.handle(key.call(KEY_UP))
+	inv.handle(key.call(KEY_X))
+	ok(progress.gear.get("weapon", {}).get("base", "") == "spreader", "X equips the item under the cursor")
+	inv.handle(key.call(KEY_UP))
+	ok(inv.cur.area == "equip", "up from the top row goes to the slots")
+	inv.handle(key.call(KEY_I))
+	await frames(4)
+	ok(not inv.visible and not root.get_node("Game").paused and m.gun.weapon.id == "spreader", "closing it goes on with the spreader in Clawd's hands")
+	progress.gear = {}
+	progress.inventory = []
+	progress.stash = []
+	progress.save_items()
+	gear.invalidate()
+	progress.weapons = saved.weapons
+	progress.equipped = saved.equipped
+	m.subviewport.size = vp_size
+	m.play("1-1")
 	await frames(3)
 	return true
 
@@ -2632,9 +2768,9 @@ func check_menus() -> bool:
 	var hook_lines: Array = menu.control_lines().map(func(l): return l[1])
 	progress.weapons = had
 	progress.tools = had_tools
-	ok(plain == 9 and "Pick up the item you stand by" in armed_lines and armed_lines.size() == 13 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
+	ok(plain == 10 and "Pick up the item you stand by" in armed_lines and armed_lines.size() == 14 and "Switch weapon" in armed_lines and "World 2: aim and shoot" in armed_lines,
 		"picking up items, and with a weapon found it adds shooting, aiming and switching")
-	ok(hook_lines.size() == 14 and hook_lines[-4].begins_with("Tool Call"), "with the Tool Call, a line for it")
+	ok(hook_lines.size() == 15 and hook_lines[-5].begins_with("Tool Call"), "with the Tool Call, a line for it")
 
 	# Keybindings: rebind jump's second slot.
 	menu.handle(key(KEY_ENTER))

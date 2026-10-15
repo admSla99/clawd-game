@@ -1,0 +1,564 @@
+class_name InventoryScreen
+extends Node2D
+
+## The inventory window (docs/endgame-plan.md E3), Path of Exile's: on the right Clawd's equipment slots over his
+## 12 x 5 inventory, on the left the 12 x 12 stash (from the map, later the hideout) or, in a level, his stats.
+## Items are picked up onto the cursor and put down in a grid (swapping with the one item under them) or a slot
+## of their kind (swapping with what is equipped). The mouse: left click picks up / puts down, right click equips
+## or takes off at once, Ctrl + click moves between inventory and stash. The keys: arrows move a cursor over
+## cells and slots, Space / Enter pick up and put down, X equips or takes off, C moves to the other grid, Delete
+## twice destroys, I or Escape closes (a held item goes back first). The hovered item shows its tooltip, what
+## equipping it would change, and the equipped one's tooltip beside it.
+## Made by Main under Ui. In a level it pauses the game and Main applies the gear when it closes (gear_changed());
+## from the map it is Main.Mode.ITEMS, over the drifting backdrop.
+
+const CELL := 12
+const GRID_W := 144
+## Equipment slots: top-left cell and size in the equipment area (8 x 6 cells).
+const EQUIP := {
+	"weapon": [Vector2i(0, 0), Vector2i(2, 3)], "helmet": [Vector2i(3, 0), Vector2i(2, 2)],
+	"amulet": [Vector2i(5, 1), Vector2i(1, 1)], "ring1": [Vector2i(2, 3), Vector2i(1, 1)],
+	"body": [Vector2i(3, 2), Vector2i(2, 3)], "ring2": [Vector2i(5, 3), Vector2i(1, 1)],
+	"gloves": [Vector2i(0, 4), Vector2i(2, 2)], "boots": [Vector2i(6, 4), Vector2i(2, 2)],
+}
+## The ghost drawn in an empty slot.
+const GHOST := {"weapon": "blaster", "helmet": "tin_visor", "amulet": "amber_core", "ring1": "iron_plugin",
+	"body": "scrap_plating", "ring2": "iron_plugin", "gloves": "grip_pads", "boots": "rubber_treads"}
+const CELL_FILL := Color(0.06, 0.06, 0.07, 0.92)
+const CELL_LINE := Color("#202024")
+
+var main: Node
+## The stash is open beside the inventory (from the map).
+var stash_open := false
+var t := 0.0
+## The item on the cursor and where it came from ({area, at} or {area: "equip", slot}).
+var held := {}
+var held_from := {}
+## The keyboard cursor: area "inv", "stash" or "equip", a cell or a slot; `keys` while the keys moved it last.
+var cur := {"area": "inv", "cell": Vector2i.ZERO, "slot": "weapon"}
+var keys := false
+var changed := false
+var note := ""
+var note_t := 0.0
+var destroy_armed := 0.0
+var _mouse := Vector2(-1000, -1000)
+
+
+func open(with_stash: bool) -> void:
+	visible = true
+	stash_open = with_stash
+	t = 0.0
+	held = {}
+	held_from = {}
+	changed = false
+	note = ""
+	destroy_armed = 0.0
+	cur = {"area": "inv", "cell": Vector2i.ZERO, "slot": "weapon"}
+
+
+## Closes the window; a held item goes back first. Returns whether the gear changed while it was open.
+func close() -> bool:
+	if not held.is_empty():
+		_return_held()
+	visible = false
+	return changed
+
+
+func _process(dt: float) -> void:
+	t += dt
+	note_t = maxf(0.0, note_t - dt)
+	destroy_armed = maxf(0.0, destroy_armed - dt)
+	queue_redraw()
+
+
+# --- Layout --------------------------------------------------------------------
+
+func view() -> Rect2:
+	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
+
+
+func origin(area: String) -> Vector2:
+	var v := view()
+	var rx := v.end.x - 14 - GRID_W
+	match area:
+		"equip":
+			return Vector2(rx + (GRID_W - 8 * CELL) / 2.0, v.position.y + 40)
+		"inv":
+			return Vector2(rx, v.position.y + 40 + 6 * CELL + 14)
+	return Vector2(v.position.x + 14, v.position.y + 40)
+
+
+func grid_size(area: String) -> Vector2i:
+	return Gear.STASH_SIZE if area == "stash" else Gear.INV_SIZE
+
+
+func items_of(area: String) -> Array:
+	return Progress.stash if area == "stash" else Progress.inventory
+
+
+func slot_rect(slot: String) -> Rect2:
+	var o := origin("equip")
+	var s: Array = EQUIP[slot]
+	return Rect2(o + Vector2(s[0]) * CELL, Vector2(s[1]) * CELL)
+
+
+func cell_rect(area: String, r: Rect2i) -> Rect2:
+	return Rect2(origin(area) + Vector2(r.position) * CELL, Vector2(r.size) * CELL)
+
+
+## What lies under `p`: {area, cell} for a grid, {area: "equip", slot}, or {area: ""}.
+func hit(p: Vector2) -> Dictionary:
+	for area in (["inv", "stash"] if stash_open else ["inv"]):
+		var r := cell_rect(area, Rect2i(Vector2i.ZERO, grid_size(area)))
+		if r.has_point(p):
+			return {"area": area, "cell": Vector2i(((p - r.position) / CELL).floor())}
+	for slot in EQUIP:
+		if slot_rect(slot).has_point(p):
+			return {"area": "equip", "slot": slot}
+	return {"area": ""}
+
+
+## The target the keys or the mouse point at.
+func target() -> Dictionary:
+	return cur.duplicate() if keys else hit(_mouse)
+
+
+func item_at(tg: Dictionary) -> Dictionary:
+	match tg.get("area", ""):
+		"equip":
+			return Progress.gear.get(tg.slot, {})
+		"inv", "stash":
+			return Gear.item_at(items_of(tg.area), tg.cell)
+	return {}
+
+
+# --- Input ---------------------------------------------------------------------
+
+func handle(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion:
+		_mouse = event.position
+		keys = false
+		return true
+	if event is InputEventMouseButton and event.pressed:
+		_mouse = event.position
+		keys = false
+		var tg := hit(_mouse)
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.ctrl_pressed:
+				move_across(tg)
+			else:
+				primary(tg)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			quick(tg)
+		return true
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return event is InputEventKey or event is InputEventMouseButton
+	if event.is_action_pressed("back") or event.is_action_pressed("inventory"):
+		Sound.play("select")
+		main.close_items()
+	elif _dir(event) != Vector2i.ZERO:
+		_step(_dir(event))
+	elif event.is_action_pressed("confirm") or event.is_action_pressed("jump"):
+		keys = true
+		primary(cur)
+	elif event.physical_keycode == KEY_X:
+		keys = true
+		quick(cur)
+	elif event.physical_keycode == KEY_C:
+		keys = true
+		move_across(cur)
+	elif event.physical_keycode == KEY_DELETE:
+		destroy(target())
+	return true
+
+
+func _dir(event: InputEvent) -> Vector2i:
+	if event.is_action_pressed("left") or event.is_action_pressed("ui_left"):
+		return Vector2i.LEFT
+	if event.is_action_pressed("right") or event.is_action_pressed("ui_right"):
+		return Vector2i.RIGHT
+	if event.is_action_pressed("up") or event.is_action_pressed("ui_up"):
+		return Vector2i.UP
+	if event.is_action_pressed("down") or event.is_action_pressed("ui_down"):
+		return Vector2i.DOWN
+	return Vector2i.ZERO
+
+
+## Moves the keyboard cursor a cell (or a slot) towards `d`, across into the next area at an edge.
+func _step(d: Vector2i) -> void:
+	if not keys:
+		var h := hit(_mouse)
+		if h.area != "":
+			cur = {"area": h.area, "cell": h.get("cell", Vector2i.ZERO), "slot": h.get("slot", "weapon")}
+	keys = true
+	Sound.play("select")
+	var at := _cursor_rect().get_center()
+	if cur.area == "equip":
+		var best := ""
+		var best_d := INF
+		for slot in EQUIP:
+			var c := slot_rect(slot).get_center() - at
+			if slot == cur.slot or c.dot(Vector2(d)) <= 0:
+				continue
+			var dist := c.length() + absf(c.cross(Vector2(d))) * 2
+			if dist < best_d:
+				best_d = dist
+				best = slot
+		if best != "":
+			cur.slot = best
+		elif d == Vector2i.DOWN:
+			cur.area = "inv"
+			cur.cell = Vector2i(clampi(int((at.x - origin("inv").x) / CELL), 0, Gear.INV_SIZE.x - 1), 0)
+		elif d == Vector2i.LEFT and stash_open:
+			cur.area = "stash"
+			cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, 0)
+		return
+	var g := grid_size(cur.area)
+	var next: Vector2i = cur.cell + d
+	if Rect2i(Vector2i.ZERO, g).has_point(next):
+		cur.cell = next
+	elif cur.area == "inv" and d == Vector2i.UP:
+		cur.area = "equip"
+		cur.slot = "gloves" if at.x < origin("equip").x + 4 * CELL else "boots"
+	elif cur.area == "inv" and d == Vector2i.LEFT and stash_open:
+		cur.area = "stash"
+		cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, mini(cur.cell.y, Gear.STASH_SIZE.y - 1))
+	elif cur.area == "stash" and d == Vector2i.RIGHT:
+		cur.area = "inv"
+		cur.cell = Vector2i(0, mini(cur.cell.y, Gear.INV_SIZE.y - 1))
+
+
+func _cursor_rect() -> Rect2:
+	if cur.area == "equip":
+		return slot_rect(cur.slot)
+	return cell_rect(cur.area, Rect2i(cur.cell, Vector2i.ONE))
+
+
+func say(s: String) -> void:
+	note = s
+	note_t = 2.0
+
+
+# --- Moving items ----------------------------------------------------------------
+
+## Left click / Space: picks up what is there, or puts the held item down (swapping with one item under it).
+func primary(tg: Dictionary) -> void:
+	if tg.get("area", "") == "":
+		return
+	if held.is_empty():
+		var it := item_at(tg)
+		if it.is_empty():
+			return
+		_lift(it, tg)
+		Sound.play("select")
+		return
+	if tg.area == "equip":
+		if Items.SLOT_KIND[tg.slot] != Items.kind(held):
+			Sound.play("denied")
+			say("THAT GOES IN THE %s SLOT" % Items.KIND_NAME[Items.kind(held)])
+			return
+		var old := Gear.equip(held, tg.slot)
+		_set_held(old, {"area": "equip", "slot": tg.slot})
+		changed = true
+		Sound.play("confirm")
+		return
+	var items := items_of(tg.area)
+	var size := Items.size(held)
+	var at := _drop_cell(tg, size)
+	var r := Rect2i(at, size)
+	if not Rect2i(Vector2i.ZERO, grid_size(tg.area)).encloses(r):
+		Sound.play("denied")
+		return
+	var under := Gear.overlapping(items, r)
+	if under.size() > 1:
+		Sound.play("denied")
+		return
+	if under.size() == 1:
+		items.erase(under[0])
+	held.at = [at.x, at.y]
+	items.append(held)
+	_set_held(under[0] if under.size() == 1 else {}, {"area": tg.area, "at": Gear.at_of(under[0]) if under.size() == 1 else at})
+	Progress.save_items()
+	Sound.play("select")
+
+
+## Where the held item's top-left goes: under the keyboard cursor, or centred on the mouse.
+func _drop_cell(tg: Dictionary, size: Vector2i) -> Vector2i:
+	if keys:
+		return tg.cell
+	var o := origin(tg.area)
+	var tl := (_mouse - o - Vector2(size) * CELL / 2.0 + Vector2.ONE * CELL / 2.0) / CELL
+	var g := grid_size(tg.area)
+	return Vector2i(clampi(floori(tl.x), 0, g.x - size.x), clampi(floori(tl.y), 0, g.y - size.y))
+
+
+## Right click / X: an item in the inventory or stash goes on (what it replaces into its place, or the first free
+## cell), an equipped one comes off into the inventory.
+func quick(tg: Dictionary) -> void:
+	if not held.is_empty() or tg.get("area", "") == "":
+		return
+	var it := item_at(tg)
+	if it.is_empty():
+		return
+	if tg.area == "equip":
+		if not Gear.take(Progress.gear[tg.slot]):
+			Sound.play("denied")
+			say("INVENTORY FULL")
+			return
+		Gear.unequip(tg.slot)
+	else:
+		var items := items_of(tg.area)
+		var at := Gear.at_of(it)
+		items.erase(it)
+		var old := Gear.equip(it, Gear.slot_for(it))
+		if not old.is_empty() and not Gear.place(items, grid_size(tg.area), old, at):
+			# No room for what came off: undo.
+			Gear.equip(old, Gear.slot_for(old) if Items.kind(old) != "ring" else _slot_of(it))
+			Gear.place(items, grid_size(tg.area), it, at)
+			Sound.play("denied")
+			say("NO ROOM FOR %s" % Items.name_of(old).to_upper())
+			return
+	changed = true
+	Progress.save_items()
+	Sound.play("confirm")
+
+
+func _slot_of(it: Dictionary) -> String:
+	for slot in Progress.gear:
+		if is_same(Progress.gear[slot], it):
+			return slot
+	return Gear.slot_for(it)
+
+
+## Ctrl + click / C: between the inventory and the stash (the first free cell there).
+func move_across(tg: Dictionary) -> void:
+	if not stash_open or not held.is_empty() or tg.get("area", "") not in ["inv", "stash"]:
+		if not stash_open:
+			say("THE STASH OPENS FROM THE MAP")
+		return
+	var it := item_at(tg)
+	if it.is_empty():
+		return
+	var to := "stash" if tg.area == "inv" else "inv"
+	var items := items_of(tg.area)
+	items.erase(it)
+	if not Gear.place(items_of(to), grid_size(to), it):
+		items.append(it)
+		Sound.play("denied")
+		say("THE %s IS FULL" % ("STASH" if to == "stash" else "INVENTORY"))
+		return
+	Progress.save_items()
+	Sound.play("select")
+
+
+## Delete: the held item, or the one under the cursor, is destroyed on the second press.
+func destroy(tg: Dictionary) -> void:
+	var it := held if not held.is_empty() else item_at(tg)
+	if it.is_empty():
+		return
+	if destroy_armed <= 0:
+		destroy_armed = 1.5
+		Sound.play("select")
+		say("PRESS DELETE AGAIN TO DESTROY %s" % Items.name_of(it).to_upper())
+		return
+	destroy_armed = 0.0
+	if not held.is_empty():
+		held = {}
+		held_from = {}
+	elif tg.area == "equip":
+		Gear.unequip(tg.slot)
+		changed = true
+	else:
+		items_of(tg.area).erase(it)
+	Progress.save_items()
+	Sound.play("agentGone")
+	say("DESTROYED")
+
+
+func _lift(it: Dictionary, tg: Dictionary) -> void:
+	if tg.area == "equip":
+		Gear.unequip(tg.slot)
+		changed = true
+		_set_held(it, {"area": "equip", "slot": tg.slot})
+	else:
+		items_of(tg.area).erase(it)
+		_set_held(it, {"area": tg.area, "at": Gear.at_of(it)})
+	Progress.save_items()
+
+
+func _set_held(it: Dictionary, from: Dictionary) -> void:
+	held = it
+	held_from = from if not it.is_empty() else {}
+
+
+## The held item back where it came from, else the inventory, else the stash, else onto the ground by Clawd.
+func _return_held() -> void:
+	var it := held
+	held = {}
+	var from := held_from
+	held_from = {}
+	if from.get("area", "") == "equip" and not Progress.gear.has(from.slot):
+		Gear.equip(it, from.slot)
+		changed = true
+		return
+	if from.get("area", "") in ["inv", "stash"] and Gear.place(items_of(from.area), grid_size(from.area), it, from.at):
+		Progress.save_items()
+		return
+	if Gear.place(Progress.inventory, Gear.INV_SIZE, it) or Gear.place(Progress.stash, Gear.STASH_SIZE, it):
+		Progress.save_items()
+		return
+	if main.mode == Main.Mode.PLAY:
+		ItemDrop.drop(main.level, main.player.pos + Vector2(0, -10), it)
+
+
+# --- Drawing -------------------------------------------------------------------
+
+func _draw() -> void:
+	var v := view()
+	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.02, 0.02, 0.04, 0.78))
+	_big("INVENTORY", v.position + Vector2(14, 8), Hud.ORANGE)
+	Hud.draw_xp(self, Vector2(v.position.x + 14 + PixelFont.width("INVENTORY") * 2 + 14, v.position.y + 12), Progress.char_level,
+		Experience.fraction())
+	var wallet := str(Progress.wallet)
+	PixelFont.draw(self, wallet, Vector2(v.end.x - 14 - PixelFont.width(wallet), v.position.y + 12), Hud.TEXT)
+	draw_texture(Hud._coin_tex[8], Vector2(v.end.x - 14 - PixelFont.width(wallet) - 12, v.position.y + 11))
+	if stash_open:
+		_label("STASH", origin("stash"))
+		_draw_grid("stash")
+	else:
+		_draw_stats()
+	_label("EQUIPPED", origin("equip"))
+	for slot in EQUIP:
+		_draw_slot(slot)
+	_label("CARRIED", origin("inv"))
+	_draw_grid("inv")
+	# The keyboard cursor.
+	if keys:
+		var cr := _cursor_rect()
+		var pulse := 0.6 + 0.4 * sin(t * 6)
+		draw_rect(cr.grow(1), Color(Hud.ORANGE_LIGHT, pulse), false)
+	# The held item on the cursor (or over the keyboard cursor).
+	if not held.is_empty():
+		var size := Vector2(Items.size(held)) * CELL
+		var at := (_cursor_rect().position if keys else _mouse - size / 2.0).round()
+		draw_rect(Rect2(at, size), Color(Items.color(held), 0.25))
+		ItemTooltip.draw_icon(self, held, at + size / 2.0, _scale(held))
+	else:
+		_draw_tooltips()
+	var help := "LMB PICK UP / PUT DOWN   RMB EQUIP   CTRL+LMB STASH   DEL DEL DESTROY   I / ESC CLOSE" if not keys \
+		else "ARROWS MOVE   SPACE PICK UP / PUT DOWN   X EQUIP   C STASH   DEL DEL DESTROY   I / ESC CLOSE"
+	if note_t > 0:
+		help = note
+	PixelFont.draw_centred(self, help, v.get_center().x, v.end.y - 10, Hud.ORANGE_LIGHT if note_t > 0 else Color("#5C5C5C"))
+
+
+func _draw_grid(area: String) -> void:
+	var g := grid_size(area)
+	var r := cell_rect(area, Rect2i(Vector2i.ZERO, g))
+	Hud.panel(self, r.grow(2), Color("#2A2A30"), Color(0.03, 0.03, 0.04, 0.9))
+	for x in g.x:
+		for y in g.y:
+			draw_rect(Rect2(r.position + Vector2(x, y) * CELL, Vector2.ONE * (CELL - 1)), CELL_FILL)
+	var hover := target()
+	for it in items_of(area):
+		var ir := cell_rect(area, Gear.rect_of(it))
+		var lit: bool = hover.get("area", "") == area and Gear.rect_of(it).has_point(hover.cell)
+		_draw_item(it, ir, lit)
+
+
+func _draw_slot(slot: String) -> void:
+	var r := slot_rect(slot).grow(-1)
+	var it: Dictionary = Progress.gear.get(slot, {})
+	var hover := target()
+	var lit: bool = hover.get("area", "") == "equip" and hover.slot == slot
+	var fits: bool = not held.is_empty() and Items.SLOT_KIND[slot] == Items.kind(held)
+	Hud.panel(self, r, Hud.ORANGE if fits else Color("#3A3A42") if lit else Color("#26262C"), CELL_FILL)
+	if it.is_empty():
+		ItemTooltip.draw_icon(self, {}, r.get_center(), 1 if r.size.x < CELL * 2 else 2, true, GHOST[slot])
+	else:
+		_draw_item(it, r, lit)
+
+
+func _draw_item(it: Dictionary, r: Rect2, lit: bool) -> void:
+	var col := Items.color(it)
+	draw_rect(r.grow(-1), Color(col.darkened(0.7), 0.85 if lit else 0.6))
+	if lit:
+		draw_rect(r.grow(-1), Color(col, 0.6), false)
+	ItemTooltip.draw_icon(self, it, r.get_center(), _scale(it))
+
+
+func _scale(it: Dictionary) -> int:
+	return 1 if Items.size(it).x < 2 and Items.kind(it) != "weapon" else 2
+
+
+## The hovered item's tooltip, what equipping it would change, and the equipped one beside it.
+func _draw_tooltips() -> void:
+	var tg := target()
+	var it := item_at(tg)
+	if it.is_empty():
+		return
+	var anchor := slot_rect(tg.slot) if tg.area == "equip" else cell_rect(tg.area, Gear.rect_of(it))
+	var rows := ItemTooltip.rows(it, main.endgame)
+	var other := {}
+	if tg.area != "equip":
+		other = Progress.gear.get(Gear.slot_for(it), {})
+		rows += ItemTooltip.compare_rows(it, other)
+	var side := "right" if tg.area == "stash" else "left"
+	var sz := ItemTooltip.size(rows)
+	var at := ItemTooltip.place(sz, anchor, view(), side)
+	var box := ItemTooltip.draw(self, rows, at, Items.color(it).darkened(0.35))
+	if not other.is_empty():
+		var orows := ItemTooltip.rows(other, main.endgame, "EQUIPPED")
+		var osz := ItemTooltip.size(orows)
+		var oat := ItemTooltip.place(osz, box, view(), side)
+		if Rect2(oat, osz).intersects(box) or Rect2(oat, osz).intersects(anchor):
+			return
+		ItemTooltip.draw(self, orows, oat, Hud.BORDER.lightened(0.2))
+
+
+## Clawd's stats from the tree and the gear (the left side while the stash is closed).
+func _draw_stats() -> void:
+	var o := origin("stash")
+	var r := Rect2(o, Vector2(GRID_W, Gear.STASH_SIZE.y * CELL))
+	Hud.panel(self, r.grow(2), Color("#2A2A30"), Color(0.03, 0.03, 0.04, 0.9))
+	_label("CLAWD   * ONLY IN THE ENDGAME", o)
+	var pct := func(k: String) -> String: return "%+d%%" % roundi(Stats.total(k))
+	var lines := [
+		["LEVEL", str(Progress.char_level)],
+		["DAMAGE", pct.call("damage")],
+		["FIRE RATE", pct.call("rate")],
+		["CRITICAL CHANCE", "%d%%" % roundi(Stats.crit_chance() * 100)],
+		["CRITICAL DAMAGE", "%d%%" % roundi(Stats.crit_mult() * 100)],
+		["RUN SPEED", pct.call("run")],
+		["HOVER TIME", pct.call("hover")],
+		["HOOK REACH", pct.call("reach")],
+		["ITEM RARITY", pct.call("rarity")],
+		["TOKENS", pct.call("tokens")],
+		[],
+		["LIFE *", str(roundi(Stats.max_life()))],
+		["ARMOUR *", str(roundi(Stats.total("armour")))],
+		["EVASION *", str(roundi(Stats.total("evasion")))],
+		["REGENERATION *", "%d/s" % roundi(Stats.total("regen"))],
+		["OVERHEAT RES. *", "%d%%" % roundi(Stats.total("res_fire"))],
+		["LATENCY RES. *", "%d%%" % roundi(Stats.total("res_cold"))],
+		["VOLTAGE RES. *", "%d%%" % roundi(Stats.total("res_lightning"))],
+	]
+	var y := o.y + 4
+	for l in lines:
+		if l.is_empty():
+			y += 4
+			continue
+		PixelFont.draw(self, l[0], Vector2(o.x + 6, y), Hud.TEXT_DIM)
+		PixelFont.draw(self, l[1], Vector2(o.x + GRID_W - 6 - PixelFont.width(l[1]), y), Hud.TEXT)
+		y += PixelFont.LINE
+
+
+func _label(s: String, at: Vector2) -> void:
+	PixelFont.draw(self, s, at + Vector2(0, -10), Hud.TEXT_DIM)
+
+
+func _big(s: String, at: Vector2, color: Color) -> void:
+	draw_set_transform(at.round(), 0, Vector2(2, 2))
+	PixelFont.draw(self, s, Vector2(0, 1), Color(0, 0, 0, 0.65))
+	PixelFont.draw(self, s, Vector2.ZERO, color)
+	draw_set_transform(Vector2.ZERO)

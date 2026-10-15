@@ -1,12 +1,14 @@
 class_name Gear
 extends RefCounted
 
-## What Clawd wears and carries (docs/endgame-plan.md E2): the equipped items by slot (Items.SLOTS) and the
-## inventory, both in Progress (`gear`, `inventory`, saved to their own file by Progress.save_items()). stat() adds
-## up the equipped items' stats, cached until invalidate() (tokens read the magnet every frame).
-## The inventory holds INVENTORY_CELLS cells of items for now; the grid comes with the inventory window (E3).
+## What Clawd wears and carries (docs/endgame-plan.md E2, E3): the equipped items by slot (Items.SLOTS), the
+## inventory and the stash, all in Progress (`gear`, `inventory`, `stash`, saved to their own file by
+## Progress.save_items()). stat() adds up the equipped items' stats, cached until invalidate() (tokens read the
+## magnet every frame). The inventory and the stash are grids: every item there has its top-left cell in "at"
+## ([x, y]) and covers Items.size() cells; find_spot() fills a grid column by column, like Path of Exile.
 
-const INVENTORY_CELLS := 60
+const INV_SIZE := Vector2i(12, 5)
+const STASH_SIZE := Vector2i(12, 12)
 
 static var _cache := {}
 
@@ -60,23 +62,77 @@ static func unequip(slot: String) -> Dictionary:
 	return old
 
 
-static func cells_used() -> int:
-	var n := 0
-	for it in Progress.inventory:
-		var s := Items.size(it)
-		n += s.x * s.y
-	return n
+static func at_of(item: Dictionary) -> Vector2i:
+	var a: Array = item.get("at", [-1, -1])
+	return Vector2i(int(a[0]), int(a[1]))
+
+
+static func rect_of(item: Dictionary) -> Rect2i:
+	return Rect2i(at_of(item), Items.size(item))
+
+
+## The items of `items` that `r` overlaps, but `ignore`.
+static func overlapping(items: Array, r: Rect2i, ignore: Dictionary = {}) -> Array:
+	return items.filter(func(it): return not is_same(it, ignore) and rect_of(it).intersects(r))
+
+
+## The item covering `cell`, or {}.
+static func item_at(items: Array, cell: Vector2i) -> Dictionary:
+	for it in items:
+		if rect_of(it).has_point(cell):
+			return it
+	return {}
+
+
+static func free_at(items: Array, grid: Vector2i, r: Rect2i, ignore: Dictionary = {}) -> bool:
+	return Rect2i(Vector2i.ZERO, grid).encloses(r) and overlapping(items, r, ignore).is_empty()
+
+
+## The first free top-left for `size` cells, column by column from the top left; (-1, -1) when none is.
+static func find_spot(items: Array, grid: Vector2i, size: Vector2i) -> Vector2i:
+	for x in grid.x - size.x + 1:
+		for y in grid.y - size.y + 1:
+			if free_at(items, grid, Rect2i(Vector2i(x, y), size)):
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+## Puts `item` into `items` at `at`, or at the first free spot when `at` is (-1, -1) or taken. False if none.
+static func place(items: Array, grid: Vector2i, item: Dictionary, at := Vector2i(-1, -1)) -> bool:
+	if at.x < 0 or not free_at(items, grid, Rect2i(at, Items.size(item))):
+		at = find_spot(items, grid, Items.size(item))
+	if at.x < 0:
+		return false
+	item.at = [at.x, at.y]
+	items.append(item)
+	return true
+
+
+## Gives every item of `items` a spot of its own (old saves, a spot taken twice); returns the ones that do not fit.
+static func normalize(items: Array, grid: Vector2i) -> Array:
+	var kept := []
+	var left := []
+	for it in items:
+		var r := rect_of(it)
+		if r.position.x >= 0 and free_at(kept, grid, r):
+			kept.append(it)
+		else:
+			left.append(it)
+	var over := []
+	for it in left:
+		if not place(kept, grid, it):
+			over.append(it)
+	items.assign(kept)
+	return over
 
 
 static func fits(item: Dictionary) -> bool:
-	var s := Items.size(item)
-	return cells_used() + s.x * s.y <= INVENTORY_CELLS
+	return find_spot(Progress.inventory, INV_SIZE, Items.size(item)).x >= 0
 
 
-## Into the inventory if it fits (saved); false when it is full.
+## Into the inventory's first free spot (saved); false when there is none.
 static func take(item: Dictionary) -> bool:
-	if not fits(item):
+	if not place(Progress.inventory, INV_SIZE, item):
 		return false
-	Progress.inventory.append(item)
 	Progress.save_items()
 	return true

@@ -108,7 +108,9 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
       drops on the ground and pickup, checks, README. Items drop in the campaign too, E picks them up (next weapon
       moved to R), one equipped weapon item is the gun Clawd holds (the user's calls). HP: 50 + 5 a level, enemy
       hits 8 x 1.06^area level, PoE's armour, evasion as a chance; `Main.endgame` turns it on (nothing does yet).
-- [ ] E3 Inventory and stash: the grid UI, equipping, tooltips with comparison, the stash, `items.json`, checks.
+- [x] E3 Inventory and stash: the grid UI, equipping, tooltips with comparison, the stash, `items.json`, checks.
+      I opens it (in a level it pauses, without the stash; from the map with it, until the hideout has a chest);
+      the weapons found before items are normal items in the stash.
 - [ ] E4 The hideout: the room, the stash, the vendor, the terminal, the entry from the world map.
 - [ ] E5 Maps: chunks of world 1, the generator and its check, map items and mods, the Map Device, portals, the
       map boss, maps dropping maps (T1-T5). **The vertical slice ends here: a first playtest.**

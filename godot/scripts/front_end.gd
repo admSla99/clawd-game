@@ -170,6 +170,9 @@ func _map_key(event: InputEvent) -> bool:
 		_open_shop()
 	elif event.is_action_pressed("tree"):
 		_open_tree()
+	elif event.is_action_pressed("inventory"):
+		Sound.play("confirm")
+		main.show_items()
 	elif event.is_action_pressed("back"):
 		Sound.play("select")
 		main.show_title()
@@ -223,6 +226,13 @@ func _tree_label() -> String:
 	return "T · PROMPTS" + (" (%d)" % free if free > 0 else "")
 
 
+## Left of the prompt tree's button (or the shop's).
+func _items_rect() -> Rect2:
+	var r := _tree_rect() if tree_open() else _shop_rect()
+	var w := PixelFont.width("I · ITEMS") + 14
+	return Rect2(r.position.x - 6 - w, r.position.y, w, 14)
+
+
 func _shop_rect() -> Rect2:
 	var v := view()
 	var label := "B · SHOP" if shop_open() else "SHOP (LOCKED)"
@@ -231,6 +241,10 @@ func _shop_rect() -> Rect2:
 
 
 func _map_click(p: Vector2) -> bool:
+	if _items_rect().has_point(p):
+		Sound.play("confirm")
+		main.show_items()
+		return true
 	if _shop_rect().has_point(p):
 		_open_shop()
 		return true
@@ -544,6 +558,10 @@ func _draw_map() -> void:
 		PixelFont.draw_centred(self, _tree_label(), tr.get_center().x, tr.position.y + 4,
 			Hud.ORANGE_LIGHT if tr.has_point(_mouse) else Hud.TEXT if free else Hud.TEXT_DIM)
 		sr = tr
+	var ir := _items_rect()
+	Hud.panel(self, ir, Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.9))
+	PixelFont.draw_centred(self, "I · ITEMS", ir.get_center().x, ir.position.y + 4, Hud.ORANGE_LIGHT if ir.has_point(_mouse) else Hud.TEXT)
+	sr = ir
 	var sparks := str(Progress.sparks_available())
 	var wx := sr.position.x - 8 - PixelFont.width(sparks)
 	_text(sparks, Vector2(wx, v.position.y + 12), Hud.TEXT)
@@ -600,7 +618,7 @@ func _draw_map() -> void:
 		all += sparks_total.get(id, 0)
 	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
 	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
-	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   " + ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
+	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   I ITEMS   B SHOP   " + ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
 	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
 

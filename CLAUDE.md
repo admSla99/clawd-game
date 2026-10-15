@@ -56,10 +56,11 @@ The game targets desktop (keyboard and mouse; no gamepad or touch, the user's ca
   (`Main.motif_shader_for()` / `motif_script_for()`). It starts `Main` in `PLAY` mode and points `Settings.path` /
   `Progress.path` at their own files, so it never touches the player's saves.
 - **Main scene and modes**: `scenes/main.tscn` (`scripts/main.gd`, class `Main`) is the main scene. `Main.mode`
-  is `TITLE`, `MAP`, `SHOP`, `TREE` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the
+  is `TITLE`, `MAP`, `SHOP`, `TREE`, `ITEMS` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the
   player parked) or `PLAY`. Title and world map → `scripts/front_end.gd`, shop → `scripts/shop_screen.gd` +
   `scripts/shop.gd`, prompt tree → `scripts/tree_screen.gd` + `scripts/prompts.gd`, results → `Overlay`,
-  pause/controls/keybinds → `scripts/game_menu.gd`.
+  pause/controls/keybinds → `scripts/game_menu.gd`, inventory and stash → `scripts/inventory_screen.gd` (items:
+  `items.gd`, `gear.gd`, `stats.gd`, `item_drop.gd`, `loot_view.gd`, `item_tooltip.gd`; character level: `experience.gd`).
 - **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute, crosshair colour →
   `user://settings.cfg`), `Sound` (synthesizes effects/music offline into AudioStreamWAVs; every
   `Sound.play("x")` needs `x` in `Sound.PRELOAD`, checked), `Progress` (cleared levels, sparks, sub-agents, wallet,

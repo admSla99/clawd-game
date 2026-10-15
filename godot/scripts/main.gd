@@ -39,7 +39,7 @@ const RED := Color("#E0605A")
 const TOKENS_PER_HEART := 300
 const HEART_CAP := 5
 
-enum Mode { TITLE, MAP, PLAY, SHOP, TREE }
+enum Mode { TITLE, MAP, PLAY, SHOP, TREE, ITEMS }
 
 ## The level behind the title and the map.
 const BACKDROP := "1-1"
@@ -120,6 +120,8 @@ var tree: TreeScreen
 ## Items lying in the level: their labels and tooltip (made in _ready() under Ui, over the HUD), the one Clawd
 ## stands by, and the dice for drops.
 var loot: LootView
+## The inventory window (made in _ready() under Ui, below the menus): Mode.ITEMS from the map, or over a level.
+var items: InventoryScreen
 var loot_target: ItemDrop
 var loot_rng := RandomNumberGenerator.new()
 ## The endgame (the hideout and maps, docs/endgame-plan.md): Clawd has hit points instead of hearts there, and the
@@ -164,6 +166,12 @@ func _ready() -> void:
 	tree.main = self
 	menu.get_parent().add_child(tree)
 	menu.get_parent().move_child(tree, menu.get_index())
+	items = InventoryScreen.new()
+	items.name = "Items"
+	items.visible = false
+	items.main = self
+	menu.get_parent().add_child(items)
+	menu.get_parent().move_child(items, menu.get_index())
 	loot = LootView.new()
 	loot.name = "Loot"
 	loot.main = self
@@ -182,6 +190,15 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouse:
 		event = event.duplicate()
 		event.position += Vector2.ONE * PAD
+	# The inventory window takes everything while it is open; I opens it in a level.
+	if items.visible:
+		if items.handle(event):
+			get_viewport().set_input_as_handled()
+		return
+	if mode == Mode.PLAY and event.is_action_pressed("inventory") and not menu.is_open() and complete_t < 0:
+		open_items_in_level()
+		get_viewport().set_input_as_handled()
+		return
 	var screen: Variant = shop if mode == Mode.SHOP else tree if mode == Mode.TREE else front
 	if menu.handle(event) or (mode != Mode.PLAY and not menu.is_open() and screen.handle(event)):
 		get_viewport().set_input_as_handled()
@@ -210,6 +227,7 @@ func play(id: String) -> void:
 	front.close()
 	shop.close()
 	tree.close()
+	items.visible = false
 	load_level(id)
 
 
@@ -227,6 +245,7 @@ func show_map(focus := -1) -> void:
 	mode = Mode.MAP
 	shop.close()
 	tree.close()
+	items.visible = false
 	front.open_map(focus)
 	Sound.play_music("map")
 
@@ -246,6 +265,43 @@ func show_tree() -> void:
 	mode = Mode.TREE
 	front.close()
 	tree.open()
+
+
+## The inventory with the stash, over the drifting backdrop (the map's music plays on).
+func show_items() -> void:
+	_backdrop()
+	mode = Mode.ITEMS
+	front.close()
+	items.open(true)
+
+
+## The inventory over a level: the game pauses until it closes.
+func open_items_in_level() -> void:
+	Sound.play("select")
+	Game.paused = true
+	hud.visible = false
+	items.open(false)
+
+
+## Closes the inventory: back to the map, or on with the level with the gear applied (gear_changed()).
+func close_items() -> void:
+	var changed := items.close()
+	if mode == Mode.ITEMS:
+		show_map(front.sel)
+		return
+	Game.paused = false
+	hud.visible = true
+	if changed:
+		gear_changed()
+
+
+## The gear changed in a level: the stats again (life keeps its share), and the gun (an equipped weapon item).
+func gear_changed() -> void:
+	var share := player.life / player.max_life if player.max_life > 0 else 1.0
+	_apply_loadout()
+	player.life = share * player.max_life
+	if gun.armed:
+		gun.arm(true, Progress.equipped)
 
 
 ## Loads BACKDROP for the title and the map (unless it is already there, untouched) with Clawd put away.

@@ -215,6 +215,28 @@ static func stat(item: Dictionary, key: String) -> float:
 	return n
 
 
+## The stats `item` has (its implicit's and its affixes'), in order.
+static func stat_keys(item: Dictionary) -> Array:
+	var out: Array = BASES[item.base].get("implicit", {}).keys()
+	for a in item.affixes:
+		if AFFIXES[a.id].stat not in out:
+			out.append(AFFIXES[a.id].stat)
+	return out
+
+
+## How a stat reads, "+%d..." (an affix's text for it, else the implicit's).
+static func stat_text(key: String) -> String:
+	for id in AFFIXES:
+		if AFFIXES[id].stat == key:
+			return AFFIXES[id].text
+	return STAT_TEXT.get(key, "+%d " + key)
+
+
+## A change of `d` in `key`, with its sign ("-4% fire rate").
+static func delta_text(key: String, d: float) -> String:
+	return ("+" if d > 0 else "-") + stat_text(key).substr(1) % absi(roundi(d))
+
+
 static func kind(item: Dictionary) -> String:
 	return BASES[item.base].kind
 
