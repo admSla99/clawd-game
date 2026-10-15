@@ -9,6 +9,9 @@ extends Node3D
 ## like a hologram while it replays and as it fades. Group "echoes".
 ## A `hostile` echo (the Router's loopback, scripts/router.gd) is red, presses nothing, is no platform, hurts Clawd
 ## to touch while it replays and fades as soon as its replay ends.
+## With the prompt tree's Tool use. (`gunner`) a standing sub-agent is an ally: every `gun_every` seconds it turns to
+## the nearest enemy within GUN_RANGE that it can see and shoots a cyan pellet at it (two with Parallel tool calls.),
+## Clawd's own shot (Bullet), so it hurts enemies, drops their tokens and stops on blocks.
 
 const STAND := 8.0
 const FADE := 0.5
@@ -18,6 +21,20 @@ const HOSTILE_TINT := Color(1.0, 0.3, 0.3, 0.65)
 var hostile := false
 ## Seconds it stands once its replay is over (STAND, longer with the prompt tree's Patience).
 var stand := STAND
+## Tool use.: it shoots while it stands (EchoControl sets these from the prompt tree).
+const GUN_RANGE := 150.0
+const GUN_EVERY := 0.8
+const GUN_DAMAGE := 1.5
+const GUN_SPEED := 340.0
+const GUN_COLOR := Color("#7FE8F0")
+const GUN := {"kind": "pellet", "color": GUN_COLOR, "pierce": 0, "life": 0.6}
+var gunner := false
+var gun_damage := GUN_DAMAGE
+var gun_every := GUN_EVERY
+var gun_pair := false
+var gun_t := 0.3
+## Which way it looks while it shoots (0: as its path says).
+var aim_facing := 0
 
 ## [Vector2 feet, int facing] per physics frame.
 var path: Array = []
@@ -90,9 +107,55 @@ func _physics_process(dt: float) -> void:
 		stand_t += dt
 		if stand_t >= stand:
 			recall()
+		elif gunner:
+			_shoot(dt)
 	feet = path[i][0]
-	facing = path[i][1]
+	facing = aim_facing if aim_facing != 0 else path[i][1]
 	_update()
+
+
+## Tool use.: counts down, then shoots the nearest enemy in sight (or looks again a moment later).
+func _shoot(dt: float) -> void:
+	gun_t -= dt
+	if gun_t > 0:
+		return
+	var level := get_parent() as Level
+	var from := feet + Vector2(0, -9)
+	var target := nearest_enemy(level, from)
+	if target == null:
+		gun_t = 0.15
+		return
+	gun_t = gun_every
+	var at: Vector2 = target.rect().get_center()
+	aim_facing = 1 if at.x >= feet.x else -1
+	from += Vector2(aim_facing * 5, 0)
+	var a := (at - from).angle()
+	for o in ([-0.08, 0.08] if gun_pair else [0.0]):
+		Bullet.fire(level, from, a + o, GUN_SPEED, GUN, gun_damage)
+	Sound.play("gunPellet")
+
+
+## The nearest live enemy (not a shot) within GUN_RANGE of `from` with no block in between, or null.
+func nearest_enemy(level: Level, from: Vector2) -> Enemy:
+	var best: Enemy = null
+	var best_d := GUN_RANGE
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		if e.dead or e.projectile:
+			continue
+		var at: Vector2 = e.rect().get_center()
+		var d := from.distance_to(at)
+		if d < best_d and _clear(level, from, at):
+			best_d = d
+			best = e
+	return best
+
+
+static func _clear(level: Level, a: Vector2, b: Vector2) -> bool:
+	var n := ceili(a.distance_to(b) / 4.0)
+	for k in range(1, n):
+		if level.tile(a.lerp(b, float(k) / n)) in [Level.SOLID, Level.CORRUPT]:
+			return false
+	return true
 
 
 func _update() -> void:

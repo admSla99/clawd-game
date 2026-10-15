@@ -21,8 +21,17 @@ func run(c) -> bool:
 		"the ravine motif (walls, clocks timing out, spinners) is behind the level")
 	var anchors: Array = c.get_nodes_in_group("anchors").filter(func(a): return a.get_script().resource_path.ends_with("/anchor.gd"))
 	var timeouts: Array = anchors.filter(func(a): return a.timeout)
-	c.ok(timeouts.size() == 14 and anchors.size() - timeouts.size() == 5, "14 timeout anchors and 5 plain ones")
+	c.ok(timeouts.size() == 20 and anchors.size() - timeouts.size() == 5, "20 timeout anchors and 5 plain ones")
 	c.ok(c.get_nodes_in_group("plates").size() == 3 and c.get_nodes_in_group("gates").size() == 2, "3 plates and 2 gates")
+	# The gateway (after the playthrough, docs/prompt-tree-plan.md T3): past the old exit at column 221 a checkpoint
+	# and a sign, a chasm of six timeout anchors with a turret on a pillar, drones and a webhook, then an arena.
+	var past := func(n: Node) -> bool: return Px.of(n.position).x > 222 * TILE
+	var later: Array = c.get_nodes_in_group("enemies").filter(past)
+	var goal = m.level.get_node("Goal")
+	c.ok(later.size() == 17 and timeouts.filter(past).size() == 6
+		and m.level.get_children().any(func(n): return n.name.begins_with("Checkpoint") and past.call(n))
+		and Px.of(goal.position).x > 330 * TILE and m.info.signs.size() == 4,
+		"past the old exit: a checkpoint, 6 timeout anchors over a chasm, 17 enemies in the gateway, a 4th sign, the exit at the end")
 
 	for e in c.get_nodes_in_group("enemies"):
 		e.remove()

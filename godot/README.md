@@ -548,6 +548,12 @@ start and end, so one sent after waiting stands at once), one entry a physics fr
 (the voxel shader's `tint`), its pose from how it moves; it flickers like a hologram while it replays, in its last
 second and as it fades.
 
+With the prompt tree's **Tool use.** (`Echo.gunner`, set by `EchoControl.send()` from `Prompts`) a standing
+sub-agent is an ally: every `gun_every` s (0.8, faster with Async Calls) it turns to the nearest enemy within 150 px
+that no block hides (`nearest_enemy()`) and fires a cyan pellet at it (`Bullet.fire()` with `Echo.GUN`: 1.5 damage,
+more with Shared Weights; two in a small fan with Parallel tool calls.), Clawd's own shot, so it hurts, kills and
+drops tokens like his. `EchoControl.out()` skips sub-agents freed under it.
+
 `scripts/plate.gd` (`Plate`, group `plates`; digits `1`-`9`, a run of one digit in a row is one plate): a slab on
 the floor under its cells in its digit's colour (`Plate.COLORS`), pressed while Clawd stands on it or a sub-agent's
 feet are on it (plateOn / plateOff); its top lights and it sinks a pixel. The level's `plateHold` (seconds per
@@ -647,14 +653,18 @@ scaffolding poles; now and then a stack's top container crumbles into pixels and
 
 ### 3-4 Timeout Ravine
 
-222 x 30 tiles of cliffs over a ravine floored with spikes, sub-agents expected (`subAgents`; plates of 1 hold
+340 x 30 tiles of cliffs over a ravine floored with spikes, sub-agents expected (`subAgents`; plates of 1 hold
 3.5 s, of 2 hold 4 s). A chain of four timeout anchors over the first chasm (the TIMEOUT sign, a spark over it); on
 the next cliff plate 1, whose gate `a` stands in a wall beyond a second chasm of anchors: race there in 3.5 s or
 leave a sub-agent on it (the RACE sign); a checkpoint; then one 2-plate on a cliff and one down in a pit (a spark
 there, a timeout anchor out of it), both at once open gate `b` (the DEADLOCK sign), a parser and a shield bot; a
 long chain of eight timeout anchors with drones and a webhook over it, a spark over the middle and a sub-agent on
 a ledge in the chasm (an anchor back up); the last cliff with parsers, a spam bot, a high ledge with a spark and a
-sub-agent, and a spark over a lone timeout anchor before the exit. 5 sparks, 2 sub-agents, 36 tokens.
+sub-agent, and a spark over a lone timeout anchor; then (made longer after the playthrough, docs/prompt-tree-plan.md)
+a checkpoint and the GATEWAY sign, a 36-tile chasm of six timeout anchors with a turret on a pillar in the middle,
+two drones and a webhook over it, and the gateway: a ceiling block with a turret under it, two one-way shelves with
+tokens, low cover, three bugs, two parsers, two shield bots, two spam bots, a floor turret and two drones; then the
+exit. 5 sparks, 2 sub-agents, 49 tokens (494 with what its enemies drop).
 
 **Motif** (`shaders/motif_ravine.gdshader`): two ranges of ravine walls hanging from the top and rising from the
 bottom; between them clock faces whose hands sweep round and flash red as they pass twelve, and loading spinners.
@@ -763,7 +773,9 @@ WORLD 3 CLEAR and THANKS FOR PLAYING!), the prompt tree (every node joined to th
 in the shop, world 3's sparks as points and not shop sparks, buying points and the limit, allocating next to the
 tree, refunds and what hangs on a node, reset, every stat adding up in a level, a bug's tokens, the magnet pulling
 a token without the Token Magnet, Reflect catching a shot and throwing it back, the pause line, the window: T only
-with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once), shooting (fire rate and damage
+with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once), sub-agents that
+shoot (not without Tool use.; with it one turns to a bug and hits it, one pellet at a time; not through a block;
+Shared Weights, Async Calls and Parallel tool calls.' numbers and two pellets at once), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -981,7 +993,7 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
 
 - Balance (M12, world 3 since W9/W10): with 5× tokens a full clear of world 1 brings about 175 tokens (1-1 69,
   1-2 64, 1-3 43), of world 2 about 1190 (2-1 264, 2-2 269, 2-3 397, 2-4 259; the bosses drop none) and of world 3
-  about 1030 (3-1 349, 3-2 191, 3-3 296 plus whatever the Retry Loops' bugs bring, 3-4 196), against 750 for the
+  about 1330 (3-1 349, 3-2 191, 3-3 296 plus whatever the Retry Loops' bugs bring, 3-4 494), against 750 for the
   world-1 upgrades and radar, 2880 for the ARMORY and GUN MODS and 1950 for the prompt tree's ten points for sale.
   One run through the game buys about two upgrades in world 1, then a weapon or a mod after each world-2 level and
   a few tree points in world 3; everything takes about two more runs of worlds 2 and 3 (3-3's Retry Loops are the

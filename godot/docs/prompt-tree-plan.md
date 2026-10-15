@@ -22,5 +22,6 @@ as a node in the tree.
 
 - [x] T1 Tree model (`prompts.gd`), Progress (`tree`, `points_bought`, migration), effects, shop without prompts,
       the window, map button and key, pause line, checks, README.
-- [ ] T2 Sub-agents that shoot (Tool use., minion damage / rate, Parallel tool calls.), checks, README.
-- [ ] T3 3-4 longer with more enemies, `reach.gd`, its check, README.
+- [x] T2 Sub-agents that shoot (Tool use., minion damage / rate, Parallel tool calls.), checks, README.
+- [x] T3 3-4 longer with more enemies, `reach.gd`, its check, README: 340 tiles instead of 222, a chasm of six
+      timeout anchors and the gateway arena (17 enemies more), a 4th sign.

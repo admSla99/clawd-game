@@ -38,7 +38,12 @@ func slots() -> int:
 
 
 func out() -> Array[Echo]:
-	echoes = echoes.filter(func(e: Echo) -> bool: return is_instance_valid(e) and e.alive())
+	# Untyped while checking: a freed one would not convert to Echo.
+	var live: Array[Echo] = []
+	for e: Variant in echoes:
+		if is_instance_valid(e) and e.alive():
+			live.append(e)
+	echoes = live
 	return echoes
 
 
@@ -76,6 +81,11 @@ func send() -> Echo:
 	var e := Echo.new()
 	e.name = "Echo"
 	e.stand = stand
+	# Tool use. and its nodes (the prompt tree): it shoots while it stands.
+	e.gunner = Prompts.on("minions")
+	e.gun_damage = Echo.GUN_DAMAGE * (1.0 + Prompts.stat("minion_damage") / 100.0)
+	e.gun_every = Echo.GUN_EVERY / (1.0 + Prompts.stat("minion_rate") / 100.0)
+	e.gun_pair = Prompts.on("parallel")
 	e.path = _trimmed(trail)
 	main.level.add_child(e, true)
 	echoes.append(e)

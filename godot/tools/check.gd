@@ -92,6 +92,7 @@ func _init() -> void:
 	await section("the Tool Call: hook, anchors, zip (world 3)", check_tool_call)
 	await section("sub-agents, plates and gates (world 3)", check_echoes)
 	await section("the prompt tree (world 3, docs/prompt-tree-plan.md)", check_prompts)
+	await section("sub-agents that shoot (the prompt tree's Tool use.)", check_minions)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1468,6 +1469,68 @@ func check_prompts() -> bool:
 	progress.upgrades = saved.upgrades
 	p.invuln = 0
 	m.play("1-1")
+	await frames(3)
+	return true
+
+
+func check_minions() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var saved := {"tools": progress.tools.duplicate(), "tree": progress.tree.duplicate()}
+	progress.tools = ["hook", "agents"]
+	var bullets := func() -> Array: return get_nodes_in_group("bullets").filter(func(b): return not b.dead)
+	# A sub-agent standing 80 px from a bug, with and without Tool use.
+	var setup := func(tree: Array) -> Array:
+		progress.tree = tree
+		m.load_level("3-1")
+		await frames(3)
+		flat_ground(m)
+		p.invuln = 1000
+		p.pos = Vector2(10 * TILE + 8, 16 * TILE)
+		p.vel = Vector2.ZERO
+		await frames(10)
+		var e = m.echoes.send()
+		p.pos = Vector2(4 * TILE + 8, 16 * TILE)
+		var bug = load("res://scenes/bug.tscn").instantiate()
+		m.level.add_child(bug)
+		bug.pos = Vector2(15 * TILE + 8, 16 * TILE)
+		bug.hp = 100.0
+		return [e, bug]
+	var got: Array = await setup.call([])
+	await frames(90)
+	ok(not got[0].gunner and got[1].hp == 100.0 and bullets.call().is_empty(), "without Tool use. a standing sub-agent does not shoot")
+	got = await setup.call(["stand1", "stand2", "tooluse"])
+	var seen := {"max": 0, "first": -1}
+	for i in 90:
+		await physics_frame
+		seen.max = maxi(seen.max, bullets.call().size())
+		if seen.first < 0 and got[1].hp < 100.0:
+			seen.first = i
+	ok(got[0].gunner and got[1].hp <= 100.0 - 2 * got[0].GUN_DAMAGE and got[0].aim_facing == 1,
+		"with Tool use. it turns to the bug and shoots it (%.1f hp left, first hit after %d frames)" % [got[1].hp, seen.first])
+	ok(seen.max == 1, "one pellet at a time")
+	# Through a wall it does not shoot.
+	got = await setup.call(["stand1", "stand2", "tooluse"])
+	for y in range(12, 16):
+		m.level.terrain.set_cell_item(Vector3i(13, -y - 1, 0), 0)
+	await frames(90)
+	ok(got[1].hp == 100.0, "an enemy behind a block is out of its sight")
+	# Shared Weights, Async Calls and Parallel tool calls.
+	got = await setup.call(["stand1", "stand2", "tooluse", "mdmg1", "mrate1", "parallel"])
+	ok(is_equal_approx(got[0].gun_damage, got[0].GUN_DAMAGE * 1.3) and is_equal_approx(got[0].gun_every, got[0].GUN_EVERY / 1.3) and got[0].gun_pair,
+		"Shared Weights: damage x1.3; Async Calls: fire rate x1.3; Parallel tool calls.: two shots")
+	seen.max = 0
+	for i in 60:
+		await physics_frame
+		seen.max = maxi(seen.max, bullets.call().size())
+	ok(seen.max >= 2, "two pellets at once")
+	for e in m.echoes.out():
+		e.queue_free()
+	progress.tools = saved.tools
+	progress.tree = saved.tree
+	p.invuln = 0
+	m.load_level("1-1")
 	await frames(3)
 	return true
 
