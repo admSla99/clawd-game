@@ -5,7 +5,7 @@ extends Node
 ## banked from finished levels. Saved as JSON in user://progress.json. A level is unlocked when it is the first
 ## one or the one before it was completed (App.isUnlocked() in src/app.ts).
 ## The shop's state lives here too (the rest of SaveData): upgrade levels, sparks spent, the stock of
-## consumables, which hidden things HAIKU has already told about, and the last fortune.
+## consumables, which hidden things HAIKU has already told about, and the last fortune; and the prompt tree's.
 
 ## Where it is saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://progress.json"
@@ -27,9 +27,14 @@ var weapons: Array = []
 var equipped := ""
 ## World 3's tools owned: "hook" (the Tool Call, dropped by Codex), "agents" (sending sub-agents, from clearing 3-1).
 var tools: Array = []
-## System Prompts bought, and the ones switched on (scripts/prompts.gd).
-var prompts: Array = []
-var prompts_on: Array = []
+## The prompt tree (scripts/prompts.gd): the allocated nodes and the points bought with tokens.
+var tree: Array = []
+var points_bought := 0
+## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
+## levels: refunded when an old save is loaded (they became the prompt tree).
+const OLD_PROMPTS := {"concise": [120, 1], "cite": [150, 1], "temperature": [120, 1], "steps": [160, 1],
+	"ontask": [200, 2], "delegate": [220, 2], "expert": [260, 2], "reflect": [240, 1]}
+const OLD_SYSPROMPT := [[150, 3], [350, 6]]
 
 
 func _ready() -> void:
@@ -47,8 +52,8 @@ func load_file() -> void:
 	weapons = []
 	equipped = ""
 	tools = []
-	prompts = []
-	prompts_on = []
+	tree = []
+	points_bought = 0
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -63,8 +68,22 @@ func load_file() -> void:
 		weapons = data.get("weapons", [])
 		equipped = data.get("equipped", "")
 		tools = data.get("tools", [])
-		prompts = data.get("prompts", [])
-		prompts_on = data.get("prompts_on", [])
+		tree = data.get("tree", [])
+		points_bought = int(data.get("points_bought", 0))
+		# World 3's first System Prompts (bought, then switched on within a budget) are refunded.
+		for id in data.get("prompts", []):
+			if OLD_PROMPTS.has(id):
+				wallet += OLD_PROMPTS[id][0]
+				sparks_spent -= OLD_PROMPTS[id][1]
+		for lv in mini(upgrade("sysprompt"), OLD_SYSPROMPT.size()):
+			wallet += OLD_SYSPROMPT[lv][0]
+			sparks_spent -= OLD_SYSPROMPT[lv][1]
+		var migrated: bool = data.has("prompts") or upgrades.has("sysprompt")
+		upgrades.erase("sysprompt")
+		sparks_spent = maxi(0, sparks_spent)
+		# Saved at once, so the refund is not paid again on the next start.
+		if migrated:
+			save()
 		# Codex beaten before it dropped the Tool Call (saves from before world 3): the hook is Clawd's.
 		if progress_for("2-B").completed and not tools.has("hook"):
 			tools.append("hook")
@@ -77,7 +96,7 @@ func save() -> void:
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
-			"prompts": prompts, "prompts_on": prompts_on}))
+			"tree": tree, "points_bought": points_bought}))
 
 
 ## progressFor(): a level's progress, or an empty one.
@@ -116,6 +135,19 @@ func total_sparks() -> int:
 	return n
 
 
+## Sparks found in world 3 and later: points in the prompt tree, not spent in the shop.
+func tree_sparks() -> int:
+	var n := 0
+	for id in levels:
+		if world_of(id) >= 3:
+			n += count(progress_for(id).sparks)
+	return n
+
+
+static func world_of(id: String) -> int:
+	return int(id.get_slice("-", 0))
+
+
 ## Sub-agents rescued in every level.
 func total_agents() -> int:
 	var n := 0
@@ -124,9 +156,9 @@ func total_agents() -> int:
 	return n
 
 
-## sparksAvailable(): found sparks not spent yet.
+## sparksAvailable(): sparks found in worlds 1 and 2 not spent in the shop yet (world 3's are tree points).
 func sparks_available() -> int:
-	return total_sparks() - sparks_spent
+	return total_sparks() - tree_sparks() - sparks_spent
 
 
 ## upgradeLevel()

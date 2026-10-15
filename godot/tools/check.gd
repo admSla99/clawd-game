@@ -91,7 +91,7 @@ func _init() -> void:
 	await section("world 2's enemies: turrets, drones, shield bots, injectors (src/entities/enemies2.ts)", check_world2_enemies)
 	await section("the Tool Call: hook, anchors, zip (world 3)", check_tool_call)
 	await section("sub-agents, plates and gates (world 3)", check_echoes)
-	await section("System Prompts (world 3)", check_prompts)
+	await section("the prompt tree (world 3, docs/prompt-tree-plan.md)", check_prompts)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1329,50 +1329,69 @@ func check_prompts() -> bool:
 	var saved := {"tools": progress.tools.duplicate(), "weapons": progress.weapons.duplicate(), "wallet": progress.wallet,
 		"spent": progress.sparks_spent, "levels": progress.levels.duplicate(true), "upgrades": progress.upgrades.duplicate()}
 	progress.weapons = ["blaster"]
-	progress.tools = []
-	progress.prompts = []
-	progress.prompts_on = []
-	progress.upgrades = {}
-	ok(not shop_items.items().any(func(it): return it.kind == "prompt"), "no System Prompts in the shop before world 3")
 	progress.tools = ["hook"]
-	var rows: Array = shop_items.items().filter(func(it): return it.section == "SYSTEM PROMPT")
-	ok(rows.size() == 9 and rows[0].id == "sysprompt" and rows.slice(1).map(func(it): return it.id) == prompts.ORDER,
-		"with world 3 open: Longer System Prompt and the eight prompts")
-	ok(prompts.budget() == 4 and prompts.used() == 0, "the budget is 4")
-	# Buying: paid, owned and switched on.
-	progress.wallet = 5000
+	progress.tree = []
+	progress.points_bought = 0
+	progress.upgrades = {}
+	# The tree: every link joins two nodes, every node hangs on the start, the eight prompts are in it.
+	var nodes: Dictionary = prompts.NODES
+	ok(prompts.LINKS.all(func(l): return nodes.has(l[0]) and nodes.has(l[1])) and prompts.joined(nodes.keys()).size() == nodes.size(),
+		"the prompt tree's %d nodes all hang on the start through its %d links" % [nodes.size(), prompts.LINKS.size()])
+	ok(["concise", "cite", "temperature", "steps", "ontask", "delegate", "expert", "reflect"].all(func(id): return nodes.has(id) and nodes[id].kind in ["notable", "keystone"]),
+		"the eight System Prompts are its notables and keystones")
+	ok(not shop_items.items().any(func(it): return it.section == "SYSTEM PROMPT"), "the shop sells no System Prompts")
+	# Points: world 3's sparks, not the shop's.
 	progress.levels = {"1-1": {"completed": true, "sparks": [true, true, true, true, true], "agents": [], "best_time": null},
-		"1-2": {"completed": true, "sparks": [true, true, true, true, true], "agents": [], "best_time": null}}
+		"3-1": {"completed": true, "sparks": [true, true, false, false, false], "agents": [], "best_time": null}}
 	progress.sparks_spent = 0
-	var item := func(id): return shop_items.item(id)
-	ok(shop_items.buy(item.call("concise"), m.level_ids) == "bought" and progress.wallet == 5000 - 120 and progress.sparks_spent == 1
-		and prompts.on("concise") and prompts.used() == 1, "bought, Be concise. is switched on (120 tokens, 1 spark)")
-	ok(shop_items.buy(item.call("concise"), m.level_ids) == "off" and not prompts.on("concise")
-		and shop_items.buy(item.call("concise"), m.level_ids) == "on", "buying an owned prompt switches it off and on")
-	shop_items.buy(item.call("steps"), m.level_ids)
-	shop_items.buy(item.call("cite"), m.level_ids)
-	ok(prompts.used() == 4 and shop_items.buy(item.call("expert"), m.level_ids) == "bought" and not prompts.on("expert")
-		and shop_items.buy(item.call("expert"), m.level_ids) == "full", "a prompt that doesn't fit is bought but stays off")
-	ok(shop_items.buy(item.call("sysprompt"), m.level_ids) == "bought" and prompts.budget() == 6
-		and shop_items.buy(item.call("cite"), m.level_ids) == "off" and shop_items.buy(item.call("expert"), m.level_ids) == "on",
-		"Longer System Prompt makes room for 2 more")
+	ok(progress.tree_sparks() == 2 and progress.sparks_available() == 5 and prompts.points_total() == 2 and prompts.points_free() == 2,
+		"a spark found in world 3 is a tree point, not a spark for the shop")
+	progress.wallet = 100
+	ok(prompts.point_price() == 60 and prompts.buy_point() == "bought" and progress.wallet == 40 and prompts.points_total() == 3
+		and prompts.point_price() == 90 and prompts.buy_point() == "poor", "points for sale: 60 tokens, then 30 more each")
+	progress.wallet = 100000
+	for i in 20:
+		prompts.buy_point()
+	ok(progress.points_bought == prompts.BUY_MAX and prompts.buy_point() == "max", "at most %d of them" % prompts.BUY_MAX)
+	# Allocating next to the tree, refunding what nothing hangs on.
+	progress.points_bought = 1
+	ok(prompts.toggle("dmg2") == "far" and prompts.toggle("dmg1") == "allocated" and prompts.toggle("dmg2") == "allocated"
+		and prompts.toggle("hover1") == "allocated" and prompts.points_free() == 0 and prompts.toggle("reach1") == "no points",
+		"a point allocates a node next to the tree, while points last")
+	ok(prompts.toggle("dmg1") == "holds" and prompts.toggle("dmg2") == "refunded" and prompts.toggle("dmg1") == "refunded"
+		and progress.tree == ["hover1"], "a refund is free, but not of a node others hang on")
+	prompts.reset()
+	ok(progress.tree.is_empty() and prompts.points_free() == 3, "reset gives every point back")
 	# Effects.
-	ok(is_equal_approx(weapons.damage_mult(), 0.85 * 1.35) and is_equal_approx(weapons.rate_mult(), 1.2), "concise and expert: damage x0.85 x1.35, fire rate x1.2")
+	progress.tree = ["dmg1", "dmg2", "concise", "dmg3", "expert", "hover1", "hover2", "steps"]
+	ok(is_equal_approx(weapons.damage_mult(), 1.44) and is_equal_approx(weapons.rate_mult(), 1.2),
+		"damage nodes, Be concise. and You are an expert. add up: damage x1.44, fire rate x1.2")
 	m.load_level("3-1")
 	await frames(3)
-	ok(p.max_hearts == 2 and is_equal_approx(p.hover_duration, 0.85 * 1.6) and is_equal_approx(p.run_speed, 135.0),
-		"expert takes a heart, Think step by step: hover x1.6, run x0.9")
-	progress.prompts_on = ["cite", "ontask", "delegate"]
+	ok(p.max_hearts == 2 and is_equal_approx(p.hover_duration, 0.85 * 1.9) and is_equal_approx(p.run_speed, 135.0),
+		"expert takes a heart; hover nodes and Think step by step.: hover x1.9, run x0.9")
+	progress.tree = ["tok1", "tok2", "cite", "magnet1", "retrieval", "reach1", "zip1", "ontask", "stand1", "stand2", "delegate", "hover1", "run1", "guardrails"]
 	m.load_level("3-1")
 	await frames(3)
-	ok(is_equal_approx(prompts.token_mult(), 1.3) and m.tool_call.reach_mult == 1.5 and is_equal_approx(p.zip_speed, 550.0) and m.echoes.extra == 1,
-		"cite: tokens x1.3; on task: reach x1.5, zips x1.25; delegate: a sub-agent more")
+	ok(is_equal_approx(prompts.token_mult(), 1.42) and is_equal_approx(m.tool_call.reach_mult, 1.62) and is_equal_approx(p.zip_speed, 440.0 * 1.35)
+		and m.echoes.extra == 1 and is_equal_approx(m.echoes.stand, 12.0) and p.max_hearts == 4 and is_equal_approx(p.run_speed, 157.5)
+		and prompts.stat("magnet") == 108, "tokens x1.42, reach x1.62, zips x1.35, a sub-agent more standing 4 s longer, a heart more, magnet +108 px")
 	var bug = load("res://scenes/bug.tscn").instantiate()
 	m.level.add_child(bug)
-	ok(bug.token_total() == 13, "a bug then drops 13 tokens")
+	ok(bug.token_total() == 14, "a bug then drops 14 tokens")
 	bug.queue_free()
+	# Embeddings and Retrieval.: a token 100 px away flies to Clawd without the Token Magnet.
+	flat_ground(m)
+	p.invuln = 1000
+	p.pos = Vector2(10 * TILE + 8, 16 * TILE)
+	var tok = load("res://scenes/token.tscn").instantiate()
+	tok.position = Px.to3(p.pos + Vector2(100, -9))
+	m.level.add_child(tok)
+	await frames(3)
+	ok(tok.popped, "the magnet nodes pull a token 100 px away, without the Token Magnet")
+	tok.queue_free()
 	# Reflect: the hook catches an enemy shot and throws it back.
-	progress.prompts_on = ["reflect"]
+	progress.tree = ["reach1", "zip1", "reach2", "reflect"]
 	m.load_level("3-1")
 	await frames(3)
 	flat_ground(m)
@@ -1389,11 +1408,58 @@ func check_prompts() -> bool:
 		return null if i > 12 else (["tool"] if i < 2 else []), 20)
 	ok(not is_instance_valid(shot) or shot.dead, "Reflect: the hook catches an enemy shot")
 	ok(seen.more, "and throws it back as Clawd's own")
+	ok(prompts.big_ones() == ["REFLECT"], "the pause menu lists the notables and keystones allocated")
 	m.menu.handle(key(KEY_P))
 	await frames(2)
 	m.menu.close()
-	progress.prompts = []
-	progress.prompts_on = []
+	# The window: T on the map (once the hook is Clawd's), arrows, Space, U, R twice, Escape.
+	progress.tree = []
+	progress.points_bought = 0
+	progress.wallet = 1000
+	progress.levels["3-1"].sparks = [true, false, false, false, false]
+	m.show_map()
+	await frames(2)
+	progress.tools = []
+	m.front.handle(key(KEY_T))
+	ok(m.mode == m.Mode.MAP, "no prompt tree before the hook")
+	progress.tools = ["hook"]
+	m.front.handle(key(KEY_T))
+	await frames(2)
+	var tree = m.tree
+	ok(m.mode == m.Mode.TREE and tree.visible and tree.sel == "root", "T on the map opens the prompt tree on its start")
+	tree.handle(key(KEY_RIGHT))
+	ok(tree.sel == "dmg1", "right goes to the nearest node that way")
+	tree.handle(key(KEY_SPACE))
+	ok(progress.tree == ["dmg1"], "Space allocates it (a world-3 spark's point)")
+	tree.handle(key(KEY_RIGHT))
+	tree.handle(key(KEY_SPACE))
+	ok(progress.tree == ["dmg1"] and tree.note.begins_with("NO FREE"), "with no point left it says so")
+	tree.handle(key(KEY_U))
+	tree.handle(key(KEY_SPACE))
+	ok(progress.wallet == 940 and progress.tree == ["dmg1", "dmg2"], "U buys a point (60 tokens), and Space spends it")
+	tree.handle(key(KEY_R))
+	ok(progress.tree.size() == 2, "R once only asks")
+	tree.handle(key(KEY_R))
+	ok(progress.tree.is_empty(), "R twice refunds every point")
+	await frames(2)
+	tree.handle(key(KEY_ESCAPE))
+	await frames(2)
+	ok(m.mode == m.Mode.MAP and not tree.visible, "Escape goes back to the map")
+	# An old save: the System Prompts bought and Longer System Prompt are refunded, once.
+	var old_path: String = progress.path
+	progress.path = "user://progress_check_old_%d.json" % OS.get_process_id()
+	var f := FileAccess.open(progress.path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"wallet": 10, "sparks_spent": 12, "upgrades": {"sysprompt": 1}, "prompts": ["concise", "expert"], "prompts_on": ["concise"]}))
+	f.close()
+	progress.load_file()
+	ok(progress.wallet == 10 + 120 + 260 + 150 and progress.sparks_spent == 12 - 1 - 2 - 3 and progress.upgrade("sysprompt") == 0 and progress.tree.is_empty(),
+		"an old save gets its System Prompts and Longer System Prompt refunded (%d tokens, %d spent)" % [progress.wallet, progress.sparks_spent])
+	progress.load_file()
+	ok(progress.wallet == 540, "once")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(progress.path))
+	progress.path = old_path
+	progress.tree = []
+	progress.points_bought = 0
 	progress.tools = saved.tools
 	progress.weapons = saved.weapons
 	progress.wallet = saved.wallet
@@ -1401,7 +1467,7 @@ func check_prompts() -> bool:
 	progress.levels = saved.levels
 	progress.upgrades = saved.upgrades
 	p.invuln = 0
-	m.load_level("1-1")
+	m.play("1-1")
 	await frames(3)
 	return true
 
@@ -2444,14 +2510,17 @@ func check_shop() -> bool:
 			spark_prices += s
 	for w in load("res://scripts/weapons.gd").WEAPONS.values():
 		spark_prices += w.sparks
-	# World 3's sparks buy the System Prompts and Longer System Prompt.
-	spark_prices += shop_items.SYSPROMPT.sparks.reduce(func(a, b): return a + b, 0)
-	for d in load("res://scripts/prompts.gd").DEFS.values():
-		spark_prices += d.sparks
+	# World 3's sparks are points in the prompt tree (scripts/prompts.gd), not the shop's.
 	var level_sparks := 0
+	var tree_sparks := 0
 	for l in JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json")):
-		level_sparks += FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
-	ok(spark_prices == level_sparks and level_sparks == 55, "the shop's spark prices add up to the sparks in the levels (%d / %d)" % [spark_prices, level_sparks])
+		var n: int = FileAccess.get_file_as_string("res://levels/%s.txt" % l.id).count("S")
+		if int(l.world) < 3:
+			level_sparks += n
+		else:
+			tree_sparks += n
+	ok(spark_prices == level_sparks and level_sparks == 35 and tree_sparks == 20,
+		"the shop's spark prices add up to the sparks in worlds 1 and 2 (%d / %d); world 3's %d are tree points" % [spark_prices, level_sparks, tree_sparks])
 
 	# Extra Heart: 100 tokens.
 	shop.sel = 0

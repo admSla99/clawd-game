@@ -10,7 +10,7 @@ extends Node
 var path := "user://settings.cfg"
 const SLOTS := 3
 ## Actions the player can rebind, in the order the keybinding menu lists them.
-const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"agent", &"prev", &"next", &"pause", &"shop", &"mute", &"controls"]
+const BINDABLE: Array[StringName] = [&"left", &"right", &"up", &"down", &"jump", &"attack", &"spin", &"tool", &"agent", &"prev", &"next", &"pause", &"shop", &"tree", &"mute", &"controls"]
 const LABELS := {
 	&"left": "MOVE LEFT",
 	&"right": "MOVE RIGHT",
@@ -25,6 +25,7 @@ const LABELS := {
 	&"next": "NEXT WEAPON",
 	&"pause": "PAUSE",
 	&"shop": "SHOP (MAP)",
+	&"tree": "PROMPT TREE (MAP)",
 	&"mute": "MUTE",
 	&"controls": "CONTROLS HELP",
 }
@@ -42,6 +43,7 @@ const DEFAULTS := {
 	&"next": [KEY_E],
 	&"pause": [KEY_P],
 	&"shop": [KEY_B],
+	&"tree": [KEY_T],
 	&"mute": [KEY_M],
 	&"controls": [KEY_H],
 }

@@ -1,7 +1,7 @@
 # CLAWD — the Godot 2.5D game
 
 CLAWD in Godot 4.7.2, in 3D with a side camera (2.5D): fourteen levels in three worlds, three bosses, shooting,
-the shop, and world 3's Tool Call, sub-agents and System Prompts (*World 3: AGENT MODE*, `docs/world3-plan.md`),
+the shop, and world 3's Tool Call, sub-agents and prompt tree (*World 3: AGENT MODE*, `docs/world3-plan.md`, `docs/prompt-tree-plan.md`),
 playable from the title to the end of 3-B. GDScript; Forward+ renderer on desktop, Compatibility (WebGL 2) on the
 web export.
 
@@ -759,9 +759,11 @@ after Clawd steps off its plate; the pit's 2-plate alone, then with a sub-agent 
 3-B The Router (120 hp, the motif, anchors, no damage in its intro or by touch, the firewall stopping shots, three
 catches exposing the core, damage, the firewall back, a packet and a port's burst, rerouting at 2/3, a loopback echo
 hurting Clawd and fading, the timeout storm's anchors and spikes, CONNECTION RESET, THE ROUTER IS DOWN, the exit,
-WORLD 3 CLEAR and THANKS FOR PLAYING!), System Prompts (none before world 3, the section, the budget, buying
-switches one on, switching off and on, one that doesn't fit, Longer System Prompt, every prompt's effect, a bug's
-tokens with Cite, Reflect catching a shot and throwing it back), shooting (fire rate and damage
+WORLD 3 CLEAR and THANKS FOR PLAYING!), the prompt tree (every node joined to the start, the eight prompts in it, none
+in the shop, world 3's sparks as points and not shop sparks, buying points and the limit, allocating next to the
+tree, refunds and what hangs on a node, reset, every stat adding up in a level, a bug's tokens, the magnet pulling
+a token without the Token Magnet, Reflect catching a shot and throwing it back, the pause line, the window: T only
+with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -974,33 +976,69 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
   consumables, up to 3 in stock: **Firewall** (40; up at the start of every level while one is in stock, it
   takes the next hit instead of a heart and is only used up when it breaks) and **Double Tokens** (100; every
   token counts twice, used up when a level is cleared).
-- **SYSTEM PROMPT** (world 3, once Codex dropped the Tool Call): Hollow Knight's charms. `scripts/prompts.gd`
-  (`Prompts`) defines eight prompts, each bought once (kind `prompt`) and then switched on and off with Space within
-  the context budget: 4, plus 2 per level of **Longer System Prompt** (150 + 3 sparks / 350 + 6). A new prompt is
-  switched on when it fits; one that doesn't stays off ("full": HAIKU says so). The row shows its cost as cyan pips
-  and ON / OFF; the card its cost and the budget used. Bought prompts and the ones on are saved
-  (`Progress.prompts`, `prompts_on`), and the pause menu lists the ones on under its panel.
-
-  | Prompt | Cost | Price | Effect (where) |
-  |---|---|---|---|
-  | Be concise. | 1 | 120 + 1 | +20 % fire rate, −15 % damage (`Weapons.rate_mult()`, `damage_mult()`) |
-  | Cite your sources. | 1 | 150 + 1 | enemies drop 30 % more tokens (`Enemy.die()`, `token_total()`) |
-  | Temperature 1.5 | 1 | 120 + 1 | +0.06 rad spread, one shot in seven deals double (`Gun.fire()`) |
-  | Think step by step. | 2 | 160 + 1 | hover × 1.6, run speed × 0.9 (`Main._apply_loadout()`: `Player.run_speed`) |
-  | Stay on task. | 2 | 200 + 2 | the hook's reach × 1.5, zips × 1.25 (`ToolCall.reach_mult`, `Player.zip_speed`) |
-  | Delegate. | 2 | 220 + 2 | one more sub-agent out at once (`EchoControl.extra`) |
-  | You are an expert. | 3 | 260 + 2 | damage × 1.35, one heart less |
-  | Reflect. | 3 | 240 + 1 | the hook, thrown straight, catches an enemy shot and throws it back as a 4-damage token |
+- World 3's System Prompts are not in the shop: they are the prompt tree's (*Prompt tree* below). An old save that
+  bought them there (and Longer System Prompt) gets their tokens and sparks back when it loads.
 
 - Balance (M12, world 3 since W9/W10): with 5× tokens a full clear of world 1 brings about 175 tokens (1-1 69,
   1-2 64, 1-3 43), of world 2 about 1190 (2-1 264, 2-2 269, 2-3 397, 2-4 259; the bosses drop none) and of world 3
   about 1030 (3-1 349, 3-2 191, 3-3 296 plus whatever the Retry Loops' bugs bring, 3-4 196), against 750 for the
-  world-1 upgrades and radar, 2880 for the ARMORY and GUN MODS and 1970 for the System Prompts. One run through the
-  game buys about two upgrades in world 1, then a weapon or a mod after each world-2 level and a prompt after each
-  world-3 level; everything takes about two more runs of worlds 2 and 3 (3-3's Retry Loops are the place to farm).
-  The TS prices stay; the port's own items are priced for that income: Double Tokens pays off from world 2 on,
-  the radar costs no sparks, and the 55 sparks of the levels buy every spark price exactly: 35 for worlds 1-2's
-  items, 20 for the System Prompts and Longer System Prompt (checked).
+  world-1 upgrades and radar, 2880 for the ARMORY and GUN MODS and 1950 for the prompt tree's ten points for sale.
+  One run through the game buys about two upgrades in world 1, then a weapon or a mod after each world-2 level and
+  a few tree points in world 3; everything takes about two more runs of worlds 2 and 3 (3-3's Retry Loops are the
+  place to farm). The TS prices stay; the port's own items are priced for that income: Double Tokens pays off from
+  world 2 on, the radar costs no sparks, and the 35 sparks of worlds 1 and 2 buy every spark price exactly; world
+  3's 20 are tree points (checked).
+
+## Prompt tree
+
+World 3's builds (`docs/prompt-tree-plan.md`), Path of Exile's passive tree in small: `scripts/prompts.gd`
+(`Prompts`) defines 33 nodes joined by links round the start, SYSTEM PROMPT, in five branches (OFFENSE east,
+TOOL CALL north, SUB-AGENTS west, SURVIVAL south, TOKENS south-east). Small nodes add a few per cent to one stat;
+the notables (rounded, with a ring) and keystones (octagons) are world 3's eight System Prompts, with their ids, and
+four more; every node's `mods` add up in `Prompts.stat()`, and a flag (Temperature, Reflect, Tool use., Parallel
+tool calls.) is read with `Prompts.on()`.
+
+- **Points**: every spark found in world 3 (or later) is one (`Progress.tree_sparks()`; those sparks are not the
+  shop's, `sparks_available()` leaves them out), and up to 10 more are bought with tokens: 60, then 30 more each
+  (1950 for all). A point allocates a node next to one Clawd has; refunds are free, a node at a time when the rest
+  stays joined to the start, or all at once. Saved as `Progress.tree` (ids) and `points_bought`.
+- **Where it matters**: `Weapons.damage_mult()` / `rate_mult()` (damage, fire rate), `Gun.fire()` (Temperature),
+  `Enemy` (tokens), `Token` (magnet: the Token Magnet's 72 px plus Embeddings / Retrieval., which pull without it
+  too), `ToolCall` (Reflect., reach), `Main._apply_loadout()` (hearts, hover, run speed, zip speed, sub-agent slots
+  and how long they stand: `EchoControl.extra`, `stand`, `Echo.stand`).
+
+  | Node | Kind | Effect |
+  |---|---|---|
+  | Sharper Tokens ×3 / Fast Inference ×2 | small | +8 % damage / +8 % fire rate |
+  | Be concise. | notable | +20 % fire rate, −15 % damage |
+  | You are an expert. | keystone | +35 % damage, one heart less |
+  | Temperature 1.5 | notable | +0.06 rad spread, one shot in seven deals double |
+  | Long Context ×2 / Low Latency | small | the hook reaches 12 % farther / zips 10 % faster |
+  | Stay on task. | notable | reach +50 %, zips +25 % |
+  | Reflect. | notable | the hook, thrown straight, catches an enemy shot and throws it back as a 4-damage token |
+  | Patience ×3 | small | sub-agents stand 2 s longer (8 s) |
+  | Delegate. | notable | one more sub-agent out at once |
+  | Orchestrator. | keystone | one more sub-agent, but Clawd's own shots −20 % damage |
+  | Tool use. | notable | standing sub-agents shoot the nearest enemy in sight |
+  | Shared Weights / Async Calls | small | sub-agents' shots +30 % damage / +30 % fire rate |
+  | Parallel tool calls. | notable | sub-agents fire two shots at once |
+  | Jet Fuel ×2 / Quick Feet | small | +15 % hover / +5 % run speed |
+  | Think step by step. | notable | hover +60 %, run −10 % |
+  | Guardrails. | notable | one more heart |
+  | Billing ×2 / Embeddings | small | enemies drop 6 % more tokens / tokens fly in from 36 px farther |
+  | Cite your sources. | notable | enemies drop 30 % more tokens |
+  | Retrieval. | notable | tokens fly in from 72 px farther |
+
+- **The window** (`scripts/tree_screen.gd`, `TreeScreen`, made by Main under `Ui`; `Main.Mode.TREE`): T on the
+  map (the `tree` action) or its `T · PROMPTS` button, next to SHOP once the hook is Clawd's, with the free points
+  in brackets. Over the drifting backdrop: the tree in a field, links lit orange between allocated nodes, nodes
+  filled orange once allocated and outlined pulsing where a point could go, the branches' names dim beside them;
+  the points (free · allocated / all) and the wallet at the top, a `U · BUY POINT` button with the price; a card at
+  the bottom with the selected (or hovered) node's name, kind and effect and what Space would do (the start's card
+  adds up everything allocated). Arrows / WASD move to the nearest node that way (`step()`), Space / Enter or a
+  click allocates or refunds, U buys a point, R twice refunds all, Escape or T goes back; dragging pans, the view
+  follows the selection and stays on the tree (centred along an axis it fits). The pause menu lists the notables
+  and keystones allocated under its panel.
 
 ## Menus and key bindings
 
@@ -1213,7 +1251,7 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
-| `scripts/prompts.gd` | World 3's System Prompts: definitions, budget, switching, the multipliers others read |
+| `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: nodes, links, points, allocating, the stats others read; its window |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

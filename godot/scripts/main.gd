@@ -6,9 +6,9 @@ extends Node
 ## shaders, Clawd and the particles land on whole view pixels; the CRT overlay sits on top at window
 ## resolution. Level is a converted level (levels/<id>.tscn, see tools/convert_level.gd); load_level()
 ## swaps it and puts the player on its Start marker.
-## Four modes, like the TS scenes: TITLE (src/scenes/title.ts), MAP (src/scenes/levelSelect.ts) and SHOP
-## (src/scenes/shop.ts) draw their screens (FrontEnd, ShopScreen) over BACKDROP, a level the camera slowly drifts
-## through with Clawd away; PLAY is the game.
+## Five modes, like the TS scenes: TITLE (src/scenes/title.ts), MAP (src/scenes/levelSelect.ts), SHOP
+## (src/scenes/shop.ts) and TREE (the prompt tree, not in TS) draw their screens (FrontEnd, ShopScreen, TreeScreen)
+## over BACKDROP, a level the camera slowly drifts through with Clawd away; PLAY is the game.
 
 const LEVELS_INDEX := "res://levels/index.json"
 const PLAYER := preload("res://scenes/player.tscn")
@@ -33,7 +33,7 @@ const RED := Color("#E0605A")
 const TOKENS_PER_HEART := 300
 const HEART_CAP := 5
 
-enum Mode { TITLE, MAP, PLAY, SHOP }
+enum Mode { TITLE, MAP, PLAY, SHOP, TREE }
 
 ## The level behind the title and the map.
 const BACKDROP := "1-1"
@@ -107,6 +107,8 @@ var beams: BeamFx
 @onready var menu: GameMenu = $View/SubViewport/World/Ui/Menu
 @onready var front: FrontEnd = $View/SubViewport/World/Ui/FrontEnd
 @onready var shop: ShopScreen = $View/SubViewport/World/Ui/Shop
+## The prompt tree's window, made in _ready() under Ui, below the menus.
+var tree: TreeScreen
 
 
 func _ready() -> void:
@@ -140,6 +142,12 @@ func _ready() -> void:
 	_resize()
 	front.main = self
 	shop.main = self
+	tree = TreeScreen.new()
+	tree.name = "Tree"
+	tree.visible = false
+	tree.main = self
+	menu.get_parent().add_child(tree)
+	menu.get_parent().move_child(tree, menu.get_index())
 	if start_mode == Mode.PLAY:
 		play(start_level)
 	else:
@@ -152,7 +160,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouse:
 		event = event.duplicate()
 		event.position += Vector2.ONE * PAD
-	var screen: Variant = shop if mode == Mode.SHOP else front
+	var screen: Variant = shop if mode == Mode.SHOP else tree if mode == Mode.TREE else front
 	if menu.handle(event) or (mode != Mode.PLAY and not menu.is_open() and screen.handle(event)):
 		get_viewport().set_input_as_handled()
 
@@ -179,6 +187,7 @@ func play(id: String) -> void:
 	mode = Mode.PLAY
 	front.close()
 	shop.close()
+	tree.close()
 	load_level(id)
 
 
@@ -195,6 +204,7 @@ func show_map(focus := -1) -> void:
 	_backdrop()
 	mode = Mode.MAP
 	shop.close()
+	tree.close()
 	front.open_map(focus)
 	Sound.play_music("map")
 
@@ -206,6 +216,14 @@ func show_shop() -> void:
 	front.close()
 	shop.open()
 	Sound.play_music("shop")
+
+
+## The prompt tree's window, over the drifting backdrop (the map's music plays on).
+func show_tree() -> void:
+	_backdrop()
+	mode = Mode.TREE
+	front.close()
+	tree.open()
 
 
 ## Loads BACKDROP for the title and the map (unless it is already there, untouched) with Clawd put away.
@@ -646,16 +664,14 @@ func _apply_loadout() -> void:
 	player.max_hearts = Player.MAX_HEARTS + Progress.upgrade("hearts")
 	player.hover_duration = Player.HOVER_DURATION * (1 + 0.3 * Progress.upgrade("hover"))
 	player.shield = Progress.in_stock("firewall") > 0
-	# The System Prompts that are on (scripts/prompts.gd).
-	if Prompts.on("expert"):
-		player.max_hearts = maxi(1, player.max_hearts - 1)
-	var steps := Prompts.on("steps")
-	player.hover_duration *= 1.6 if steps else 1.0
-	player.run_speed = Player.RUN_SPEED * (0.9 if steps else 1.0)
-	var ontask := Prompts.on("ontask")
-	player.zip_speed = Player.ZIP_SPEED * (1.25 if ontask else 1.0)
-	tool_call.reach_mult = 1.5 if ontask else 1.0
-	echoes.extra = 1 if Prompts.on("delegate") else 0
+	# The prompt tree's allocated nodes (scripts/prompts.gd).
+	player.max_hearts = maxi(1, player.max_hearts + int(Prompts.stat("hearts")))
+	player.hover_duration *= 1.0 + Prompts.stat("hover") / 100.0
+	player.run_speed = Player.RUN_SPEED * (1.0 + Prompts.stat("run") / 100.0)
+	player.zip_speed = Player.ZIP_SPEED * (1.0 + Prompts.stat("zip") / 100.0)
+	tool_call.reach_mult = 1.0 + Prompts.stat("reach") / 100.0
+	echoes.extra = int(Prompts.stat("slots"))
+	echoes.stand = Echo.STAND + Prompts.stat("stand")
 
 
 ## The Spark Radar's target: the nearest spark in the level that was never found (no ghost), or null.

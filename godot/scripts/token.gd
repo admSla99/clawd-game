@@ -48,10 +48,12 @@ func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
 	t += dt
-	# Token Magnet (the shop): a token within reach of Clawd comes loose and flies to him (`g.magnet` in TS).
-	if not popped and Progress.upgrade("magnet") > 0:
+	# Token Magnet (the shop): a token within reach of Clawd comes loose and flies to him (`g.magnet` in TS); the
+	# prompt tree's Embeddings and Retrieval. reach farther.
+	var reach := (Shop.MAGNET if Progress.upgrade("magnet") > 0 else 0.0) + Prompts.stat("magnet") if not popped else 0.0
+	if reach > 0:
 		var player: Player = get_tree().get_first_node_in_group("player")
-		if player and player.in_play() and Px.of(position).distance_to(player.pos + Vector2(0, -9)) < Shop.MAGNET:
+		if player and player.in_play() and Px.of(position).distance_to(player.pos + Vector2(0, -9)) < reach:
 			popped = true
 			fpos = Px.of(position)
 			age = HOMING_RAMP

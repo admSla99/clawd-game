@@ -16,6 +16,8 @@ const TINT := Color(0.45, 0.92, 1.0, 0.6)
 const HOSTILE_TINT := Color(1.0, 0.3, 0.3, 0.65)
 
 var hostile := false
+## Seconds it stands once its replay is over (STAND, longer with the prompt tree's Patience).
+var stand := STAND
 
 ## [Vector2 feet, int facing] per physics frame.
 var path: Array = []
@@ -86,7 +88,7 @@ func _physics_process(dt: float) -> void:
 		recall()
 	else:
 		stand_t += dt
-		if stand_t >= STAND:
+		if stand_t >= stand:
 			recall()
 	feet = path[i][0]
 	facing = path[i][1]
@@ -121,5 +123,5 @@ func _update() -> void:
 	_body.set_instance_shader_parameter("tint", Vector4(c.r, c.g, c.b, tint.a))
 	# A hologram: it flickers while replaying and as it fades, and blinks in its last second.
 	var flicker := (replaying() and floori(t * 30) % 7 == 0) or (fade_t > 0 and floori(t * 24) % 2 == 0) \
-		or (standing and stand_t > STAND - 1.0 and floori(t * 10) % 2 == 0)
+		or (standing and stand_t > stand - 1.0 and floori(t * 10) % 2 == 0)
 	_body.visible = not flicker

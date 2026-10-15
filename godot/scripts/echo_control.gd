@@ -16,8 +16,9 @@ var player: Player
 ## [Vector2 feet, int facing] per physics frame, newest last.
 var trail: Array = []
 var echoes: Array[Echo] = []
-## Extra slots (the Delegate prompt, W9).
+## Extra slots and how long a sub-agent stands (the prompt tree: Delegate., Orchestrator., Patience).
 var extra := 0
+var stand := Echo.STAND
 
 
 func setup(m: Node, p: Player) -> void:
@@ -74,6 +75,7 @@ func send() -> Echo:
 		live[0].recall()
 	var e := Echo.new()
 	e.name = "Echo"
+	e.stand = stand
 	e.path = _trimmed(trail)
 	main.level.add_child(e, true)
 	echoes.append(e)

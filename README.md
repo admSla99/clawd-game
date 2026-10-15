@@ -6,7 +6,7 @@ A 2.5D platformer/shooter starring Clawd, made in **Godot 4.7.2** (GDScript). **
 end Clawd finds the **Token Blaster**, and **World 2** turns into a shooter: aim with the mouse, fire tokens, and
 buy better weapons and upgrades in the shop. The boss of World 2 is **Codex**, who drops the **Tool Call**: in
 **World 3** Clawd hooks onto API endpoints and zips across chasms, sends sub-agents that replay his last moves to
-hold pressure plates, and tunes his build with System Prompts.
+hold pressure plates, and builds himself in the prompt tree.
 
 The game lives in [`godot/`](godot/); [`godot/README.md`](godot/README.md) is its detailed design doc (rendering,
 levels, every system, checks, layout). It started as a port of a TypeScript browser game, which is kept on the
@@ -70,8 +70,9 @@ Spreader, Stream Output, Attention Beam, Opus Cannon.
 **Shop**: upgrades (Extra Heart, Bigger Model, Faster Inference, Longer Context, Jet Tuning, Token Magnet), tools
 (Spark Radar, Fortune Haiku), consumables (Firewall, Double Tokens) and, once a weapon is found, the armory.
 
-**System Prompts** (world 3, in the shop): eight prompts switched on within a context budget, such as Be
-concise. (faster, weaker shots), Delegate. (one more sub-agent) or Reflect. (the hook throws enemy shots back).
+**Prompt tree** (world 3, T on the map): a passive tree like Path of Exile's, with points from world 3's sparks and
+more for tokens; small nodes and notables such as Be concise. (faster, weaker shots), Delegate. (one more sub-agent),
+Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back). Refunds are free.
 
 Tokens collected in a level are added to your wallet when you finish it; every 300 tokens in a level give a heart.
 Sparks are spent in the shop but still count as found on the map.

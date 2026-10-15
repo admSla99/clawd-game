@@ -56,9 +56,10 @@ The game targets desktop (keyboard and mouse; no gamepad or touch, the user's ca
   (`Main.motif_shader_for()` / `motif_script_for()`). It starts `Main` in `PLAY` mode and points `Settings.path` /
   `Progress.path` at their own files, so it never touches the player's saves.
 - **Main scene and modes**: `scenes/main.tscn` (`scripts/main.gd`, class `Main`) is the main scene. `Main.mode`
-  is `TITLE`, `MAP`, `SHOP` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the player
-  parked) or `PLAY`. Title and world map → `scripts/front_end.gd`, shop → `scripts/shop_screen.gd` +
-  `scripts/shop.gd`, results → `Overlay`, pause/controls/keybinds → `scripts/game_menu.gd`.
+  is `TITLE`, `MAP`, `SHOP`, `TREE` (screens drawn over `BACKDROP` = 1-1, which the camera drifts through with the
+  player parked) or `PLAY`. Title and world map → `scripts/front_end.gd`, shop → `scripts/shop_screen.gd` +
+  `scripts/shop.gd`, prompt tree → `scripts/tree_screen.gd` + `scripts/prompts.gd`, results → `Overlay`,
+  pause/controls/keybinds → `scripts/game_menu.gd`.
 - **Autoloads**: `Game` (time, hitstop, pause), `ViewScale`, `Settings` (key bindings, CRT, mute, crosshair colour →
   `user://settings.cfg`), `Sound` (synthesizes effects/music offline into AudioStreamWAVs; every
   `Sound.play("x")` needs `x` in `Sound.PRELOAD`, checked), `Progress` (cleared levels, sparks, sub-agents, wallet,
@@ -76,15 +77,18 @@ void, 1-B the Hallucination, which drops the Token Blaster), world 2 (2-1 … 2-
 boss Codex, which drops the Tool Call) and world 3, AGENT MODE (3-1 … 3-4 and the boss the Router, 3-B): the Tool
 Call (`scripts/tool_call.gd`, anchors `+` / `*` in `anchor.gd`, the player's `zip` state), sub-agents
 (`echo_control.gd`, `echo.gd`), plates and gates (`plate.gd`, `gate.gd`), brittle crates (`brittle.gd`), the
-enemies parser, webhook and Retry Loop, and System Prompts (`prompts.gd`, the shop's SYSTEM PROMPT section).
+enemies parser, webhook and Retry Loop, and the prompt tree (`prompts.gd`, `tree_screen.gd`, `Main.Mode.TREE`; T on
+the map; `godot/docs/prompt-tree-plan.md`).
 Enemies extend `Enemy` (`scripts/enemy.gd`): bug, spam bot, shot, rate limiter, the three bosses, world 2's turret
 (`T` / `Y`), drone, shield bot and injector, and world 3's. Worlds 2 and 3 are armed (`scripts/gun.gd`, `bullet.gd`,
 `weapons.gd`, `beam_fx.gd`): aiming with the mouse (polled from the window: the SubViewport's container ignores the
 mouse, so no mouse event reaches nodes inside it) or the keys, weapon switching, the HUD weapon panel and
 crosshair, and the shop's ARMORY and GUN MODS once a weapon is found.
 
-**`godot/docs/world3-plan.md` is world 3's plan** (design, decisions, milestones W0-W10, all done); the next ideas
-(endless maps with modifiers built on the System Prompts, a farm level, accounts) are not planned yet.
+**`godot/docs/world3-plan.md` is world 3's plan** (design, decisions, milestones W0-W10, all done), and
+**`godot/docs/prompt-tree-plan.md`** the changes after its playthrough (the prompt tree, sub-agents that shoot, a
+longer 3-4); the next ideas (endless maps with modifiers built on the prompt tree, a farm level, accounts) are not
+planned yet.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
 

@@ -11,9 +11,8 @@ extends RefCounted
 ## (Progress.sparks_available()). ShopScreen draws it.
 
 ## kind: "upgrade" (levels, `prices` / `sparks` per level), "fortune" (repeatable), "stock" (consumable, up to
-## `max` in stock), "locked", and from items(): "weapon" (`price`, `sparks`; bought once, then equipped) and, once
-## world 3 is open, "prompt" (a System Prompt, scripts/prompts.gd: bought once, then switched on and off within the
-## context budget) with the SYSTEM PROMPT section's Longer System Prompt upgrade.
+## `max` in stock), "locked", and from items(): "weapon" (`price`, `sparks`; bought once, then equipped). World 3's
+## System Prompts are not sold here: they are the prompt tree's (scripts/prompts.gd, TreeScreen).
 const ITEMS := [
 	{"id": "hearts", "kind": "upgrade", "section": "UPGRADES", "name": "Extra Heart", "prices": [100, 250], "sparks": [0, 4],
 		"desc": "One more heart to lose. Checkpoints refill to it too."},
@@ -33,10 +32,6 @@ const ITEMS := [
 		"desc": "Five weapons and their mods (Bigger Model, Faster Inference, Longer Context) for world 2, where Clawd shoots. It opens when Clawd finds a weapon."},
 ]
 
-## The SYSTEM PROMPT section's budget upgrade (world 3).
-const SYSPROMPT := {"id": "sysprompt", "kind": "upgrade", "section": "SYSTEM PROMPT", "name": "Longer System Prompt",
-	"prices": [150, 350], "sparks": [3, 6], "desc": "Room for two more points of System Prompts per level."}
-
 ## Token Magnet reach in px (loadoutFromSave(): magnet 72).
 const MAGNET := 72.0
 const NUMBERS := ["one", "two", "three", "four", "five", "six"]
@@ -55,12 +50,6 @@ static func items() -> Array:
 		it.kind = "upgrade"
 		it.section = "GUN MODS"
 		out.append(it)
-	if Progress.has_tool("hook"):
-		out.append(SYSPROMPT)
-		for id in Prompts.ORDER:
-			var p: Dictionary = Prompts.DEFS[id]
-			out.append({"id": id, "kind": "prompt", "section": "SYSTEM PROMPT", "name": p.name, "desc": p.desc,
-				"price": p.price, "sparks": p.sparks, "cost": p.cost})
 	return out
 
 
@@ -85,9 +74,8 @@ static func price(it: Dictionary, ids: Array) -> Dictionary:
 			return {"tokens": it.price, "sparks": 0} if not secrets(ids).is_empty() else {}
 		"stock":
 			return {"tokens": it.price, "sparks": 0} if Progress.in_stock(it.id) < it.max else {}
-		"weapon", "prompt":
-			var owned: Array = Progress.weapons if it.kind == "weapon" else Progress.prompts
-			return {"tokens": it.price, "sparks": it.sparks} if not owned.has(it.id) else {}
+		"weapon":
+			return {"tokens": it.price, "sparks": it.sparks} if not Progress.weapons.has(it.id) else {}
 	return {}
 
 
@@ -95,16 +83,13 @@ static func affordable(p: Dictionary) -> bool:
 	return not p.is_empty() and Progress.wallet >= p.tokens and Progress.sparks_available() >= p.sparks
 
 
-## Buys the item: "bought", "equipped" (a weapon Clawd owns: he holds it now), "on" / "off" / "full" (an owned
-## System Prompt switched, or not: no room in the budget), "poor" (not enough tokens or sparks) or "none" (can't be
-## bought).
+## Buys the item: "bought", "equipped" (a weapon Clawd owns: he holds it now), "poor" (not enough tokens or
+## sparks) or "none" (can't be bought).
 static func buy(it: Dictionary, ids: Array) -> String:
 	if it.kind == "weapon" and Progress.weapons.has(it.id):
 		Progress.equipped = it.id
 		Progress.save()
 		return "equipped"
-	if it.kind == "prompt" and Progress.prompts.has(it.id):
-		return Prompts.toggle(it.id)
 	var p := price(it, ids)
 	if p.is_empty():
 		return "none"
@@ -122,11 +107,6 @@ static func buy(it: Dictionary, ids: Array) -> String:
 		"weapon":
 			# grantWeapon() saves, and a new weapon is held at once (activate() in shop.ts).
 			Progress.grant_weapon(it.id)
-		"prompt":
-			# A new prompt is switched on when it fits.
-			Progress.prompts.append(it.id)
-			if Prompts.fits(it.id):
-				Progress.prompts_on.append(it.id)
 	Progress.save()
 	return "bought"
 

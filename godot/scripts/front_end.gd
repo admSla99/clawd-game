@@ -168,6 +168,8 @@ func _map_key(event: InputEvent) -> bool:
 			Sound.play("select")
 	elif event.is_action_pressed("shop"):
 		_open_shop()
+	elif event.is_action_pressed("tree"):
+		_open_tree()
 	elif event.is_action_pressed("back"):
 		Sound.play("select")
 		main.show_title()
@@ -196,6 +198,31 @@ func _open_shop() -> void:
 	main.show_shop()
 
 
+## The prompt tree opens once the hook is Clawd's (world 3).
+func tree_open() -> bool:
+	return Progress.has_tool("hook")
+
+
+func _open_tree() -> void:
+	if not tree_open():
+		Sound.play("denied")
+		return
+	Sound.play("confirm")
+	main.show_tree()
+
+
+## Left of the shop's button, once it opens; its free points in brackets.
+func _tree_rect() -> Rect2:
+	var sr := _shop_rect()
+	var w := PixelFont.width(_tree_label()) + 14
+	return Rect2(sr.position.x - 6 - w, sr.position.y, w, 14)
+
+
+func _tree_label() -> String:
+	var free := Prompts.points_free()
+	return "T · PROMPTS" + (" (%d)" % free if free > 0 else "")
+
+
 func _shop_rect() -> Rect2:
 	var v := view()
 	var label := "B · SHOP" if shop_open() else "SHOP (LOCKED)"
@@ -206,6 +233,9 @@ func _shop_rect() -> Rect2:
 func _map_click(p: Vector2) -> bool:
 	if _shop_rect().has_point(p):
 		_open_shop()
+		return true
+	if tree_open() and _tree_rect().has_point(p):
+		_open_tree()
 		return true
 	for i in main.level_ids.size():
 		if Rect2(node_pos(i) - Vector2(16, 16), Vector2(32, 32)).has_point(p) and Progress.is_unlocked(main.level_ids, i):
@@ -505,6 +535,13 @@ func _draw_map() -> void:
 	Hud.panel(self, sr, Hud.ORANGE if shop_ok else Color("#333333"), Color(0.07, 0.07, 0.08, 0.9))
 	PixelFont.draw_centred(self, "B · SHOP" if shop_ok else "SHOP (LOCKED)", sr.get_center().x, sr.position.y + 4,
 		Hud.ORANGE_LIGHT if shop_hover else Hud.TEXT if shop_ok else DIM)
+	if tree_open():
+		var tr := _tree_rect()
+		var free := Prompts.points_free() > 0
+		Hud.panel(self, tr, Hud.ORANGE if free else Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.9))
+		PixelFont.draw_centred(self, _tree_label(), tr.get_center().x, tr.position.y + 4,
+			Hud.ORANGE_LIGHT if tr.has_point(_mouse) else Hud.TEXT if free else Hud.TEXT_DIM)
+		sr = tr
 	var sparks := str(Progress.sparks_available())
 	var wx := sr.position.x - 8 - PixelFont.width(sparks)
 	_text(sparks, Vector2(wx, v.position.y + 12), Hud.TEXT)
@@ -561,7 +598,7 @@ func _draw_map() -> void:
 		all += sparks_total.get(id, 0)
 	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
 	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
-	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   ESC TITLE"
+	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   B SHOP   " + ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
 	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
 
