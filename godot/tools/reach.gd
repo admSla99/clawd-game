@@ -7,8 +7,9 @@
 # World 3's anchors (`+`, `*`): from where he stands, and at the top of a jump, Clawd throws the Tool Call at every
 # anchor in reach and in sight and zips there (scripts/tool_call.gd, Player._zip()); after the hop off an anchor he
 # drifts (with and without hover) or zips on to the next anchor, so chains of anchors over a chasm count. A Webhook
-# (`W`) counts as an anchor where it spawns. In levels with `subAgents` in index.json Clawd may also stand on a
-# sub-agent (scripts/echo.gd) he left where he stood: every jump is tried from 18 px higher too.
+# (`W`) does not count: it can be shot down, so no way may depend on it. In levels with `subAgents` in index.json
+# Clawd may also stand on a sub-agent (scripts/echo.gd) he left where he stood: every jump is tried from 18 px
+# higher too.
 # The movement is a tile-based model of scripts/player.gd (its constants are read from it and from tool_call.gd);
 # the real player collides through move_and_slide(), so a target found here is reachable within a pixel or so.
 # Run from godot/: godot --headless --script tools/reach.gd [-- <id>...]   (no ids = every level)
@@ -87,7 +88,7 @@ func check_level(id: String) -> Array:
 					counts.A += 1
 				"G":
 					targets["goal"] = Rect2(x - 8, y - 40, 16, 40)
-				"+", "*", "W":
+				"+", "*":
 					anchors.append(Vector2(x, y - TILE / 2))
 				"M":
 					for o in [-3.5, -1.75, 0.0, 1.75, 3.5]:

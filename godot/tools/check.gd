@@ -469,6 +469,9 @@ func check_hazards() -> bool:
 	await frames(3)
 	Input.action_press("left")
 	await frames(150)
+	# Losing the focus lets go of a held key (its release would never come).
+	root.get_node("Game").notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	ok(not Input.is_action_pressed("left") and Input.get_axis("left", "right") == 0.0, "the window losing the focus lets go of held keys")
 	Input.action_release("left")
 	ok(absf(p.pos.x - p.SIZE.x / 2) < 0.5 and absf(p.pos.y - _start(m).y) < 0.05 and p.on_ground,
 		"Clawd stops at the left edge of the map instead of falling (%s)" % p.pos)

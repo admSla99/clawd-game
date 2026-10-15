@@ -137,9 +137,42 @@ func run(c) -> bool:
 		dove = dove or wh.mode == &"dive"
 	c.ok(dove, "with Clawd near and below it, it dives at him")
 
+	# Webhooks can be shot down, so no way up depends on them: with all three gone, anchors still take Clawd from
+	# the floor under the left ledge onto it and on to the shelf, and up the right to the sub-agent's ledge.
+	for e in hooks:
+		e.remove()
+	await c.frames(2)
+	c.ok(await climb(c, m, p, Vector2(17 * TILE + 8, 44 * TILE), 1, "left", 37 * TILE), "no webhooks: an anchor from a jump onto the left ledge (%s)" % p.pos)
+	c.ok(await climb(c, m, p, Vector2(15 * TILE + 8, 37 * TILE), 1, "", 27 * TILE), "and one from a jump off it up onto the shelf (%s)" % p.pos)
+	c.ok(await climb(c, m, p, Vector2(36 * TILE + 8, 44 * TILE), 3, "", 33 * TILE), "three anchors up the right to the sub-agent's ledge (%s)" % p.pos)
+
 	m.echoes.reset()
 	progress.tools = tools0
 	p.invuln = 0
 	m.load_level("1-1")
 	await c.frames(3)
 	return true
+
+
+## From feet `from`: jump holding up, and throw the hook at the top of the jump and of every hop until `zips`
+## zips are done; then drift to `side` and land. True when he stands with his feet at `want_y`.
+func climb(c, m, p, from: Vector2, zips: int, side: String, want_y: float) -> bool:
+	p.pos = from
+	p.vel = Vector2.ZERO
+	await c.frames(4)
+	var st := {"zips": 0, "was": false}
+	await c.drive(func(i):
+		var zipping: bool = p.state == &"zip"
+		if zipping and not st.was:
+			st.zips += 1
+		st.was = zipping
+		if i > 10 and p.on_ground:
+			return null
+		if i < 3:
+			return ["up", "jump"]
+		if st.zips >= zips:
+			return [] if zipping or side == "" else [side]
+		if not zipping and p.vel.y > -60 and m.tool_call.state == 0 and m.tool_call.candidate and i % 2 == 0:
+			return ["up", "tool"]
+		return ["up"], 300)
+	return p.on_ground and absf(p.pos.y - want_y) < 0.5

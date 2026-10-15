@@ -18,10 +18,10 @@
 [ext_resource type="Script" path="res://scripts/bug.gd" id="16_ailxh"]
 [ext_resource type="Script" path="res://scripts/gate.gd" id="17_6dbsi"]
 
-[node name="Level" type="Node3D" unique_id=578188273]
+[node name="Level" type="Node3D" unique_id=297075267]
 script = ExtResource("1_qgmc3")
 
-[node name="Terrain" type="GridMap" parent="." unique_id=1338392599]
+[node name="Terrain" type="GridMap" parent="." unique_id=1748262796]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
 mesh_library = ExtResource("2_iya3p")
 cell_size = Vector3(1, 1, 3)
@@ -30,7 +30,7 @@ data = {
 "cells": PackedInt32Array(-65536, 0, 0, -65535, 0, 0, -65494, 0, 0, -65493, 0, 0, -131072, 0, 0, -131071, 0, 0, -131030, 0, 0, -131029, 0, 0, -196608, 0, 0, -196607, 0, 0, -196566, 0, 0, -196565, 0, 0, -262144, 0, 0, -262143, 0, 0, -262102, 0, 0, -262101, 0, 0, -327680, 0, 0, -327679, 0, 0, -327638, 0, 0, -327637, 0, 0, -393216, 0, 0, -393215, 0, 0, -393174, 0, 0, -393173, 0, 0, -458752, 0, 0, -458751, 0, 0, -458726, 0, 0, -458710, 0, 0, -458709, 0, 0, -524288, 0, 0, -524287, 0, 0, -524262, 0, 0, -524246, 0, 0, -524245, 0, 0, -589824, 0, 0, -589823, 0, 0, -589798, 0, 0, -589782, 0, 0, -589781, 0, 0, -655360, 0, 0, -655359, 0, 0, -655334, 0, 0, -655318, 0, 0, -655317, 0, 0, -720896, 0, 0, -720895, 0, 0, -720870, 0, 0, -720854, 0, 0, -720853, 0, 0, -786432, 0, 0, -786431, 0, 0, -786406, 0, 0, -786397, 0, 0, -786396, 0, 0, -786395, 0, 0, -786394, 0, 0, -786393, 0, 0, -786392, 0, 0, -786391, 0, 0, -786390, 0, 0, -786389, 0, 0, -851968, 0, 0, -851967, 0, 0, -851942, 0, 0, -851926, 0, 0, -851925, 0, 0, -917504, 0, 0, -917503, 0, 0, -917462, 0, 0, -917461, 0, 0, -983040, 0, 0, -983039, 0, 0, -982998, 0, 0, -982997, 0, 0, -1048576, 0, 0, -1048575, 0, 0, -1048534, 0, 0, -1048533, 0, 0, -1114112, 0, 0, -1114111, 0, 0, -1114070, 0, 0, -1114069, 0, 0, -1179648, 0, 0, -1179647, 0, 0, -1179606, 0, 0, -1179605, 0, 0, -1245184, 0, 0, -1245183, 0, 0, -1245182, 0, 0, -1245181, 0, 0, -1245180, 0, 0, -1245179, 0, 0, -1245178, 0, 0, -1245177, 0, 0, -1245173, 0, 0, -1245172, 0, 0, -1245171, 0, 0, -1245170, 0, 0, -1245169, 0, 0, -1245168, 0, 0, -1245167, 0, 0, -1245166, 0, 0, -1245165, 0, 0, -1245164, 0, 0, -1245163, 0, 0, -1245162, 0, 0, -1245161, 0, 0, -1245160, 0, 0, -1245159, 0, 0, -1245158, 0, 0, -1245157, 0, 0, -1245156, 0, 0, -1245155, 0, 0, -1245154, 0, 0, -1245153, 0, 0, -1245152, 0, 0, -1245151, 0, 0, -1245150, 0, 0, -1245149, 0, 0, -1245148, 0, 0, -1245147, 0, 0, -1245146, 0, 0, -1245145, 0, 0, -1245144, 0, 0, -1245143, 0, 0, -1245142, 0, 0, -1245141, 0, 0, -1310720, 0, 0, -1310719, 0, 0, -1310718, 0, 0, -1310717, 0, 0, -1310716, 0, 0, -1310715, 0, 0, -1310714, 0, 0, -1310713, 0, 0, -1310709, 0, 0, -1310708, 0, 0, -1310707, 0, 0, -1310706, 0, 0, -1310705, 0, 0, -1310704, 0, 0, -1310703, 0, 0, -1310702, 0, 0, -1310701, 0, 0, -1310700, 0, 0, -1310699, 0, 0, -1310698, 0, 0, -1310697, 0, 0, -1310696, 0, 0, -1310695, 0, 0, -1310694, 0, 0, -1310693, 0, 0, -1310692, 0, 0, -1310691, 0, 0, -1310690, 0, 0, -1310689, 0, 0, -1310688, 0, 0, -1310687, 0, 0, -1310686, 0, 0, -1310685, 0, 0, -1310684, 0, 0, -1310683, 0, 0, -1310682, 0, 0, -1310681, 0, 0, -1310680, 0, 0, -1310679, 0, 0, -1310678, 0, 0, -1310677, 0, 0, -1376256, 0, 0, -1376255, 0, 0, -1376214, 0, 0, -1376213, 0, 0, -1441792, 0, 0, -1441791, 0, 0, -1441750, 0, 0, -1441749, 0, 0, -1507328, 0, 0, -1507327, 0, 0, -1507286, 0, 0, -1507285, 0, 0, -1572864, 0, 0, -1572863, 0, 0, -1572822, 0, 0, -1572821, 0, 0, -1638400, 0, 0, -1638399, 0, 0, -1638358, 0, 0, -1638357, 0, 0, -1703936, 0, 0, -1703935, 0, 0, -1703894, 0, 0, -1703893, 0, 0, -1769472, 0, 0, -1769471, 0, 0, -1769430, 0, 0, -1769429, 0, 0, -1835008, 0, 0, -1835007, 0, 0, -1834966, 0, 0, -1834965, 0, 0, -1900544, 0, 0, -1900543, 0, 0, -1900502, 0, 0, -1900501, 0, 0, -1966080, 0, 0, -1966079, 0, 0, -1966038, 0, 0, -1966037, 0, 0, -2031616, 0, 0, -2031615, 0, 0, -2031574, 0, 0, -2031573, 0, 0, -2097152, 0, 0, -2097151, 0, 0, -2097110, 0, 0, -2097109, 0, 0, -2162688, 0, 0, -2162687, 0, 0, -2162646, 0, 0, -2162645, 0, 0, -2228224, 0, 0, -2228223, 0, 0, -2228182, 0, 0, -2228181, 0, 0, -2293760, 0, 0, -2293759, 0, 0, -2293718, 0, 0, -2293717, 0, 0, -2359296, 0, 0, -2359295, 0, 0, -2359254, 0, 0, -2359253, 0, 0, -2424832, 0, 0, -2424831, 0, 0, -2424790, 0, 0, -2424789, 0, 0, -2490368, 0, 0, -2490367, 0, 0, -2490362, 0, 0, -2490361, 0, 0, -2490360, 0, 0, -2490359, 0, 0, -2490358, 0, 0, -2490357, 0, 0, -2490356, 0, 0, -2490355, 0, 0, -2490354, 0, 0, -2490353, 0, 0, -2490326, 0, 0, -2490325, 0, 0, -2555904, 0, 0, -2555903, 0, 0, -2555898, 0, 0, -2555897, 0, 0, -2555896, 0, 0, -2555895, 0, 0, -2555894, 0, 0, -2555893, 0, 0, -2555892, 0, 0, -2555891, 0, 0, -2555890, 0, 0, -2555889, 0, 0, -2555862, 0, 0, -2555861, 0, 0, -2621440, 0, 0, -2621439, 0, 0, -2621398, 0, 0, -2621397, 0, 0, -2686976, 0, 0, -2686975, 0, 0, -2686934, 0, 0, -2686933, 0, 0, -2752512, 0, 0, -2752511, 0, 0, -2752470, 0, 0, -2752469, 0, 0, -2818048, 0, 0, -2818047, 0, 0, -2818006, 0, 0, -2818005, 0, 0, -2883584, 0, 0, -2883583, 0, 0, -2883542, 0, 0, -2883541, 0, 0, -2949120, 0, 0, -2949119, 0, 0, -2949118, 0, 0, -2949117, 0, 0, -2949116, 0, 0, -2949115, 0, 0, -2949114, 0, 0, -2949113, 0, 0, -2949112, 0, 0, -2949111, 0, 0, -2949110, 0, 0, -2949109, 0, 0, -2949108, 0, 0, -2949107, 0, 0, -2949106, 0, 0, -2949105, 0, 0, -2949104, 0, 0, -2949103, 0, 0, -2949102, 0, 0, -2949101, 0, 0, -2949100, 0, 0, -2949099, 0, 0, -2949098, 0, 0, -2949097, 0, 0, -2949096, 0, 0, -2949095, 0, 0, -2949094, 0, 0, -2949093, 0, 0, -2949092, 0, 0, -2949091, 0, 0, -2949090, 0, 0, -2949089, 0, 0, -2949088, 0, 0, -2949087, 0, 0, -2949081, 0, 0, -2949080, 0, 0, -2949079, 0, 0, -2949078, 0, 0, -2949077, 0, 0, -3014656, 0, 0, -3014655, 0, 0, -3014614, 0, 0, -3014613, 0, 0, -3080192, 0, 0, -3080191, 0, 0, -3080150, 0, 0, -3080149, 0, 0, -3145728, 0, 0, -3145727, 0, 0, -3145686, 0, 0, -3145685, 0, 0, -3211264, 0, 0, -3211263, 0, 0, -3211222, 0, 0, -3211221, 0, 0, -3276800, 0, 0, -3276799, 0, 0, -3276758, 0, 0, -3276757, 0, 0, -3342336, 0, 0, -3342335, 0, 0, -3342294, 0, 0, -3342293, 0, 0, -3407872, 0, 0, -3407871, 0, 0, -3407830, 0, 0, -3407829, 0, 0, -3473408, 0, 0, -3473407, 0, 0, -3473366, 0, 0, -3473365, 0, 0, -3538944, 0, 0, -3538943, 0, 0, -3538902, 0, 0, -3538901, 0, 0, -3604480, 0, 0, -3604479, 0, 0, -3604438, 0, 0, -3604437, 0, 0, -3670016, 0, 0, -3670015, 0, 0, -3669974, 0, 0, -3669973, 0, 0, -3735552, 0, 0, -3735551, 0, 0, -3735510, 0, 0, -3735509, 0, 0, -3801088, 0, 0, -3801087, 0, 0, -3801058, 0, 0, -3801057, 0, 0, -3801056, 0, 0, -3801055, 0, 0, -3801054, 0, 0, -3801053, 0, 0, -3801052, 0, 0, -3801051, 0, 0, -3801050, 0, 0, -3801049, 0, 0, -3801048, 0, 0, -3801046, 0, 0, -3801045, 0, 0, -3866624, 0, 0, -3866623, 0, 0, -3866594, 0, 0, -3866593, 0, 0, -3866592, 0, 0, -3866591, 0, 0, -3866590, 0, 0, -3866589, 0, 0, -3866588, 0, 0, -3866587, 0, 0, -3866586, 0, 0, -3866585, 0, 0, -3866584, 0, 0, -3866582, 0, 0, -3866581, 0, 0, -3932160, 0, 0, -3932159, 0, 0, -3932118, 0, 0, -3932117, 0, 0, -3997696, 0, 0, -3997695, 0, 0, -3997654, 0, 0, -3997653, 0, 0, -4063232, 0, 0, -4063231, 0, 0, -4063190, 0, 0, -4063189, 0, 0, -4128768, 0, 0, -4128767, 0, 0, -4128726, 0, 0, -4128725, 0, 0, -4194304, 0, 0, -4194303, 0, 0, -4194262, 0, 0, -4194261, 0, 0, -4259840, 0, 0, -4259839, 0, 0, -4259798, 0, 0, -4259797, 0, 0, -4325376, 0, 0, -4325375, 0, 0, -4325334, 0, 0, -4325333, 0, 0, -4390912, 0, 0, -4390911, 0, 0, -4390870, 0, 0, -4390869, 0, 0, -4456448, 0, 0, -4456447, 0, 0, -4456406, 0, 0, -4456405, 0, 0, -4521984, 0, 0, -4521983, 0, 0, -4521942, 0, 0, -4521941, 0, 0, -4587520, 0, 0, -4587519, 0, 0, -4587478, 0, 0, -4587477, 0, 0, -4653056, 0, 0, -4653055, 0, 0, -4653014, 0, 0, -4653013, 0, 0, -4718592, 0, 0, -4718591, 0, 0, -4718550, 0, 0, -4718549, 0, 0, -4784128, 0, 0, -4784127, 0, 0, -4784086, 0, 0, -4784085, 0, 0, -4849664, 0, 0, -4849663, 0, 0, -4849622, 0, 0, -4849621, 0, 0, -4915200, 0, 0, -4915199, 0, 0, -4915158, 0, 0, -4915157, 0, 0, -4980736, 0, 0, -4980735, 0, 0, -4980722, 0, 0, -4980721, 0, 0, -4980720, 0, 0, -4980719, 0, 0, -4980718, 0, 0, -4980717, 0, 0, -4980716, 0, 0, -4980715, 0, 0, -4980714, 0, 0, -4980713, 0, 0, -4980712, 0, 0, -4980694, 0, 0, -4980693, 0, 0, -5046272, 0, 0, -5046271, 0, 0, -5046258, 0, 0, -5046257, 0, 0, -5046256, 0, 0, -5046255, 0, 0, -5046254, 0, 0, -5046253, 0, 0, -5046252, 0, 0, -5046251, 0, 0, -5046250, 0, 0, -5046249, 0, 0, -5046248, 0, 0, -5046230, 0, 0, -5046229, 0, 0, -5111808, 0, 0, -5111807, 0, 0, -5111794, 0, 0, -5111793, 0, 0, -5111792, 0, 0, -5111791, 0, 0, -5111790, 0, 0, -5111789, 0, 0, -5111788, 0, 0, -5111787, 0, 0, -5111786, 0, 0, -5111785, 0, 0, -5111784, 0, 0, -5111766, 0, 0, -5111765, 0, 0, -5177344, 0, 0, -5177343, 0, 0, -5177330, 0, 0, -5177329, 0, 0, -5177328, 0, 0, -5177327, 0, 0, -5177326, 0, 0, -5177325, 0, 0, -5177324, 0, 0, -5177323, 0, 0, -5177322, 0, 0, -5177321, 0, 0, -5177320, 0, 0, -5177302, 0, 0, -5177301, 0, 0, -5242880, 0, 0, -5242879, 0, 0, -5242866, 0, 0, -5242865, 0, 0, -5242864, 0, 0, -5242863, 0, 0, -5242862, 0, 0, -5242861, 0, 0, -5242860, 0, 0, -5242859, 0, 0, -5242858, 0, 0, -5242857, 0, 0, -5242856, 0, 0, -5242838, 0, 0, -5242837, 0, 0, -5308416, 0, 0, -5308415, 0, 0, -5308414, 0, 0, -5308413, 0, 0, -5308412, 0, 0, -5308411, 0, 0, -5308410, 0, 0, -5308409, 0, 0, -5308408, 0, 0, -5308407, 0, 0, -5308406, 0, 0, -5308405, 0, 0, -5308404, 0, 0, -5308403, 0, 0, -5308402, 0, 0, -5308401, 0, 0, -5308400, 0, 0, -5308399, 0, 0, -5308398, 0, 0, -5308397, 0, 0, -5308396, 0, 0, -5308395, 0, 0, -5308394, 0, 0, -5308393, 0, 0, -5308392, 0, 0, -5308391, 0, 0, -5308390, 0, 0, -5308389, 0, 0, -5308388, 0, 0, -5308387, 0, 0, -5308386, 0, 0, -5308385, 0, 0, -5308384, 0, 0, -5308383, 0, 0, -5308382, 0, 0, -5308381, 0, 0, -5308380, 0, 0, -5308379, 0, 0, -5308378, 0, 0, -5308377, 0, 0, -5308376, 0, 0, -5308375, 0, 0, -5308374, 0, 0, -5308373, 0, 0, -5373952, 0, 0, -5373951, 0, 0, -5373950, 0, 0, -5373949, 0, 0, -5373948, 0, 0, -5373947, 0, 0, -5373946, 0, 0, -5373945, 0, 0, -5373944, 0, 0, -5373943, 0, 0, -5373942, 0, 0, -5373941, 0, 0, -5373940, 0, 0, -5373939, 0, 0, -5373938, 0, 0, -5373937, 0, 0, -5373936, 0, 0, -5373935, 0, 0, -5373934, 0, 0, -5373933, 0, 0, -5373932, 0, 0, -5373931, 0, 0, -5373930, 0, 0, -5373929, 0, 0, -5373928, 0, 0, -5373927, 0, 0, -5373926, 0, 0, -5373925, 0, 0, -5373924, 0, 0, -5373923, 0, 0, -5373922, 0, 0, -5373921, 0, 0, -5373920, 0, 0, -5373919, 0, 0, -5373918, 0, 0, -5373917, 0, 0, -5373916, 0, 0, -5373915, 0, 0, -5373914, 0, 0, -5373913, 0, 0, -5373912, 0, 0, -5373911, 0, 0, -5373910, 0, 0, -5373909, 0, 0, -5439488, 0, 0, -5439487, 0, 0, -5439486, 0, 0, -5439485, 0, 0, -5439484, 0, 0, -5439483, 0, 0, -5439482, 0, 0, -5439481, 0, 0, -5439480, 0, 0, -5439479, 0, 0, -5439478, 0, 0, -5439477, 0, 0, -5439476, 0, 0, -5439475, 0, 0, -5439474, 0, 0, -5439473, 0, 0, -5439472, 0, 0, -5439471, 0, 0, -5439470, 0, 0, -5439469, 0, 0, -5439468, 0, 0, -5439467, 0, 0, -5439466, 0, 0, -5439465, 0, 0, -5439464, 0, 0, -5439463, 0, 0, -5439462, 0, 0, -5439461, 0, 0, -5439460, 0, 0, -5439459, 0, 0, -5439458, 0, 0, -5439457, 0, 0, -5439456, 0, 0, -5439455, 0, 0, -5439454, 0, 0, -5439453, 0, 0, -5439452, 0, 0, -5439451, 0, 0, -5439450, 0, 0, -5439449, 0, 0, -5439448, 0, 0, -5439447, 0, 0, -5439446, 0, 0, -5439445, 0, 0, -5505024, 0, 0, -5505023, 0, 0, -5505022, 0, 0, -5505021, 0, 0, -5505020, 0, 0, -5505019, 0, 0, -5505018, 0, 0, -5505017, 0, 0, -5505016, 0, 0, -5505015, 0, 0, -5505014, 0, 0, -5505013, 0, 0, -5505012, 0, 0, -5505011, 0, 0, -5505010, 0, 0, -5505009, 0, 0, -5505008, 0, 0, -5505007, 0, 0, -5505006, 0, 0, -5505005, 0, 0, -5505004, 0, 0, -5505003, 0, 0, -5505002, 0, 0, -5505001, 0, 0, -5505000, 0, 0, -5504999, 0, 0, -5504998, 0, 0, -5504997, 0, 0, -5504996, 0, 0, -5504995, 0, 0, -5504994, 0, 0, -5504993, 0, 0, -5504992, 0, 0, -5504991, 0, 0, -5504990, 0, 0, -5504989, 0, 0, -5504988, 0, 0, -5504987, 0, 0, -5504986, 0, 0, -5504985, 0, 0, -5504984, 0, 0, -5504983, 0, 0, -5504982, 0, 0, -5504981, 0, 0)
 }
 
-[node name="OneWay" type="GridMap" parent="." unique_id=1755171918]
+[node name="OneWay" type="GridMap" parent="." unique_id=2009824261]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.5)
 mesh_library = ExtResource("2_iya3p")
 cell_size = Vector3(1, 1, 3)
@@ -40,246 +40,266 @@ data = {
 "cells": PackedInt32Array(-1834992, 0, 1, -1834991, 0, 1, -1834990, 0, 1, -1834989, 0, 1, -1834988, 0, 1, -1834987, 0, 1, -1834986, 0, 1, -1834985, 0, 1, -1834984, 0, 1, -1900528, 0, 1, -1900527, 0, 1, -1900526, 0, 1, -1900525, 0, 1, -1900524, 0, 1, -1900523, 0, 1, -1900522, 0, 1, -1900521, 0, 1, -1900520, 0, 1, -2228188, 0, 1, -2228187, 0, 1, -2228186, 0, 1, -2228185, 0, 1, -2228184, 0, 1, -2228183, 0, 1, -4390910, 0, 1, -4390909, 0, 1, -4390908, 0, 1, -4390907, 0, 1, -4390906, 0, 1)
 }
 
-[node name="Drone" type="CharacterBody3D" parent="." unique_id=513032297]
+[node name="Drone" type="CharacterBody3D" parent="." unique_id=689925721]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5, -5, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("3_di3qs")
 metadata/spawn = "D"
 
-[node name="Anchor" type="Node3D" parent="." unique_id=251848753]
+[node name="Anchor" type="Node3D" parent="." unique_id=353929259]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33.5, -11, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Token" type="Area3D" parent="." unique_id=135017245 instance=ExtResource("5_y8dr7")]
+[node name="Token" type="Area3D" parent="." unique_id=677477709 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.5, -10.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Goal" type="Node3D" parent="." unique_id=1903333928]
+[node name="Goal" type="Node3D" parent="." unique_id=1002911054]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.5, -11, 0)
 script = ExtResource("7_y00pe")
 metadata/spawn = "G"
 
-[node name="Spark" type="Node3D" parent="." unique_id=740343292]
+[node name="Spark" type="Node3D" parent="." unique_id=1497554971]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.5, -11, 0)
 script = ExtResource("8_7t2dm")
 metadata/spawn = "S"
 
-[node name="Anchor2" type="Node3D" parent="." unique_id=619754914]
+[node name="Anchor2" type="Node3D" parent="." unique_id=1605512566]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, -14, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Spark2" type="Node3D" parent="." unique_id=1119673197]
+[node name="Spark2" type="Node3D" parent="." unique_id=944996724]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, -17, 0)
 script = ExtResource("8_7t2dm")
 index = 1
 metadata/spawn = "S"
 
-[node name="Plate" type="Node3D" parent="." unique_id=457120316]
+[node name="Plate" type="Node3D" parent="." unique_id=586748202]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -18, 0)
 script = ExtResource("9_k7kv7")
 digit = 2
 cells = 2
 metadata/spawn = "2"
 
-[node name="Sign" type="Node3D" parent="." unique_id=1322965866]
+[node name="Sign" type="Node3D" parent="." unique_id=2077589334]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.5, -18, 0)
 script = ExtResource("10_o4lyi")
 metadata/spawn = "?"
 
-[node name="Token2" type="Area3D" parent="." unique_id=1015012412 instance=ExtResource("5_y8dr7")]
+[node name="Token2" type="Area3D" parent="." unique_id=1907260609 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Plate2" type="Node3D" parent="." unique_id=1041548075]
+[node name="Plate2" type="Node3D" parent="." unique_id=1304005283]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, -18, 0)
 script = ExtResource("9_k7kv7")
 digit = 2
 cells = 2
 metadata/spawn = "2"
 
-[node name="Token3" type="Area3D" parent="." unique_id=1860125388 instance=ExtResource("5_y8dr7")]
+[node name="Token3" type="Area3D" parent="." unique_id=254569234 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token4" type="Area3D" parent="." unique_id=1746428595 instance=ExtResource("5_y8dr7")]
+[node name="Token4" type="Area3D" parent="." unique_id=1525180486 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token5" type="Area3D" parent="." unique_id=290158044 instance=ExtResource("5_y8dr7")]
+[node name="Token5" type="Area3D" parent="." unique_id=2062655297 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Parser" type="CharacterBody3D" parent="." unique_id=1387975084]
+[node name="Parser" type="CharacterBody3D" parent="." unique_id=1579396589]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.5, -18, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("11_wy0pb")
 metadata/spawn = "P"
 
-[node name="Token6" type="Area3D" parent="." unique_id=1422684003 instance=ExtResource("5_y8dr7")]
+[node name="Token6" type="Area3D" parent="." unique_id=2045318189 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token7" type="Area3D" parent="." unique_id=457213310 instance=ExtResource("5_y8dr7")]
+[node name="Token7" type="Area3D" parent="." unique_id=1361423349 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.5, -17.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Anchor3" type="Node3D" parent="." unique_id=1688098725]
+[node name="Anchor3" type="Node3D" parent="." unique_id=2000088833]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, -21, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Anchor4" type="Node3D" parent="." unique_id=710975418]
+[node name="Anchor4" type="Node3D" parent="." unique_id=216466173]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, -25, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Webhook" type="CharacterBody3D" parent="." unique_id=1519403944]
+[node name="Anchor5" type="Node3D" parent="." unique_id=78478843]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.5, -26, 0)
+script = ExtResource("4_7pl1b")
+metadata/spawn = "+"
+
+[node name="Webhook" type="CharacterBody3D" parent="." unique_id=1969895496]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5, -26, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("12_8uv2k")
 metadata/spawn = "W"
 
-[node name="Token8" type="Area3D" parent="." unique_id=38085599 instance=ExtResource("5_y8dr7")]
+[node name="Token8" type="Area3D" parent="." unique_id=1015199625 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, -26.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token9" type="Area3D" parent="." unique_id=2011044742 instance=ExtResource("5_y8dr7")]
+[node name="Token9" type="Area3D" parent="." unique_id=2112233001 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, -26.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token10" type="Area3D" parent="." unique_id=1036292495 instance=ExtResource("5_y8dr7")]
+[node name="Token10" type="Area3D" parent="." unique_id=1021278543 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.5, -26.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Webhook2" type="CharacterBody3D" parent="." unique_id=391392738]
+[node name="Webhook2" type="CharacterBody3D" parent="." unique_id=89783052]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, -31, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("12_8uv2k")
 metadata/spawn = "W"
 
-[node name="Token11" type="Area3D" parent="." unique_id=1642660729 instance=ExtResource("5_y8dr7")]
+[node name="Anchor6" type="Node3D" parent="." unique_id=671822012]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.5, -31, 0)
+script = ExtResource("4_7pl1b")
+metadata/spawn = "+"
+
+[node name="Token11" type="Area3D" parent="." unique_id=979070282 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.5, -32.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Drone2" type="CharacterBody3D" parent="." unique_id=123401004]
+[node name="Drone2" type="CharacterBody3D" parent="." unique_id=646552112]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.5, -33, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("3_di3qs")
 metadata/spawn = "D"
 
-[node name="SubAgent" type="Node3D" parent="." unique_id=749629401]
+[node name="SubAgent" type="Node3D" parent="." unique_id=1310790421]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.5, -33, 0)
 script = ExtResource("13_l51bg")
 metadata/spawn = "A"
 
-[node name="Spark3" type="Node3D" parent="." unique_id=10016186]
+[node name="Anchor7" type="Node3D" parent="." unique_id=1389273717]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.5, -34, 0)
+script = ExtResource("4_7pl1b")
+metadata/spawn = "+"
+
+[node name="Spark3" type="Node3D" parent="." unique_id=796656518]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, -37, 0)
 script = ExtResource("8_7t2dm")
 index = 2
 metadata/spawn = "S"
 
-[node name="Token12" type="Area3D" parent="." unique_id=1181695399 instance=ExtResource("5_y8dr7")]
+[node name="Token12" type="Area3D" parent="." unique_id=62299721 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, -36.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token13" type="Area3D" parent="." unique_id=1207926118 instance=ExtResource("5_y8dr7")]
+[node name="Token13" type="Area3D" parent="." unique_id=1178035190 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.5, -36.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Webhook3" type="CharacterBody3D" parent="." unique_id=337318532]
+[node name="Webhook3" type="CharacterBody3D" parent="." unique_id=1197998842]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.5, -37, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("12_8uv2k")
 metadata/spawn = "W"
 
-[node name="Anchor5" type="Node3D" parent="." unique_id=790530932]
+[node name="Anchor8" type="Node3D" parent="." unique_id=1148053289]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.5, -37, 0)
+script = ExtResource("4_7pl1b")
+metadata/spawn = "+"
+
+[node name="Anchor9" type="Node3D" parent="." unique_id=348551574]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.5, -42, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Token14" type="Area3D" parent="." unique_id=71498288 instance=ExtResource("5_y8dr7")]
+[node name="Token14" type="Area3D" parent="." unique_id=1917127584 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.5, -43.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token15" type="Area3D" parent="." unique_id=329779146 instance=ExtResource("5_y8dr7")]
+[node name="Token15" type="Area3D" parent="." unique_id=1142774118 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, -43.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token16" type="Area3D" parent="." unique_id=1836040975 instance=ExtResource("5_y8dr7")]
+[node name="Token16" type="Area3D" parent="." unique_id=733272810 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, -43.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token17" type="Area3D" parent="." unique_id=2088452584 instance=ExtResource("5_y8dr7")]
+[node name="Token17" type="Area3D" parent="." unique_id=748397409 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.5, -43.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token18" type="Area3D" parent="." unique_id=2022256320 instance=ExtResource("5_y8dr7")]
+[node name="Token18" type="Area3D" parent="." unique_id=1986170080 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.5, -43.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Turret" type="CharacterBody3D" parent="." unique_id=458093895]
+[node name="Turret" type="CharacterBody3D" parent="." unique_id=1199850450]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.5, -46, 0)
 collision_layer = 0
 collision_mask = 0
@@ -287,195 +307,195 @@ script = ExtResource("14_xjni7")
 ceiling = true
 metadata/spawn = "Y"
 
-[node name="Anchor6" type="Node3D" parent="." unique_id=1766344246]
+[node name="Anchor10" type="Node3D" parent="." unique_id=799868805]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.5, -49, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Drone3" type="CharacterBody3D" parent="." unique_id=2038456105]
+[node name="Drone3" type="CharacterBody3D" parent="." unique_id=1469773237]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.5, -53, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("3_di3qs")
 metadata/spawn = "D"
 
-[node name="Anchor7" type="Node3D" parent="." unique_id=1992787297]
+[node name="Anchor11" type="Node3D" parent="." unique_id=1499289012]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.5, -56, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Sign2" type="Node3D" parent="." unique_id=1718130443]
+[node name="Sign2" type="Node3D" parent="." unique_id=1897216773]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.5, -56, 0)
 script = ExtResource("10_o4lyi")
 index = 1
 metadata/spawn = "?"
 
-[node name="Plate3" type="Node3D" parent="." unique_id=1411538408]
+[node name="Plate3" type="Node3D" parent="." unique_id=1208115921]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, -57, 0)
 script = ExtResource("9_k7kv7")
 cells = 2
 metadata/spawn = "1"
 
-[node name="Parser2" type="CharacterBody3D" parent="." unique_id=931787920]
+[node name="Parser2" type="CharacterBody3D" parent="." unique_id=268959530]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.5, -57, 0)
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("11_wy0pb")
 metadata/spawn = "P"
 
-[node name="Token19" type="Area3D" parent="." unique_id=1966985279 instance=ExtResource("5_y8dr7")]
+[node name="Token19" type="Area3D" parent="." unique_id=1283617039 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37.5, -56.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Spark4" type="Node3D" parent="." unique_id=384084814]
+[node name="Spark4" type="Node3D" parent="." unique_id=1624872025]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.5, -57, 0)
 script = ExtResource("8_7t2dm")
 index = 3
 metadata/spawn = "S"
 
-[node name="Anchor8" type="Node3D" parent="." unique_id=2099818293]
+[node name="Anchor12" type="Node3D" parent="." unique_id=1880286694]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, -64, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Anchor9" type="Node3D" parent="." unique_id=1531479581]
+[node name="Anchor13" type="Node3D" parent="." unique_id=2136407246]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.5, -64, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="SubAgent2" type="Node3D" parent="." unique_id=1028803306]
+[node name="SubAgent2" type="Node3D" parent="." unique_id=1632380964]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, -66, 0)
 script = ExtResource("13_l51bg")
 index = 1
 metadata/spawn = "A"
 
-[node name="Token20" type="Area3D" parent="." unique_id=1322706894 instance=ExtResource("5_y8dr7")]
+[node name="Token20" type="Area3D" parent="." unique_id=1440372534 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.5, -66.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Anchor10" type="Node3D" parent="." unique_id=1674771483]
+[node name="Anchor14" type="Node3D" parent="." unique_id=1663545165]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.5, -70, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Anchor11" type="Node3D" parent="." unique_id=1925614608]
+[node name="Anchor15" type="Node3D" parent="." unique_id=555646186]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, -72, 0)
 script = ExtResource("4_7pl1b")
 metadata/spawn = "+"
 
-[node name="Token21" type="Area3D" parent="." unique_id=2039916233 instance=ExtResource("5_y8dr7")]
+[node name="Token21" type="Area3D" parent="." unique_id=1053546761 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.5, -74.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token22" type="Area3D" parent="." unique_id=218525499 instance=ExtResource("5_y8dr7")]
+[node name="Token22" type="Area3D" parent="." unique_id=514869353 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.5, -74.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token23" type="Area3D" parent="." unique_id=945411956 instance=ExtResource("5_y8dr7")]
+[node name="Token23" type="Area3D" parent="." unique_id=143932270 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, -74.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Spark5" type="Node3D" parent="." unique_id=374237139]
+[node name="Spark5" type="Node3D" parent="." unique_id=1223674411]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.5, -75, 0)
 script = ExtResource("8_7t2dm")
 index = 4
 metadata/spawn = "S"
 
-[node name="Token24" type="Area3D" parent="." unique_id=1929473233 instance=ExtResource("5_y8dr7")]
+[node name="Token24" type="Area3D" parent="." unique_id=1812068254 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Start" type="Marker3D" parent="." unique_id=1735678040]
+[node name="Start" type="Marker3D" parent="." unique_id=313938363]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, -80, 0)
 metadata/spawn = "@"
 
-[node name="Sign3" type="Node3D" parent="." unique_id=404042131]
+[node name="Sign3" type="Node3D" parent="." unique_id=1828437859]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, -80, 0)
 script = ExtResource("10_o4lyi")
 index = 2
 metadata/spawn = "?"
 
-[node name="Token25" type="Area3D" parent="." unique_id=1755571440 instance=ExtResource("5_y8dr7")]
+[node name="Token25" type="Area3D" parent="." unique_id=942262759 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token26" type="Area3D" parent="." unique_id=1025488530 instance=ExtResource("5_y8dr7")]
+[node name="Token26" type="Area3D" parent="." unique_id=1329411296 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token27" type="Area3D" parent="." unique_id=767287718 instance=ExtResource("5_y8dr7")]
+[node name="Token27" type="Area3D" parent="." unique_id=324948664 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Bug" type="CharacterBody3D" parent="." unique_id=1311008030 groups=["enemies"] instance=ExtResource("15_w0re6")]
+[node name="Bug" type="CharacterBody3D" parent="." unique_id=1071055788 groups=["enemies"] instance=ExtResource("15_w0re6")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.5, -80, 0)
 collision_layer = 4
 axis_lock_linear_z = true
 script = ExtResource("16_ailxh")
 metadata/spawn = "E"
 
-[node name="Token28" type="Area3D" parent="." unique_id=380207406 instance=ExtResource("5_y8dr7")]
+[node name="Token28" type="Area3D" parent="." unique_id=1080449815 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token29" type="Area3D" parent="." unique_id=482037977 instance=ExtResource("5_y8dr7")]
+[node name="Token29" type="Area3D" parent="." unique_id=607385942 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token30" type="Area3D" parent="." unique_id=705163260 instance=ExtResource("5_y8dr7")]
+[node name="Token30" type="Area3D" parent="." unique_id=1237959358 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Token31" type="Area3D" parent="." unique_id=1485832203 instance=ExtResource("5_y8dr7")]
+[node name="Token31" type="Area3D" parent="." unique_id=2016872816 instance=ExtResource("5_y8dr7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.5, -79.5, 0)
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("6_c75o0")
 metadata/spawn = "o"
 
-[node name="Gate" type="Node3D" parent="." unique_id=1385264946]
+[node name="Gate" type="Node3D" parent="." unique_id=23439770]
 script = ExtResource("17_6dbsi")
 letter = "b"
 cells = Array[Vector2i]([Vector2i(26, 13), Vector2i(26, 14), Vector2i(26, 15), Vector2i(26, 16), Vector2i(26, 17)])
 metadata/spawn = "b"
 
-[node name="Gate2" type="Node3D" parent="." unique_id=674427270]
+[node name="Gate2" type="Node3D" parent="." unique_id=114824176]
 script = ExtResource("17_6dbsi")
 cells = Array[Vector2i]([Vector2i(34, 44), Vector2i(35, 44), Vector2i(36, 44), Vector2i(37, 44), Vector2i(38, 44)])
 metadata/spawn = "a"

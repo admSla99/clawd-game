@@ -523,7 +523,8 @@ where the hook catches it. A timeout anchor (`*`, `timeout`) is amber: when the 
 (it blinks faster and faster), then it times out (`active` false: the hook can't pick it, only a dim dotted ghost
 is left) and answers again 3 s later.
 
-`tools/reach.gd` knows the Tool Call (and counts a webhook as an anchor where it spawns): from where Clawd stands and at the top of a full jump he zips to every
+`tools/reach.gd` knows the Tool Call (but not a webhook: it can be shot down, so no way may depend on it): from
+where Clawd stands and at the top of a full jump he zips to every
 anchor in reach and sight, and from an anchor he drifts down (with and without hover, to either side or none) or
 zips on to the next one 12 frames into his hop, so chains of anchors over a chasm count; anchors 6 tiles apart
 chain, 8 apart do not. In levels with `subAgents` every jump is also tried from 18 px higher, standing on a
@@ -621,10 +622,11 @@ dithers away.
 hold for 2.5 s). From the floor a ledge 5 tiles up that only a sub-agent's shoulders reach (the SUB-AGENTS sign); an
 anchor chain up the right to a second ledge, and two anchors on the left to a nook with a sub-agent; on the second
 ledge plate 1 and a parser, and the way up is gate `a` in a full-width ceiling, so a sub-agent has to hold the
-plate while Clawd zips through (the PLATES sign); above, a ceiling turret, webhooks to a ledge on the left and a
-shelf, anchors up the left to a hole in the upper floor; there two plates of 2 and gate `b` in the wall to the exit:
-a sub-agent on one, Clawd on the other, and the hold lets him run through (the TWO PLATES sign). 5 sparks, 2
-sub-agents, 31 tokens, 11 anchors, 3 webhooks.
+plate while Clawd zips through (the PLATES sign); above, a ceiling turret, anchors (and webhooks, which can be shot
+down, so the way never depends on them) to a ledge on the left and a shelf and up the right to a sub-agent's ledge,
+anchors up the left to a hole in the upper floor; there two plates of 2 and gate `b` in the wall to the exit: a
+sub-agent on one, Clawd on the other, and the hold lets him run through (the TWO PLATES sign). 5 sparks, 2
+sub-agents, 31 tokens, 15 anchors, 3 webhooks.
 
 **Motif** (`shaders/motif_cliffs.gdshader`): two ranges of sheer cliff pillars with jagged tops, strata and a lit
 edge, which also move with the camera up and down; between the near pillars' tops a message (a 3 x 2 envelope)
@@ -776,7 +778,9 @@ world 2 only).
 ## Game clock and camera
 
 - `Game` (autoload, `scripts/game.gd`): game time and hitstop. Level objects skip their update while
-  `Game.frozen()`, so hitstop and pause stop the world like in `src/scenes/game.ts`.
+  `Game.frozen()`, so hitstop and pause stop the world like in `src/scenes/game.ts`. When the window loses the
+  focus it lets go of every held action (`release_all()`): a key released elsewhere (an alt-tab, Windows' Sticky
+  Keys prompt after five quick Shifts, the editor) would otherwise keep Clawd walking.
 - `Settings` (autoload, `scripts/settings.gd`): key bindings, the CRT filter and mute, saved in `user://`
   (see Menus and key bindings).
 - `Sound` (autoload, `scripts/sound.gd`): synthesized effects and music (see Sound and music).
