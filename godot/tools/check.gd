@@ -98,6 +98,7 @@ func _init() -> void:
 	await section("items, gear and drops (docs/endgame-plan.md E2)", check_items)
 	await section("hit points in the endgame (docs/endgame-plan.md E2)", check_life)
 	await section("the inventory and the stash (docs/endgame-plan.md E3)", check_inventory)
+	await section("currency orbs (docs/endgame-plan.md E6)", check_currency)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1700,7 +1701,7 @@ func check_items() -> bool:
 	ok(progress.inventory.size() == 60 and not gear.fits(d.item) and not m.pick_up(d) and is_instance_valid(d)
 		and m.overlay.popups.any(func(pp): return pp.text == "INVENTORY FULL"), "a full inventory (12 x 5 cells) takes nothing: INVENTORY FULL")
 	# A bug's chance and a boss's drops.
-	var drops := func() -> Array: return get_nodes_in_group("loot")
+	var drops := func() -> Array: return get_nodes_in_group("loot").filter(func(x): return not x.item.has("currency"))
 	for n in drops.call():
 		n.free()
 	m.loot_rng.seed = 3
@@ -1972,6 +1973,121 @@ func check_inventory() -> bool:
 	progress.equipped = saved.equipped
 	m.subviewport.size = vp_size
 	m.play("1-1")
+	await frames(3)
+	return true
+
+
+func check_currency() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var cur = load("res://scripts/currency.gd")
+	var items = load("res://scripts/items.gd")
+	var gear = load("res://scripts/gear.gd")
+	var maps = load("res://scripts/maps.gd")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	progress.currency = {}
+	for id in cur.ORDER:
+		progress.currency[id] = 50
+	var plain := func(base := "iron_plugin") -> Dictionary: return {"base": base, "rarity": "normal", "ilvl": 60, "affixes": []}
+	# Every orb's rule.
+	# A chassis: three prefixes and three suffixes can roll on it.
+	var it: Dictionary = plain.call("scrap_plating")
+	ok(cur.apply("seed", it, rng) == "" and it.rarity == "magic" and it.affixes.size() in [1, 2] and cur.count("seed") == 49,
+		"Prompt Seed: normal -> magic with %d affix(es), one orb spent" % it.affixes.size())
+	ok(cur.apply("seed", it, rng) == "NEEDS A NORMAL ITEM" and cur.count("seed") == 49, "not on a magic item, and none spent")
+	while it.affixes.size() < 2:
+		cur.apply("fewshot", it, rng)
+	ok(cur.apply("fewshot", it, rng) == "NO ROOM FOR ANOTHER AFFIX", "Few-shot Example adds an affix to a magic item until it has two")
+	var before: Array = it.affixes.duplicate(true)
+	var changed := false
+	for i in 10:
+		cur.apply("resample", it, rng)
+		changed = changed or it.affixes != before
+	ok(changed and it.rarity == "magic" and it.affixes.size() in [1, 2], "Resample rerolls a magic item's affixes")
+	ok(cur.apply("reset", it, rng) == "" and it.rarity == "normal" and it.affixes.is_empty() and not it.has("name"), "Context Reset: back to normal")
+	ok(cur.apply("distill", it, rng) == "" and it.rarity == "rare" and it.affixes.size() >= 3 and it.has("name"), "Distillation: normal -> rare (%s)" % items.name_of(it))
+	var name: String = it.name
+	cur.apply("temperature", it, rng)
+	ok(it.rarity == "rare" and it.affixes.size() >= 3 and cur.count("temperature") == 49, "Temperature Spike rerolls a rare item (%s -> %s)" % [name, it.name])
+	while it.affixes.size() < 6:
+		if cur.apply("finetune", it, rng) != "":
+			break
+	ok(it.affixes.size() == 6 and cur.apply("finetune", it, rng) == "NO ROOM FOR ANOTHER AFFIX", "Fine-tune adds affixes to a rare item, six at most")
+	var ids: Array = it.affixes.map(func(a): return a.id)
+	var tiers: Array = it.affixes.map(func(a): return a.tier)
+	cur.apply("rlhf", it, rng)
+	ok(it.affixes.map(func(a): return a.id) == ids and it.affixes.map(func(a): return a.tier) == tiers
+		and it.affixes.all(func(a): return a.value >= items.AFFIXES[a.id].tiers[a.tier][1] and a.value <= items.AFFIXES[a.id].tiers[a.tier][2]),
+		"RLHF rerolls the values only, within their tiers")
+	var mp: Dictionary = maps.roll(2, rng, "normal")
+	ok(cur.apply("distill", mp, rng) == "" and mp.rarity == "rare" and mp.affixes.all(func(a): return "map" in items.AFFIXES[a.id].kinds)
+		and items.name_of(mp).ends_with("Map"), "orbs work on maps: a rare map with map mods (%s)" % items.name_of(mp))
+	progress.currency["rlhf"] = 0
+	ok(cur.apply("rlhf", it, rng).begins_with("NO RLHF"), "without the orb nothing happens")
+	# Saved in the items file.
+	progress.save_items()
+	progress.load_file()
+	ok(progress.currency.get("seed", 0) == 49 and typeof(progress.currency.seed) == TYPE_INT, "the pouch is saved")
+	# Drops: picked up on touch.
+	m.load_level("1-1")
+	await frames(3)
+	flat_ground(m)
+	p.pos = Vector2(10 * TILE, 16 * TILE)
+	p.vel = Vector2.ZERO
+	var d = m.drop_currency(p.pos + Vector2(0, -10))
+	var id: String = d.item.currency
+	var n: int = cur.count(id)
+	await frames(60)
+	# It may have landed a little to the side: Clawd steps onto it.
+	if is_instance_valid(d):
+		p.pos = d.fpos
+	await frames(3)
+	ok(not is_instance_valid(d) and cur.count(id) == n + 1 and m.overlay.popups.any(func(pp): return pp.text == "+1 " + cur.name_of(id).to_upper()),
+		"an orb on the ground is picked up on touch: +1 %s" % cur.name_of(id))
+	for x in get_nodes_in_group("loot"):
+		x.free()
+	m.loot_rng.seed = 2
+	for i in 1000:
+		m.roll_drop(3.0, p.pos + Vector2(200, 0))
+	var orbs: int = get_nodes_in_group("loot").filter(func(x): return cur.is_currency(x.item)).size()
+	ok(orbs > 30 and orbs < 75, "an enemy drops an orb about 5%% of the time (%d of 1000)" % orbs)
+	for x in get_nodes_in_group("loot"):
+		x.free()
+	# The inventory window: take an orb, use it on an item, it stays on the cursor; RMB puts it back.
+	var vp_size: Vector2i = m.subviewport.size
+	m.subviewport.size = Vector2i(480, 270) + Vector2i.ONE * m.PAD * 2
+	progress.inventory = []
+	var ring: Dictionary = plain.call()
+	gear.place(progress.inventory, gear.INV_SIZE, ring, Vector2i(3, 1))
+	var magic := {"base": "iron_plugin", "rarity": "magic", "ilvl": 60, "affixes": []}
+	gear.place(progress.inventory, gear.INV_SIZE, magic, Vector2i(5, 1))
+	m.open_items_in_level()
+	await frames(2)
+	var inv = m.items
+	var click := func(pos: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
+		var e := InputEventMouseButton.new()
+		e.button_index = button
+		e.pressed = true
+		e.position = pos
+		inv.handle(e)
+	progress.currency["seed"] = 2
+	click.call(inv.orb_rect(cur.ORDER.find("seed")).get_center())
+	ok(inv.held_orb == "seed", "a click on an orb takes it onto the cursor")
+	click.call(inv.cell_rect("inv", Rect2i(Vector2i(3, 1), Vector2i.ONE)).get_center())
+	ok(ring.rarity == "magic" and cur.count("seed") == 1 and inv.held_orb == "seed" and progress.inventory.has(ring),
+		"a click on an item uses it there; the orb stays on the cursor")
+	click.call(inv.cell_rect("inv", Rect2i(Vector2i(5, 1), Vector2i.ONE)).get_center())
+	ok(cur.count("seed") == 1 and inv.note == "NEEDS A NORMAL ITEM", "on a magic item it says why not")
+	click.call(Vector2(0, 0), MOUSE_BUTTON_RIGHT)
+	ok(inv.held_orb == "", "a right click puts it back")
+	m.close_items()
+	m.subviewport.size = vp_size
+	progress.currency = {}
+	progress.inventory = []
+	progress.save_items()
+	m.load_level("1-1")
 	await frames(3)
 	return true
 

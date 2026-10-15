@@ -1,7 +1,7 @@
 # Endgame plan: THE ATLAS (2026-10-15)
 
 > **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
-> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) is next.
+> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) is done; E7 (damage types) is next.
 
 After world 3 the game grows an ARPG endgame in the manner of Path of Exile: farming maps for gear, currency and
 levels that feed the prompt tree. Chosen by the user in an interview on 2026-10-15 (every pick below is theirs).
@@ -120,7 +120,9 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
       map boss, maps dropping maps (T1-T5). **The vertical slice ends here: a first playtest.** The boss is THE
       OVERFITTER (a giant shield bot); the device gives a T1 map when there is none; an open map lives in memory
       only (quitting the game gives it up); enemy hits grow 1.045^area level (was 1.06).
-- [ ] E6 Currency orbs: drops, stacks, using them on items and maps.
+- [x] E6 Currency orbs: drops, stacks, using them on items and maps. The eight orbs of the table above, in a pouch
+      of their own shown in the inventory window (not in its grid), picked up on touch, used by clicking the orb
+      and then the item (it stays on the cursor).
 - [ ] E7 Damage types, resistances and ailments on enemies, gear and map mods.
 - [ ] E8 Chunks of worlds 2 and 3, tiers up to T16, the Atlas screen and its points.
 - [ ] E9 The prompt tree grows to ~120 nodes for levels up to 100, new keystones.

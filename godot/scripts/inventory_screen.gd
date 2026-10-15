@@ -15,9 +15,14 @@ extends Node2D
 ## The Map Device opens it with the device on the left (docs/endgame-plan.md E5): a slot for one map (put it there,
 ## or right click / Ctrl + click / X / C a map), its tooltip, and O (or the button) opens it; with a map already
 ## open and the slot empty, O goes back in.
+## Under the inventory the currency pouch (Currency): a click (Space) takes an orb onto the cursor, a click on an
+## item (in the inventory, the stash, a slot or the device) uses it there, and it stays on the cursor for the next
+## one until right click or Escape (or none is left).
 
 const CELL := 12
 const GRID_W := 144
+## The currency row: one slot per orb, this wide.
+const ORB_W := 18
 ## Equipment slots: top-left cell and size in the equipment area (8 x 6 cells).
 const EQUIP := {
 	"weapon": [Vector2i(0, 0), Vector2i(2, 3)], "helmet": [Vector2i(3, 0), Vector2i(2, 2)],
@@ -41,6 +46,9 @@ var t := 0.0
 ## The item on the cursor and where it came from ({area, at} or {area: "equip", slot}).
 var held := {}
 var held_from := {}
+## The orb on the cursor (an id of Currency.ORBS), or "".
+var held_orb := ""
+var _rng := RandomNumberGenerator.new()
 ## The keyboard cursor: area "inv", "stash" or "equip", a cell or a slot; `keys` while the keys moved it last.
 var cur := {"area": "inv", "cell": Vector2i.ZERO, "slot": "weapon"}
 var keys := false
@@ -60,6 +68,8 @@ func open(side := "stats") -> void:
 	t = 0.0
 	held = {}
 	held_from = {}
+	held_orb = ""
+	_rng.randomize()
 	changed = false
 	note = ""
 	destroy_armed = 0.0
@@ -95,6 +105,8 @@ func origin(area: String) -> Vector2:
 			return Vector2(rx + (GRID_W - 8 * CELL) / 2.0, v.position.y + 40)
 		"inv":
 			return Vector2(rx, v.position.y + 40 + 6 * CELL + 14)
+		"orbs":
+			return Vector2(rx, v.position.y + 40 + 6 * CELL + 14 + Gear.INV_SIZE.y * CELL + 16)
 	return Vector2(v.position.x + 14, v.position.y + 40)
 
 
@@ -126,6 +138,11 @@ func left_area() -> String:
 	return "stash" if stash_open else "vendor" if vendor_open else "device" if device_open else ""
 
 
+## The currency row's slot `i`.
+func orb_rect(i: int) -> Rect2:
+	return Rect2(origin("orbs") + Vector2(i * ORB_W, 0), Vector2(ORB_W - 2, 18))
+
+
 func slot_rect(slot: String) -> Rect2:
 	var o := origin("equip")
 	var s: Array = EQUIP[slot]
@@ -145,6 +162,9 @@ func hit(p: Vector2) -> Dictionary:
 	for slot in EQUIP:
 		if slot_rect(slot).has_point(p):
 			return {"area": "equip", "slot": slot}
+	for i in Currency.ORDER.size():
+		if orb_rect(i).has_point(p):
+			return {"area": "orbs", "cell": Vector2i(i, 0)}
 	return {"area": ""}
 
 
@@ -186,7 +206,10 @@ func handle(event: InputEvent) -> bool:
 		return true
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return event is InputEventKey or event is InputEventMouseButton
-	if event.is_action_pressed("back") or event.is_action_pressed("inventory"):
+	if (event.is_action_pressed("back") or event.is_action_pressed("inventory")) and held_orb != "":
+		held_orb = ""
+		Sound.play("select")
+	elif event.is_action_pressed("back") or event.is_action_pressed("inventory"):
 		Sound.play("select")
 		main.close_items()
 	elif _dir(event) != Vector2i.ZERO:
@@ -248,10 +271,20 @@ func _step(d: Vector2i) -> void:
 			cur.area = left_area()
 			cur.cell = Vector2i(grid_size(cur.area).x - 1, 0)
 		return
+	if cur.area == "orbs":
+		if d.x != 0:
+			cur.cell = Vector2i(clampi(cur.cell.x + d.x, 0, Currency.ORDER.size() - 1), 0)
+		elif d == Vector2i.UP:
+			cur.area = "inv"
+			cur.cell = Vector2i(mini(int(cur.cell.x * ORB_W / CELL), Gear.INV_SIZE.x - 1), Gear.INV_SIZE.y - 1)
+		return
 	var g := grid_size(cur.area)
 	var next: Vector2i = cur.cell + d
 	if Rect2i(Vector2i.ZERO, g).has_point(next):
 		cur.cell = next
+	elif cur.area == "inv" and d == Vector2i.DOWN:
+		cur.area = "orbs"
+		cur.cell = Vector2i(mini(int(cur.cell.x * CELL / ORB_W), Currency.ORDER.size() - 1), 0)
 	elif cur.area == "inv" and d == Vector2i.UP:
 		cur.area = "equip"
 		cur.slot = "gloves" if at.x < origin("equip").x + 4 * CELL else "boots"
@@ -266,6 +299,8 @@ func _step(d: Vector2i) -> void:
 func _cursor_rect() -> Rect2:
 	if cur.area == "equip":
 		return slot_rect(cur.slot)
+	if cur.area == "orbs":
+		return orb_rect(cur.cell.x)
 	return cell_rect(cur.area, Rect2i(cur.cell, Vector2i.ONE))
 
 
@@ -279,6 +314,14 @@ func say(s: String) -> void:
 ## Left click / Space: picks up what is there, or puts the held item down (swapping with one item under it).
 func primary(tg: Dictionary) -> void:
 	if tg.get("area", "") == "":
+		return
+	# The currency: take an orb onto the cursor, or use the one there on an item.
+	if tg.area == "orbs":
+		if held.is_empty():
+			_take_orb(Currency.ORDER[tg.cell.x])
+		return
+	if held_orb != "":
+		_use_orb(tg)
 		return
 	if tg.area == "vendor":
 		if held.is_empty():
@@ -342,7 +385,11 @@ func _drop_cell(tg: Dictionary, size: Vector2i) -> Vector2i:
 ## Right click / X: an item in the inventory or stash goes on (what it replaces into its place, or the first free
 ## cell), an equipped one comes off into the inventory.
 func quick(tg: Dictionary) -> void:
-	if not held.is_empty() or tg.get("area", "") == "":
+	if held_orb != "":
+		held_orb = ""
+		Sound.play("select")
+		return
+	if not held.is_empty() or tg.get("area", "") in ["", "orbs"]:
 		return
 	var it := item_at(tg)
 	if it.is_empty():
@@ -390,6 +437,8 @@ func _slot_of(it: Dictionary) -> String:
 
 ## Ctrl + click / C: between the inventory and the stash (the first free cell there).
 func move_across(tg: Dictionary) -> void:
+	if held_orb != "":
+		return
 	if device_open and held.is_empty():
 		var dit := item_at(tg)
 		if Maps.is_map(dit) and tg.get("area", "") == "inv":
@@ -426,6 +475,38 @@ func move_across(tg: Dictionary) -> void:
 		return
 	Progress.save_items()
 	Sound.play("select")
+
+
+func _take_orb(id: String) -> void:
+	if held_orb == id:
+		held_orb = ""
+		Sound.play("select")
+	elif Currency.count(id) <= 0:
+		Sound.play("denied")
+		say("NO %s LEFT" % Currency.name_of(id).to_upper())
+	else:
+		held_orb = id
+		Sound.play("select")
+
+
+## The orb on the cursor on the item at `tg`.
+func _use_orb(tg: Dictionary) -> void:
+	if tg.area == "vendor":
+		Sound.play("denied")
+		say("BUY IT FIRST")
+		return
+	var it := item_at(tg)
+	var why := Currency.apply(held_orb, it, _rng)
+	if why != "":
+		Sound.play("denied")
+		say(why)
+		return
+	Sound.play("buy")
+	say("%s · %s" % [Currency.name_of(held_orb).to_upper(), Items.name_of(it).to_upper()])
+	if tg.area == "equip":
+		changed = true
+	if Currency.count(held_orb) <= 0:
+		held_orb = ""
 
 
 ## A map from `area` into the device; the one there goes back into its place.
@@ -490,6 +571,8 @@ func _buy(it: Dictionary) -> void:
 
 ## Delete: the held item, or the one under the cursor, is destroyed on the second press.
 func destroy(tg: Dictionary) -> void:
+	if held_orb != "":
+		return
 	if tg.get("area", "") == "vendor" and held.is_empty():
 		return
 	var it := held if not held.is_empty() else item_at(tg)
@@ -577,13 +660,19 @@ func _draw() -> void:
 		_draw_slot(slot)
 	_label("CARRIED", origin("inv"))
 	_draw_grid("inv")
+	_label("CURRENCY", origin("orbs"))
+	_draw_orbs()
 	# The keyboard cursor.
 	if keys:
 		var cr := _cursor_rect()
 		var pulse := 0.6 + 0.4 * sin(t * 6)
 		draw_rect(cr.grow(1), Color(Hud.ORANGE_LIGHT, pulse), false)
-	# The held item on the cursor (or over the keyboard cursor).
-	if not held.is_empty():
+	# The held orb or item on the cursor (or over the keyboard cursor).
+	if held_orb != "":
+		_draw_tooltips()
+		var oc := (_cursor_rect().get_center() if keys else _mouse + Vector2(8, 8)).round()
+		ItemTooltip.draw_icon(self, {"currency": held_orb}, oc, 1)
+	elif not held.is_empty():
 		var size := Vector2(Items.size(held)) * CELL
 		var at := (_cursor_rect().position if keys else _mouse - size / 2.0).round()
 		draw_rect(Rect2(at, size), Color(Items.color(held), 0.25))
@@ -593,6 +682,8 @@ func _draw() -> void:
 	var across := "SELL" if vendor_open else "STASH"
 	var help := "LMB PICK UP / PUT DOWN   RMB EQUIP   CTRL+LMB %s   DEL DEL DESTROY   I / ESC CLOSE" % across if not keys \
 		else "ARROWS MOVE   SPACE PICK UP / PUT DOWN   X EQUIP   C %s   DEL DEL DESTROY   I / ESC CLOSE" % across
+	if held_orb != "":
+		help = "CLICK AN ITEM TO USE %s   RMB / ESC PUT IT BACK" % Currency.name_of(held_orb).to_upper()
 	if note_t > 0:
 		help = note
 	PixelFont.draw_centred(self, help, v.get_center().x, v.end.y - 10, Hud.ORANGE_LIGHT if note_t > 0 else Color("#5C5C5C"))
@@ -635,6 +726,26 @@ func _draw_item(it: Dictionary, r: Rect2, lit: bool) -> void:
 
 func _scale(it: Dictionary) -> int:
 	return 1 if Items.size(it).x < 2 and Items.kind(it) != "weapon" else 2
+
+
+## The currency row: each orb's slot with its icon and count, the held one lit; the hovered one's tooltip.
+func _draw_orbs() -> void:
+	var tg := target()
+	for i in Currency.ORDER.size():
+		var id: String = Currency.ORDER[i]
+		var r := orb_rect(i)
+		var n := Currency.count(id)
+		var lit: bool = tg.get("area", "") == "orbs" and tg.cell.x == i
+		Hud.panel(self, r, Hud.ORANGE if held_orb == id else Color("#3A3A42") if lit else Color("#26262C"), CELL_FILL)
+		ItemTooltip.draw_icon(self, {"currency": id}, r.get_center() + Vector2(0, -2), 1, n == 0)
+		var s := str(n)
+		PixelFont.draw(self, s, Vector2(r.end.x - 1 - PixelFont.width(s), r.end.y - 7), Hud.TEXT if n > 0 else Color("#4A4A4E"))
+	if tg.get("area", "") == "orbs" and held.is_empty():
+		var id: String = Currency.ORDER[tg.cell.x]
+		var orb: Dictionary = Currency.ORBS[id]
+		var rows := [[orb.name, orb.color], [orb.desc, ItemTooltip.IMPLICIT], ["%d IN THE POUCH" % Currency.count(id), Hud.TEXT_DIM]]
+		var at := ItemTooltip.place(ItemTooltip.size(rows), orb_rect(tg.cell.x), view(), "left")
+		ItemTooltip.draw(self, rows, at, Currency.LABEL.darkened(0.3))
 
 
 ## The hovered item's tooltip, what equipping it would change, and the equipped one beside it.

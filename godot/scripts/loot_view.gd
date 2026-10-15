@@ -25,7 +25,8 @@ func _draw() -> void:
 	for d: ItemDrop in get_tree().get_nodes_in_group("loot"):
 		if not d.landed or d.is_queued_for_deletion():
 			continue
-		var name := Items.name_of(d.item)
+		var orb := Currency.is_currency(d.item)
+		var name := Currency.name_of(d.item.currency) if orb else Items.name_of(d.item)
 		var w := PixelFont.width(name) + 6
 		var at: Vector2 = main.overlay.to_view(d.fpos + Vector2(0, -12))
 		var r := Rect2(roundf(at.x - w / 2.0), roundf(at.y - 9), w, 9)
@@ -38,7 +39,7 @@ func _draw() -> void:
 					r.position.y = p.position.y - 10
 					moved = true
 		placed.append(r)
-		var col := Items.color(d.item)
+		var col := Currency.LABEL if orb else Items.color(d.item)
 		draw_rect(r, LABEL_BG)
 		var edge := col if d == target else col.darkened(0.55)
 		draw_rect(Rect2(r.position, Vector2(r.size.x, 1)), edge)

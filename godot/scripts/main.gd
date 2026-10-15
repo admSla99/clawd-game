@@ -17,6 +17,8 @@ const DROP_BASE := 0.03
 const DROP_PER_HP := 0.004
 const DROP_MAX := 0.4
 const BOSS_DROPS := 3
+## How close an orb on the ground has to be to Clawd's middle to be picked up.
+const CURRENCY_REACH := 16.0
 const BOSS_RARITY := 200.0
 ## The hideout (docs/endgame-plan.md E4): a level of its own, not in index.json's play order.
 const HIDEOUT := "hideout"
@@ -705,6 +707,8 @@ func roll_drop(hp: float, at: Vector2) -> void:
 			drop_map(at)
 	if loot_rng.randf() < minf(DROP_MAX, (DROP_BASE + hp * DROP_PER_HP) * quantity):
 		drop_item(at)
+	if loot_rng.randf() < Currency.CHANCE * quantity:
+		drop_currency(at)
 
 
 ## A random item of the area level at `at`, rarer with item rarity (Stats, a map's) and `rarity_bonus` per cent.
@@ -808,6 +812,8 @@ func map_complete(at: Vector2) -> void:
 		drop_map(at + Vector2(0, -24))
 	for i in BOSS_DROPS:
 		drop_item(at + Vector2(0, -24), Maps.BOSS_RARITY)
+	for i in Currency.BOSS_DROPS:
+		drop_currency(at + Vector2(0, -24))
 	var portal := Station.new()
 	portal.kind = "portal"
 	portal.label = "HIDEOUT"
@@ -841,6 +847,11 @@ func _update_loot() -> void:
 		return
 	var best := INF
 	for d: ItemDrop in get_tree().get_nodes_in_group("loot"):
+		# Currency is picked up on touch.
+		if Currency.is_currency(d.item):
+			if not d.is_queued_for_deletion() and d.landed and d.fpos.distance_to(player.pos + Vector2(0, -6)) < CURRENCY_REACH:
+				pick_currency(d)
+			continue
 		if not d.is_queued_for_deletion() and d.in_reach(player) and d.fpos.distance_to(player.pos) < best:
 			best = d.fpos.distance_to(player.pos)
 			loot_target = d
@@ -854,6 +865,20 @@ func _update_loot() -> void:
 				station_target = st
 		if station_target and Input.is_action_just_pressed("pickup"):
 			use_station(station_target)
+
+
+## An orb into the pouch, "+1 NAME" popping up.
+func pick_currency(d: ItemDrop) -> void:
+	Currency.add(d.item.currency)
+	Sound.play("itemPick")
+	overlay.popup("+1 " + Currency.name_of(d.item.currency).to_upper(), d.fpos + Vector2(0, -22), Currency.LABEL, 1.2)
+	d.remove_from_group("loot")
+	d.queue_free()
+
+
+## A random orb at `at`.
+func drop_currency(at: Vector2) -> ItemDrop:
+	return ItemDrop.drop(level, at, {"currency": Currency.roll(loot_rng)})
 
 
 ## Into the inventory with its name popping up, or INVENTORY FULL. Returns whether it was taken.
@@ -1134,9 +1159,11 @@ func _spawn_boss() -> Enemy:
 ## exit there) drops into the middle of the arena, leftover shots vanish and the map tune plays.
 func boss_defeated(_b: Enemy, at: Vector2) -> void:
 	gain_xp(Experience.BOSS_WORTH.get(info.boss, 100.0))
-	# Bosses drop BOSS_DROPS items, rarer than enemies'.
+	# Bosses drop BOSS_DROPS items, rarer than enemies', and orbs.
 	for i in BOSS_DROPS:
 		drop_item(at + Vector2(0, -20), BOSS_RARITY)
+	for i in Currency.BOSS_DROPS:
+		drop_currency(at + Vector2(0, -20))
 	if info.boss == "codex":
 		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y, "hook")

@@ -184,11 +184,16 @@ static func roll(ilvl: int, rng: RandomNumberGenerator, rarity := "", base := ""
 	for i in count:
 		add_affix(item, rng)
 	if rarity == "rare":
-		var kind: String = BASES[base].kind
-		item.name = RARE_FIRST[rng.randi() % RARE_FIRST.size()] + " " + RARE_SECOND[kind][rng.randi() % RARE_SECOND[kind].size()]
-		if kind == "map":
-			item.name += " Map"
+		name_rare(item, rng)
 	return item
+
+
+## A rare item's made-up name (a map's ends in "Map").
+static func name_rare(item: Dictionary, rng: RandomNumberGenerator) -> void:
+	var k: String = BASES[item.base].kind
+	item.name = RARE_FIRST[rng.randi() % RARE_FIRST.size()] + " " + RARE_SECOND[k][rng.randi() % RARE_SECOND[k].size()]
+	if k == "map":
+		item.name += " Map"
 
 
 ## Adds one more affix that fits (a free prefix or suffix slot, one the item does not have, a tier its level

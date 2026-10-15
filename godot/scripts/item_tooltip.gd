@@ -110,10 +110,13 @@ static func draw(c: CanvasItem, rows: Array, at: Vector2, border: Color) -> Rect
 ## An item's icon centred on `centre`, `scale` px a cell: a weapon as its gun pointing up, the rest as ItemDrop's
 ## icon in the rarity's colour. `base` alone (with `dim`) draws an empty slot's ghost.
 static func draw_icon(c: CanvasItem, it: Dictionary, centre: Vector2, scale := 2, dim := false, base := "") -> void:
-	var b: String = it.base if not it.is_empty() else base
-	var kind: String = Items.BASES[b].kind
 	var rows: Array
 	var pal: Dictionary
+	if Currency.is_currency(it):
+		draw_pixels(c, Currency.ROWS, Currency.palette(it.currency), centre, scale, dim)
+		return
+	var b: String = it.base if not it.is_empty() else base
+	var kind: String = Items.BASES[b].kind
 	if kind == "weapon":
 		var gun: Array = GunSprite.SPRITES[Items.BASES[b].weapon]
 		# Turned to point up: column x of the sprite becomes row (width - 1 - x).
@@ -129,6 +132,11 @@ static func draw_icon(c: CanvasItem, it: Dictionary, centre: Vector2, scale := 2
 		rows = ItemDrop.ICONS[kind]
 		var col := Items.color(it) if not it.is_empty() else Color.WHITE
 		pal = {"o": col.darkened(0.25), "L": col, "d": col.darkened(0.5), "W": Color.WHITE}
+	draw_pixels(c, rows, pal, centre, scale, dim)
+
+
+## Text-grid `rows` in `pal`, centred on `centre`, `scale` px a cell (a dim grey ghost with `dim`).
+static func draw_pixels(c: CanvasItem, rows: Array, pal: Dictionary, centre: Vector2, scale := 2, dim := false) -> void:
 	var w2: int = rows[0].length() * scale
 	var h2: int = rows.size() * scale
 	var tl := (centre - Vector2(w2, h2) / 2.0).round()

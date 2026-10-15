@@ -48,6 +48,8 @@ var runs := 0
 var maps_done := {}
 ## The map lying in the Map Device (0 or 1 items, a 1 x 1 grid).
 var device: Array = []
+## Currency orbs (scripts/currency.gd): id -> count.
+var currency := {}
 ## The weapons found before items existed were given as normal items into the stash (once).
 var weapon_items := false
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
@@ -143,7 +145,7 @@ func save_items() -> void:
 	var f := FileAccess.open(items_path(), FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory, "stash": stash, "weapon_items": weapon_items,
-			"vendor": vendor, "vendor_at": vendor_at, "device": device}))
+			"vendor": vendor, "vendor_at": vendor_at, "device": device, "currency": currency}))
 
 
 func _load_items() -> void:
@@ -153,6 +155,7 @@ func _load_items() -> void:
 	vendor = []
 	vendor_at = -1
 	device = []
+	currency = {}
 	weapon_items = false
 	if FileAccess.file_exists(items_path()):
 		var data = JSON.parse_string(FileAccess.get_file_as_string(items_path()))
@@ -167,6 +170,9 @@ func _load_items() -> void:
 			vendor = data.get("vendor", []).filter(_valid_item)
 			vendor_at = int(data.get("vendor_at", -1))
 			device = data.get("device", []).filter(_valid_item).slice(0, 1)
+			for id in data.get("currency", {}):
+				if Currency.ORBS.has(id):
+					currency[id] = int(data.currency[id])
 	# Every item on a spot of its own; what the inventory cannot hold goes to the stash.
 	for it in Gear.normalize(inventory, Gear.INV_SIZE):
 		Gear.place(stash, Gear.STASH_SIZE, it)

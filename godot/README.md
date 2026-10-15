@@ -785,7 +785,7 @@ bug in 1-1 at level 13), items (the tables and the font, 3000 rolled items withi
 30 % magic, more with item rarity, a magic item's name and lines, rings into the free slot, gear and tree adding
 up, an equipped weapon item as the gun with its local damage and critical chance and no switching, back without
 it, the items file, a drop landing, the target in reach, E picking it up, INVENTORY FULL, a bug's drop chance, a
-boss's three, an old key file's E moving to PICK UP ITEM), the inventory and the stash (the found weapons into the
+boss's three, an old key file's E moving to PICK UP ITEM), currency orbs (see *Currency orbs*), the inventory and the stash (the found weapons into the
 stash once and later ones too, the grid's order, two items on one spot, I on the map with the stash, picking up,
 putting down, swapping, a slot of the wrong kind, equipping into a slot, right click on and off, Ctrl + click into
 the stash, Delete twice, the comparison, Escape with an item held, I in a level pausing, the arrows, X, up into the
@@ -1142,6 +1142,36 @@ map is a generated level with a boss that drops more maps.
   boss's life and bar, the portal home and the tokens, going back into the same level unscaled, dying (a portal,
   the XP), the boss's drops and portal, the collapse on the last portal, maps from enemies, QUIT TO MAP.
 
+## Currency orbs
+
+Path of Exile's crafting (`docs/endgame-plan.md`, E6), `scripts/currency.gd` (`Currency`): eight orbs that change an
+item's (or a map's) rarity or affixes.
+
+| Orb | PoE | Does |
+|---|---|---|
+| Prompt Seed | Transmutation | normal -> magic (1-2 affixes) |
+| Few-shot Example | Augmentation | adds an affix to a magic item (two at most) |
+| Resample | Alteration | rerolls a magic item's affixes |
+| Distillation | Alchemy | normal -> rare (3-6 affixes, a new name) |
+| Context Reset | Scouring | magic or rare -> normal |
+| Temperature Spike | Chaos | rerolls a rare item's affixes (and its name) |
+| RLHF | Divine | rerolls the values of the affixes within their tiers |
+| Fine-tune | Exalted | adds an affix to a rare item (six at most) |
+
+- **Drops**: a defeated enemy drops an orb 5 % of the time (times a map's quantity), a boss (the campaign's and a
+  map's) two; by weight Prompt Seed 30, Few-shot 24, Resample 20, Distillation 10, Context Reset 8, Temperature
+  Spike 5, RLHF 1.5, Fine-tune 0.5. On the ground an orb is an `ItemDrop` of `{"currency": id}`: a round voxel orb
+  in its colour with a beige label, picked up on touch (within 16 px, `Main.pick_currency()`, "+1 NAME").
+- **The pouch**: `Progress.currency` (id -> count, in the items file), not the inventory's grid. The inventory
+  window shows it under the inventory as CURRENCY, a slot per orb with its count (a tooltip: name, what it does,
+  how many). A click (Space) takes an orb onto the cursor; a click on an item in the inventory, the stash, a slot
+  or the device uses it there (`Currency.apply()`: "" or why not, e.g. NEEDS A RARE ITEM; nothing is spent then),
+  and the orb stays on the cursor for the next one until right click, Escape or none is left. Used on an equipped
+  item the gear is applied when the window closes. The arrows reach the row from the inventory's bottom.
+- Checks: every orb's rule and refusal, the six-affix limit, RLHF keeping ids and tiers, a rare map, no orb left,
+  the pouch saved, picking one up on touch, the drop rate, taking and using one in the window, the reason on a
+  wrong item, right click putting it back.
+
 ## Character level
 
 The first step of the ARPG endgame (`docs/endgame-plan.md`, E1): `scripts/experience.gd` (`Experience`, static)
@@ -1449,6 +1479,7 @@ without COOP/COEP headers.
 | `scripts/item_tooltip.gd`, `scripts/inventory_screen.gd` | The item tooltip, comparison and icons; the inventory window with the stash |
 | `levels/hideout.txt`, `levels/hideout.json`, `scripts/station.gd`, `scripts/vendor.gd` | The hideout, its stations and the vendor |
 | `scripts/maps.gd`, `scripts/map_gen.gd`, `scripts/map_boss.gd`, `levels/chunks/` | Maps: map items and mods, the generator and its chunks, the map boss |
+| `scripts/currency.gd` | Currency orbs: what each does, drop weights, the pouch |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

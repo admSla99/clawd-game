@@ -44,6 +44,11 @@ static func drop(lvl: Level, at: Vector2, it: Dictionary) -> ItemDrop:
 
 
 static func icon_mesh(it: Dictionary) -> ArrayMesh:
+	if Currency.is_currency(it):
+		var ck: String = "orb:" + it.currency
+		if not _meshes.has(ck):
+			_meshes[ck] = Voxel.mesh(Currency.ROWS, Currency.palette(it.currency), {}, Px.M)
+		return _meshes[ck]
 	var kind := Items.kind(it)
 	var key: String = kind + ":" + it.rarity + ":" + it.base
 	if not _meshes.has(key):

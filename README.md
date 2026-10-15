@@ -83,11 +83,13 @@ one per world 3 spark and more for tokens; small nodes and notables such as Be c
 Delegate. (one more sub-agent), Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back).
 Refunds are free.
 
-**Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T5)
+**Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T5, orbs)
 - Character level: XP from every enemy (less from ones far below Clawd), up to level 100; about 13 by the end of 3-B.
 - Items drop everywhere: weapons (the five guns), context windows, chassis, actuators, treads, cores and plugins,
   normal / magic / rare with tiered affixes; E picks them up, I opens the inventory (equip, compare, stash).
 - Hit points instead of hearts in the hideout and maps: life, armour, evasion, regeneration, resistances.
+- Currency orbs for crafting (Prompt Seed, Few-shot Example, Resample, Distillation, Context Reset, Temperature
+  Spike, RLHF, Fine-tune), picked up on touch into a pouch: click an orb in the inventory, then an item.
 - The hideout (O on the map after 3-B): the stash, a vendor (buys anything, sells a stock that changes after each
   cleared level), a terminal for the prompt tree, a portal, and the Map Device.
 - Maps: items with a tier and mods (more enemies, tougher enemies, less life ...) that raise item quantity and
