@@ -59,7 +59,7 @@ const TRACKS := {
 ## The effects the port uses, rendered at start-up (play() renders any other one on first use).
 const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break", "token", "hurt", "die", "checkpoint",
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
-	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "gunBeam", "gunOrb", "overheat",
+	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "levelUp", "gunBeam", "gunOrb", "overheat",
 	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip", "agentSend", "agentGone",
 	"plateOn", "plateOff", "gateOpen", "gateShut"]
 
@@ -376,6 +376,11 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 			tone(buf, "square", 1400, 500, 0.1, 0.05)
 		"gunToken":
 			tone(buf, "square", 980, 420, 0.06, 0.06)
+		"levelUp":
+			for i in 6:
+				var f := midi(72 + [0, 4, 7, 12, 16, 19][i])
+				tone(buf, "square", f, f, 0.14, 0.09, i * 0.06)
+			tone(buf, "triangle", midi(96), midi(96), 0.4, 0.1, 0.36)
 		"gunPellet":
 			noise(buf, 0.14, 0.35, 2200, 300, 0, 0.7)
 			tone(buf, "square", 220, 80, 0.1, 0.1)
@@ -470,6 +475,7 @@ static func _sfx_length(id: String) -> float:
 		"bossHit": return 0.4
 		"gunToken": return 0.06
 		"gunPellet": return 0.14
+		"levelUp": return 0.36 + 0.4
 		"gunGlyph": return 0.03
 		"gunBeam": return 0.08
 		"gunOrb": return 0.35

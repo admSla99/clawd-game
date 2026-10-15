@@ -5,7 +5,8 @@ extends Node
 ## banked from finished levels. Saved as JSON in user://progress.json. A level is unlocked when it is the first
 ## one or the one before it was completed (App.isUnlocked() in src/app.ts).
 ## The shop's state lives here too (the rest of SaveData): upgrade levels, sparks spent, the stock of
-## consumables, which hidden things HAIKU has already told about, and the last fortune; and the prompt tree's.
+## consumables, which hidden things HAIKU has already told about, and the last fortune; and the prompt tree's,
+## and Clawd's character level (scripts/experience.gd).
 
 ## Where it is saved (tools/check.gd points this elsewhere so it never touches the player's file).
 var path := "user://progress.json"
@@ -30,6 +31,9 @@ var tools: Array = []
 ## The prompt tree (scripts/prompts.gd): the allocated nodes and the points bought with tokens.
 var tree: Array = []
 var points_bought := 0
+## Clawd's character level and the XP gathered toward the next one (scripts/experience.gd).
+var char_level := 1
+var xp := 0
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
 ## levels: refunded when an old save is loaded (they became the prompt tree).
 const OLD_PROMPTS := {"concise": [120, 1], "cite": [150, 1], "temperature": [120, 1], "steps": [160, 1],
@@ -54,6 +58,8 @@ func load_file() -> void:
 	tools = []
 	tree = []
 	points_bought = 0
+	char_level = 1
+	xp = 0
 	if not FileAccess.file_exists(path):
 		return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -70,6 +76,8 @@ func load_file() -> void:
 		tools = data.get("tools", [])
 		tree = data.get("tree", [])
 		points_bought = int(data.get("points_bought", 0))
+		char_level = clampi(int(data.get("char_level", 1)), 1, Experience.MAX_LEVEL)
+		xp = maxi(0, int(data.get("xp", 0)))
 		# World 3's first System Prompts (bought, then switched on within a budget) are refunded.
 		for id in data.get("prompts", []):
 			if OLD_PROMPTS.has(id):
@@ -96,7 +104,7 @@ func save() -> void:
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
-			"tree": tree, "points_bought": points_bought}))
+			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp}))
 
 
 ## progressFor(): a level's progress, or an empty one.
@@ -118,6 +126,31 @@ func record_run(id: String, sparks: Array, agents: Array, time: float, tokens: i
 	}
 	wallet += tokens
 	save()
+
+
+## Adds `n` XP (saved at once); returns how many levels it gained. At the cap XP stays 0.
+func add_xp(n: int) -> int:
+	if char_level >= Experience.MAX_LEVEL:
+		return 0
+	var gained := 0
+	xp += maxi(n, 0)
+	while char_level < Experience.MAX_LEVEL and xp >= Experience.need(char_level):
+		xp -= Experience.need(char_level)
+		char_level += 1
+		gained += 1
+	if char_level >= Experience.MAX_LEVEL:
+		xp = 0
+	save()
+	return gained
+
+
+## Loses `frac` of the current level's XP (a death in a map, later), never below the level's start; returns how
+## much was lost.
+func lose_xp(frac: float) -> int:
+	var lost := mini(xp, roundi(Experience.need(char_level) * frac))
+	xp -= lost
+	save()
+	return lost
 
 
 static func _merge(a: Array, b: Array) -> Array:

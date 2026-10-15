@@ -528,6 +528,8 @@ func _draw_map() -> void:
 		PackedColorArray([clear, clear, dark, dark]))
 	draw_rect(Rect2(0, y1, full.x, full.y - y1), dark)
 	_big("WORLD MAP", v.position + Vector2(14, 8), Hud.TEXT)
+	Hud.draw_xp(self, v.position + Vector2(14 + PixelFont.width("WORLD MAP") * 2 + 14, 12), Progress.char_level,
+		Experience.fraction())
 	# Shop button, then the wallet: banked tokens and sparks not spent (top right, like the TS map).
 	var sr := _shop_rect()
 	var shop_ok := shop_open()

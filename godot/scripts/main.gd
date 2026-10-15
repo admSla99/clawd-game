@@ -54,6 +54,8 @@ var level_ids: Array
 var level_id: String
 ## Metadata of the current level from levels/index.json (theme, dark, risingVoid, terrainSeed, ...).
 var info: Dictionary
+## The level's area level (Experience.area_level()): how much XP its enemies give.
+var area_level := 1
 var player: Player
 ## Tokens collected in this run of the level, and how many it has.
 var tokens := 0
@@ -245,6 +247,7 @@ func load_level(id: String) -> void:
 	world.add_child(level)
 	level_id = id
 	info = levels[level_ids.find(id)]
+	area_level = Experience.area_level(level_ids.find(id))
 	level.bake_cells(info.terrainSeed)
 	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
 	boss = _spawn_boss()
@@ -495,12 +498,31 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 
 
 ## Enemy.die() in src/entities/entity.ts: two bursts from the enemy's middle, enemyDie, hitstop and shake.
-func enemy_died(_e: Enemy, at: Vector2) -> void:
+func enemy_died(e: Enemy, at: Vector2) -> void:
+	gain_xp(e.xp_worth())
 	particles.emit(at, {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
 	particles.emit(at, {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
 	Sound.play("enemyDie")
 	shake(0.18)
 	Game.hitstop(0.05)
+
+
+## XP for a defeated enemy or boss worth `hp` hit points (docs/endgame-plan.md E1). A level gained pops up over
+## Clawd ("LEVEL n", and the prompt point once the tree is his) with a gold burst and a fanfare.
+func gain_xp(hp: float) -> void:
+	if mode != Mode.PLAY:
+		return
+	var gained := Progress.add_xp(Experience.kill_xp(hp, area_level, Progress.char_level))
+	if gained <= 0:
+		return
+	var at := player.pos + Vector2(0, -34)
+	overlay.popup("LEVEL %d" % Progress.char_level, at, Experience.COLOR, 2.2)
+	if Progress.has_tool("hook"):
+		overlay.popup("+%d PROMPT POINT%s" % [gained, "S" if gained > 1 else ""], at + Vector2(0, 10), Hud.ORANGE_LIGHT, 2.2)
+	particles.emit(player.pos + Vector2(0, -12), {count = 40, speed = 120, life = 0.8,
+		color = [Experience.COLOR, Color.WHITE, Hud.ORANGE_LIGHT], gravity = -40, drag = 2, size = 1.5})
+	hud.level_up()
+	Sound.play("levelUp")
 
 
 ## The sound of a player event (handlePlayerEvents(), hurtPlayer(), die() and the stomp in src/scenes/game.ts;
@@ -743,6 +765,7 @@ func _spawn_boss() -> Enemy:
 ## onBossDefeated() in src/scenes/game.ts: a popup, the Token Blaster (1-B) or the Tool Call (2-B; TS opens the
 ## exit there) drops into the middle of the arena, leftover shots vanish and the map tune plays.
 func boss_defeated(_b: Enemy, at: Vector2) -> void:
+	gain_xp(Experience.BOSS_WORTH.get(info.boss, 100.0))
 	if info.boss == "codex":
 		overlay.popup("CODEX HAS BEEN DEPRECATED", at + Vector2(0, -90), Color("#7FE3EA"), 3.0)
 		WeaponPickup.create(level, level.pixel_size.x / 2, at.y, "hook")

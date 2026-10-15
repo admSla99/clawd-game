@@ -26,8 +26,8 @@ Tick the boxes in the commit that finishes a task; record extras the user asks f
 
 ### Character level
 
-- `Progress.xp` and `Progress.level`; enemies give XP by their hp and the area level (campaign levels have an area
-  level of their own, 1-1 = 1 up to 3-B = ~25; map tier n = 30 + 2n). A little less XP from enemies far below
+- `Progress.xp` and `Progress.char_level`; enemies give XP by their hp and the area level (campaign levels have
+  an area level of their own, 1-1 = 1 up to 3-B = 27; map tier n = 30 + 2n). A little less XP from enemies far below
   Clawd's level, as in PoE.
 - Points for the tree = (level - 1) + world 3's sparks + bought points. The HUD shows an XP bar under the hearts / HP.
 - XP loss on death only in maps (never below the level's start).
@@ -102,7 +102,8 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 ## Milestones
 
 - [x] E0 The interview and this plan.
-- [ ] E1 Character level: XP, levels, area levels, points from levels in the tree, the HUD bar, checks, README.
+- [x] E1 Character level: XP, levels, area levels, points from levels in the tree, the HUD bar, checks, README.
+      Campaign area levels are 1 + 2n in play order (3-B 27); the campaign ends at about level 13.
 - [ ] E2 Items and stats: the item model, bases, affix tables, rarity, the stat model, numeric HP in the endgame,
       drops on the ground and pickup, checks, README.
 - [ ] E3 Inventory and stash: the grid UI, equipping, tooltips with comparison, the stash, `items.json`, checks.

@@ -775,7 +775,10 @@ tree, refunds and what hangs on a node, reset, every stat adding up in a level, 
 a token without the Token Magnet, Reflect catching a shot and throwing it back, the pause line, the window: T only
 with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once), sub-agents that
 shoot (not without Tool use.; with it one turns to a bug and hits it, one pellet at a time; not through a block;
-Shared Weights, Async Calls and Parallel tool calls.' numbers and two pellets at once), shooting (fire rate and damage
+Shared Weights, Async Calls and Parallel tool calls.' numbers and two pellets at once), the character level (XP to
+the next level growing, the area levels, the penalty far below, a bug's XP in 1-1, a level-up: a prompt point, LEVEL
+n and the point popping up, the HUD flash, saved; two levels at once, losing XP, the cap, the Router's XP, 1 XP for a
+bug in 1-1 at level 13), shooting (fire rate and damage
 with and without Bigger Model / Faster Inference, the stream's context overflow, no shots while overflowed,
 cooling, Longer Context, a token stops at the first enemy, the beam pierces, a token and the beam stop on a one-way plank from below
 and a token on a platform, the gun vanishing with Clawd into the exit and back in his hands on the next level, shooting down enemy shots and not the
@@ -1010,9 +1013,9 @@ the notables (rounded, with a ring) and keystones (octagons) are world 3's eight
 four more; every node's `mods` add up in `Prompts.stat()`, and a flag (Temperature, Reflect, Tool use., Parallel
 tool calls.) is read with `Prompts.on()`.
 
-- **Points**: every spark found in world 3 (or later) is one (`Progress.tree_sparks()`; those sparks are not the
-  shop's, `sparks_available()` leaves them out), and up to 10 more are bought with tokens: 60, then 30 more each
-  (1950 for all). A point allocates a node next to one Clawd has; refunds are free, a node at a time when the rest
+- **Points**: one per character level gained (*Character level* below), every spark found in world 3 (or later)
+  is one (`Progress.tree_sparks()`; those sparks are not the shop's, `sparks_available()` leaves them out), and up
+  to 10 more are bought with tokens: 60, then 30 more each (1950 for all). A point allocates a node next to one Clawd has; refunds are free, a node at a time when the rest
   stays joined to the start, or all at once. Saved as `Progress.tree` (ids) and `points_bought`.
 - **Where it matters**: `Weapons.damage_mult()` / `rate_mult()` (damage, fire rate), `Gun.fire()` (Temperature),
   `Enemy` (tokens), `Token` (magnet: the Token Magnet's 72 px plus Embeddings / Retrieval., which pull without it
@@ -1050,7 +1053,29 @@ tool calls.) is read with `Prompts.on()`.
   adds up everything allocated). Arrows / WASD move to the nearest node that way (`step()`), Space / Enter or a
   click allocates or refunds, U buys a point, R twice refunds all, Escape or T goes back; dragging pans, the view
   follows the selection and stays on the tree (centred along an axis it fits). The pause menu lists the notables
-  and keystones allocated under its panel.
+  and keystones allocated under its panel. Clawd's level and XP bar sit after the points; the start's card says
+  where the points come from (levels, world 3's sparks, bought).
+
+## Character level
+
+The first step of the ARPG endgame (`docs/endgame-plan.md`, E1): `scripts/experience.gd` (`Experience`, static)
+holds the numbers, `Progress.char_level` / `xp` (XP toward the next level) the state, saved with the rest.
+
+- **XP**: every enemy Clawd's side defeats (his shots, stomps, spins, sub-agents' pellets; not projectiles) gives
+  its full hit points times 1 + area level / 4 (`Enemy.xp_worth()`, `xp_hp` overrides it; `Main.enemy_died()` →
+  `Main.gain_xp()`), bosses a worth of their own (`BOSS_WORTH`: the Hallucination 30, Codex 150, the Router 160, in
+  `Main.boss_defeated()`). Only in PLAY. The campaign's area levels follow the play order, 1 + 2n (1-1 = 1, 2-1 =
+  9, 3-B = 27; `Main.area_level`); the maps will start above.
+- **Penalty** (Path of Exile's): enemies more than 3 levels (+1 per 16 of Clawd's) below Clawd give quickly less,
+  `((safe + 5) / (safe + 5 + over^2.5))^1.5`, at least 1 XP; at level 13 a bug in 1-1 gives 1.
+- **Levels**: from L to L + 1 takes `20 · L^1.6 · 1.06^L` XP (21 for the first, ~7700 at 20, ~10 million at
+  99), up to level 100. The campaign gives about 11000: level ~3 after world 1, ~9 after world 2, ~13 after 3-B.
+  Several levels can come at once; at the cap XP stays 0. `Progress.lose_xp()` takes a share of the current level's
+  XP, never below its start (a death in a map, later).
+- **Shown**: under the HUD's panel "LV n" and a gold 40 px bar (`Hud.draw_xp()`) that eases to the XP and, on a
+  level-up, fills to the end, starts again from empty and flashes; over Clawd "LEVEL n" and, once the prompt tree
+  is his, "+n PROMPT POINT(S)", a gold burst and the `levelUp` arpeggio. The world map has the same LV and bar
+  after its title, the prompt tree after its points.
 
 ## Menus and key bindings
 
@@ -1264,6 +1289,7 @@ without COOP/COEP headers.
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
 | `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: nodes, links, points, allocating, the stats others read; its window |
+| `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

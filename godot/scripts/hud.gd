@@ -7,6 +7,7 @@ extends Node2D
 ## 1 px shadow under it tie it to the orange-on-dark look of the checkpoints and platforms.
 ## It reacts like the 2D HUD and a bit more: a lost heart flashes white and breaks into falling shards while
 ## the panel shakes and its border turns red; refilled hearts pop up with a white outline; the last heart beats;
+## under the panel Clawd's level and a gold XP bar (draw_xp()) that fills as enemies fall and flashes on a level-up;
 ## a collected token flies from where it was to the counter (collect_token()), which ticks up when it lands
 ## (the count shown lags Main.tokens by the flight) and bumps its digits in light orange.
 ## Runs on real time (_process), so it keeps moving through hitstop.
@@ -114,6 +115,11 @@ var double_tokens := false
 ## The Firewall: drawn as one more slot after the hearts while it is up; when it breaks it flashes and shatters
 ## (seconds left of that).
 var _shield_up := false
+## The XP bar's fill shown (it eases toward Experience.fraction()), the level it belongs to, and the seconds of
+## the level-up flash left.
+var _xp_shown := -1.0
+var _xp_level := 0
+var _level_flash := 0.0
 var _shield_break := 0.0
 static var _shield_tex := Spark._texture(ShopScreen.ICONS["firewall"], {"o": ORANGE, "L": ORANGE_LIGHT, "W": Color("#FFF1E6")})
 static var _shield_white := Spark._texture(ShopScreen.ICONS["firewall"], {"o": Color.WHITE, "L": Color.WHITE, "W": Color.WHITE})
@@ -135,6 +141,13 @@ func reset(id: String, level_name: String) -> void:
 	_spark_flash = 0.0
 	_hold = 0.0
 	_stagger = 0.0
+	_xp_shown = -1.0
+	_level_flash = 0.0
+
+
+## A level was gained (Main.gain_xp()): the bar fills up, then flashes.
+func level_up() -> void:
+	_level_flash = 1.2
 
 
 ## Main hands over Clawd once it has made him.
@@ -183,6 +196,19 @@ func _process(dt: float) -> void:
 	_agent_t += dt
 	_spark_flash = maxf(0.0, _spark_flash - dt)
 	_shield_break = maxf(0.0, _shield_break - dt)
+	_level_flash = maxf(0.0, _level_flash - dt)
+	var lv := Progress.char_level
+	if _xp_shown < 0 or lv < _xp_level:
+		_xp_shown = Experience.fraction()
+		_xp_level = lv
+	elif lv > _xp_level:
+		# A level-up fills the bar to the end, then the new level starts from empty.
+		_xp_shown = move_toward(_xp_shown, 1.0, dt * 3)
+		if _xp_shown >= 1.0:
+			_xp_level = lv
+			_xp_shown = 0.0
+	else:
+		_xp_shown = move_toward(_xp_shown, Experience.fraction(), dt * 1.5)
 	if _player:
 		if _shield_up and not _player.shield:
 			_shield_break = 0.5
@@ -288,6 +314,9 @@ func _draw() -> void:
 	var w := hw + sw + tw + aw
 	var hurt_k := clampf(_hurt / 0.3, 0.0, 1.0)
 	panel(self, Rect2(o, Vector2(w, H)), BORDER.lerp(RED, hurt_k), FILL, true)
+	if _xp_shown >= 0:
+		var flash := _level_flash > 0 and fmod(_level_flash, 0.24) < 0.12
+		draw_xp(self, Vector2(o.x + 1, o.y + H + 4), _xp_level, _xp_shown, Color.WHITE if flash else Experience.COLOR)
 
 	# Hearts.
 	var beat := _hearts == 1 and _slots() > 1 and fmod(_t, 0.9) < 0.14
@@ -531,6 +560,19 @@ func _speaker(at: Vector2, muted: bool, color: Color) -> void:
 	else:
 		draw_rect(Rect2(at + Vector2(5, -1), Vector2(1, 3)), color)
 		draw_rect(Rect2(at + Vector2(7, -3), Vector2(1, 7)), color)
+
+
+## "LV n" and a 40 px bar of `frac` at `at` (the text's top left), in `color`, shadowed; the HUD, the map and the
+## prompt tree share it.
+static func draw_xp(c: CanvasItem, at: Vector2, level: int, frac: float, color := Experience.COLOR) -> void:
+	var lv := "LV %d" % level
+	PixelFont.draw(c, lv, at + Vector2(0, 1), SHADOW)
+	PixelFont.draw(c, lv, at, color)
+	var r := Rect2(at.x + PixelFont.width(lv) + 4, at.y + 1, 40, 5)
+	c.draw_rect(Rect2(r.position + Vector2(0, 1), r.size), SHADOW)
+	c.draw_rect(r, BORDER)
+	c.draw_rect(r.grow(-1), Color(0.03, 0.03, 0.04))
+	c.draw_rect(Rect2(r.position + Vector2.ONE, Vector2(roundf((r.size.x - 2) * clampf(frac, 0, 1)), r.size.y - 2)), color)
 
 
 func _text_shadowed(s: String, at: Vector2, color: Color) -> void:

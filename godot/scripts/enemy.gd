@@ -39,6 +39,8 @@ var cancellable := true
 var consume_on_hit := true
 ## Tokens that pop out when defeated.
 var tokens := 2 * TOKEN_FACTOR
+## What it is worth in XP, in hit points (Experience.kill_xp()); 0: its full hit points.
+var xp_hp := 0.0
 ## Seconds of white flash and of immunity left after a hit.
 var flash := 0.0
 var immune := 0.0
@@ -128,6 +130,11 @@ func remove() -> void:
 
 func _die(_kind: StringName) -> void:
 	queue_free()
+
+
+## Its worth in XP, in hit points: xp_hp if set, else its full hit points.
+func xp_worth() -> float:
+	return xp_hp if xp_hp > 0 else maxf(max_hp, hp)
 
 
 ## The white hit flash (`tint: '#FFFFFF'` while flash > 0 in the 2D draw()) or another tint on `mesh`.

@@ -93,6 +93,7 @@ func _init() -> void:
 	await section("sub-agents, plates and gates (world 3)", check_echoes)
 	await section("the prompt tree (world 3, docs/prompt-tree-plan.md)", check_prompts)
 	await section("sub-agents that shoot (the prompt tree's Tool use.)", check_minions)
+	await section("character level and XP (docs/endgame-plan.md E1)", check_xp)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -1334,6 +1335,9 @@ func check_prompts() -> bool:
 	progress.tree = []
 	progress.points_bought = 0
 	progress.upgrades = {}
+	# Earlier sections defeated enemies: no levels gained, so the points below are sparks and bought ones only.
+	progress.char_level = 1
+	progress.xp = 0
 	# The tree: every link joins two nodes, every node hangs on the start, the eight prompts are in it.
 	var nodes: Dictionary = prompts.NODES
 	ok(prompts.LINKS.all(func(l): return nodes.has(l[0]) and nodes.has(l[1])) and prompts.joined(nodes.keys()).size() == nodes.size(),
@@ -1469,6 +1473,84 @@ func check_prompts() -> bool:
 	progress.upgrades = saved.upgrades
 	p.invuln = 0
 	m.play("1-1")
+	await frames(3)
+	return true
+
+
+func check_xp() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var xp = load("res://scripts/experience.gd")
+	var prompts = load("res://scripts/prompts.gd")
+	var saved := {"tools": progress.tools.duplicate(), "levels": progress.levels.duplicate(true),
+		"bought": progress.points_bought}
+	progress.levels = {}
+	progress.points_bought = 0
+	progress.tools = ["hook"]
+	progress.char_level = 1
+	progress.xp = 0
+	# The numbers.
+	ok(range(1, xp.MAX_LEVEL).all(func(l): return xp.need(l + 1) > xp.need(l)) and xp.need(1) == 21
+		and xp.need(20) > 7000 and xp.need(99) > 9000000, "XP to the next level grows (%d for the first, %d at 20, %d at 99)" % [xp.need(1), xp.need(20), xp.need(99)])
+	ok(xp.area_level(m.level_ids.find("1-1")) == 1 and xp.area_level(m.level_ids.find("2-1")) == 9
+		and xp.area_level(m.level_ids.find("3-B")) == 27, "area levels: 1-1 is 1, 2-1 is 9, 3-B is 27")
+	ok(xp.penalty(27, 13) == 1.0 and xp.penalty(10, 13) == 1.0 and xp.penalty(1, 13) < 0.01 and xp.penalty(5, 13) < 0.5,
+		"enemies far below Clawd give little XP (1-1 at level 13: x%.4f)" % xp.penalty(1, 13))
+	# A bug defeated in 1-1 gives its hit points times 1.25.
+	m.load_level("1-1")
+	await frames(3)
+	p.invuln = 1000
+	var kill := func(hp: float) -> void:
+		var bug = load("res://scenes/bug.tscn").instantiate()
+		m.level.add_child(bug)
+		bug.pos = p.pos + Vector2(60, 0)
+		bug.hp = hp
+		bug.hit(&"shot", hp)
+	ok(m.area_level == 1, "1-1 loads as area level 1")
+	kill.call(3.0)
+	await frames(2)
+	ok(progress.xp == 4 and progress.char_level == 1, "a bug of 3 hp gives 4 XP (got %d)" % progress.xp)
+	# A level-up: the next level, a point in the tree, a popup, the HUD flash; saved.
+	var pts: int = prompts.points_total()
+	progress.xp = xp.need(1) - 1
+	kill.call(3.0)
+	await frames(2)
+	ok(progress.char_level == 2 and progress.xp == 3 and prompts.points_total() == pts + 1, "a level gained is a prompt point (level %d, %d XP)" % [progress.char_level, progress.xp])
+	ok(m.overlay.popups.any(func(pp): return pp.text == "LEVEL 2") and m.overlay.popups.any(func(pp): return pp.text == "+1 PROMPT POINT")
+		and m.hud._level_flash > 0, "LEVEL 2 and +1 PROMPT POINT pop up, the HUD's bar flashes")
+	progress.load_file()
+	ok(progress.char_level == 2 and progress.xp == 3, "the level and the XP are saved")
+	# Several levels at once, the cap, losing XP.
+	ok(progress.add_xp(xp.need(2) + xp.need(3) + 5) == 2 and progress.char_level == 4 and progress.xp == 8, "XP for two levels gives two")
+	progress.xp = 50
+	var lost: int = progress.lose_xp(0.1)
+	ok(lost == roundi(xp.need(4) * 0.1) and progress.lose_xp(1.0) == 50 - lost and progress.xp == 0 and progress.char_level == 4,
+		"a death costs 10%% of the level's XP (%d), never below the level's start" % lost)
+	progress.char_level = xp.MAX_LEVEL - 1
+	progress.xp = 0
+	ok(progress.add_xp(xp.need(xp.MAX_LEVEL - 1) * 3) == 1 and progress.char_level == xp.MAX_LEVEL and progress.xp == 0
+		and progress.add_xp(1000) == 0 and xp.fraction() == 1.0, "level %d is the cap" % xp.MAX_LEVEL)
+	# Bosses: their worth in the boss's area level.
+	progress.char_level = 13
+	progress.xp = 0
+	m.area_level = 27
+	m.gain_xp(xp.BOSS_WORTH.router)
+	ok(progress.xp == xp.kill_xp(160, 27, 13) and progress.xp == 1240, "the Router gives %d XP" % progress.xp)
+	# Enemies far below Clawd: a bug in 1-1 at level 13 gives the minimum.
+	m.area_level = 1
+	progress.xp = 0
+	kill.call(3.0)
+	await frames(2)
+	ok(progress.xp == 1, "a bug in 1-1 at level 13 gives 1 XP")
+	progress.tools = saved.tools
+	progress.levels = saved.levels
+	progress.points_bought = saved.bought
+	progress.char_level = 1
+	progress.xp = 0
+	progress.save()
+	p.invuln = 0
+	m.load_level("1-1")
 	await frames(3)
 	return true
 

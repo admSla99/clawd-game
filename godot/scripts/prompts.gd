@@ -113,8 +113,9 @@ static func neighbours(id: String) -> Array:
 	return out
 
 
+## Points: one per character level gained (scripts/experience.gd), world 3's sparks and the bought ones.
 static func points_total() -> int:
-	return Progress.tree_sparks() + Progress.points_bought
+	return Progress.char_level - 1 + Progress.tree_sparks() + Progress.points_bought
 
 
 static func points_free() -> int:

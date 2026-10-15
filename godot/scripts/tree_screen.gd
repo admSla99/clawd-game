@@ -301,6 +301,8 @@ func _draw() -> void:
 	var pts := "%d FREE · %d / %d POINTS" % [free, Progress.tree.size(), Prompts.points_total()]
 	var x := v.position.x + 14 + PixelFont.width("PROMPT TREE") * 2 + 12
 	_text(pts, Vector2(x, v.position.y + 12), Hud.ORANGE_LIGHT if free > 0 else Hud.TEXT_DIM)
+	# Clawd's level: a point per level gained.
+	Hud.draw_xp(self, Vector2(x + PixelFont.width(pts) + 14, v.position.y + 12), Progress.char_level, Experience.fraction())
 	_draw_buy(v)
 	var fr := field()
 	Hud.panel(self, fr.grow(1), Color("#26262A"), Color(0.03, 0.03, 0.04, 0.55))
@@ -425,7 +427,7 @@ func _draw_card() -> void:
 	var hint := ""
 	var col := Hud.ORANGE
 	if sel == Prompts.START:
-		hint = "%d POINTS FROM WORLD 3'S SPARKS · %d BOUGHT" % [Progress.tree_sparks(), Progress.points_bought]
+		hint = "%d FROM LEVELS · %d FROM WORLD 3'S SPARKS · %d BOUGHT" % [Progress.char_level - 1, Progress.tree_sparks(), Progress.points_bought]
 		col = Hud.TEXT_DIM
 	elif Prompts.on(sel):
 		hint = "ALLOCATED · SPACE / CLICK: REFUND" if Prompts.can_refund(sel) else "ALLOCATED · OTHER NODES HANG ON IT"
