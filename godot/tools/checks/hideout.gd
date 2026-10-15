@@ -92,9 +92,11 @@ func run(c) -> bool:
 	await c.frames(2)
 	c.ok(not m.tree.visible and m.mode == m.Mode.PLAY and m.level_id == "hideout" and not c.root.get_node("Game").paused,
 		"Escape closes it back into the hideout")
-	# The Map Device (maps come in E5) and the portal.
+	# The Map Device (tools/checks/maps.gd has the rest) and the portal.
 	await use.call("device")
-	c.ok(m.overlay.popups.any(func(pp): return pp.text == "NO MAPS YET"), "the Map Device has no maps yet")
+	c.ok(m.items.visible and m.items.device_open, "E at the Map Device opens the inventory with the device")
+	m.close_items()
+	await c.frames(2)
 	await use.call("portal")
 	c.ok(m.mode == m.Mode.MAP, "the portal goes back to the world map")
 	m.play("1-1")
@@ -105,5 +107,6 @@ func run(c) -> bool:
 	progress.runs = saved.runs
 	progress.vendor = []
 	progress.inventory = []
+	progress.device = []
 	progress.save_items()
 	return true

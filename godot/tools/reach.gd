@@ -13,6 +13,7 @@
 # The movement is a tile-based model of scripts/player.gd (its constants are read from it and from tool_call.gd);
 # the real player collides through move_and_slide(), so a target found here is reachable within a pixel or so.
 # Run from godot/: godot --headless --script tools/reach.gd [-- <id>...]   (no ids = every level)
+# `-- chunks` checks every map chunk (levels/chunks/<theme>/), `-- maps` generated maps (scripts/map_gen.gd).
 extends SceneTree
 
 const TILE := 16.0
@@ -43,6 +44,9 @@ func _init() -> void:
 	assert(K.has("JUMP_VELOCITY") and K.has("ZIP_SPEED") and T.has("REACH"))
 	var index: Array = JSON.parse_string(FileAccess.get_file_as_string("res://levels/index.json"))
 	var ids := Array(OS.get_cmdline_user_args())
+	if ids == ["chunks"] or ids == ["maps"]:
+		quit(1 if (check_chunks() if ids[0] == "chunks" else check_maps()) else 0)
+		return
 	if ids.is_empty():
 		ids = index.filter(func(l): return not l.has("boss")).map(func(l): return l.id)
 	var failed := false
@@ -60,8 +64,53 @@ func _init() -> void:
 	quit(1 if failed else 0)
 
 
+## The map chunks (docs/endgame-plan.md E5): every one, between a flat start and a flat exit, can be crossed.
+func check_chunks() -> bool:
+	var gen = load("res://scripts/map_gen.gd")
+	var failed := false
+	for theme in DirAccess.get_directories_at("res://levels/chunks"):
+		for name in gen.chunks(theme):
+			if name == "boss":
+				continue
+			var chunk: PackedStringArray = gen.chunks(theme)[name]
+			var test := PackedStringArray()
+			for y in chunk.size():
+				var pad := " " if y < gen.GROUND else "#"
+				var l := pad.repeat(8)
+				var r := pad.repeat(8)
+				if y == gen.GROUND - 1:
+					l = "  @     "
+					r = "    G   "
+				test.append(l + chunk[y].replace("@", " ").replace("B", " ") + r)
+			var missing := check_rows(test)
+			print("%s %s/%s" % ["PASS" if missing.is_empty() else "FAIL", theme, name])
+			failed = failed or not missing.is_empty()
+	return failed
+
+
+## Generated maps (MapGen): from the start, the boss's spot can be reached; three seeds a tier, T1-T5.
+func check_maps() -> bool:
+	var gen = load("res://scripts/map_gen.gd")
+	var failed := false
+	for tier in range(1, 6):
+		for seed in [1, 2, 3]:
+			var t0 := Time.get_ticks_msec()
+			var test := PackedStringArray()
+			for r in gen.generate(seed * 101 + tier, tier, 30.0):
+				test.append(r.replace("B", "G"))
+			var missing := check_rows(test)
+			print("%s T%d seed %d: %d tiles wide (%.1f s)" % ["PASS" if missing.is_empty() else "FAIL", tier, seed,
+				test[0].length(), (Time.get_ticks_msec() - t0) / 1000.0])
+			failed = failed or not missing.is_empty()
+	return failed
+
+
 func check_level(id: String) -> Array:
-	rows = FileAccess.get_file_as_string("res://levels/%s.txt" % id).replace("\r", "").trim_suffix("\n").split("\n")
+	return check_rows(FileAccess.get_file_as_string("res://levels/%s.txt" % id).replace("\r", "").trim_suffix("\n").split("\n"))
+
+
+func check_rows(level_rows: PackedStringArray) -> Array:
+	rows = level_rows
 	height = rows.size()
 	width = 0
 	for r in rows:

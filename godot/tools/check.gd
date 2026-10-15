@@ -1756,7 +1756,7 @@ func check_life() -> bool:
 	progress.gear = {}
 	gear.invalidate()
 	# The numbers.
-	ok(is_equal_approx(stats.max_life(), 100.0) and is_equal_approx(stats.enemy_hit(1), 8.48) and stats.enemy_hit(60) > 250
+	ok(is_equal_approx(stats.max_life(), 100.0) and is_equal_approx(stats.enemy_hit(1), 8.36) and stats.enemy_hit(60) > 100
 		and is_equal_approx(stats.armour_reduction(100, 20), 0.5) and stats.armour_reduction(1e9, 1) == 0.9
 		and is_equal_approx(stats.evade_chance(120, 1), 0.5) and stats.evade_chance(1e9, 1) == 0.75 and stats.evade_chance(0, 1) == 0.0,
 		"life 50 + 5 a level (100 at 10), an enemy's hit grows with the area, armour and evasion with their caps")
@@ -1785,7 +1785,7 @@ func check_life() -> bool:
 	p.evasion = 0.0
 	p.invuln = 0
 	ok(p.hurt(p.pos.x + 5) and is_equal_approx(p.life, 145.0 - hit) and p.hearts == hearts,
-		"an enemy's hit takes %.1f life (8.5 less 12 armour), no heart" % hit)
+		"an enemy's hit takes %.1f life (8.4 less 12 armour), no heart" % hit)
 	await frames(2)
 	ok(m.overlay.popups.any(func(pp): return pp.text == "-%d" % ceili(hit)) and m.hud._hurt > 0, "the damage pops up over Clawd, the HUD's bar flashes")
 	p.invuln = 0

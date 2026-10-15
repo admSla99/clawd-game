@@ -70,6 +70,7 @@ Map legend:
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
 | `B` | Where `Main` places the level's boss |
 | `K` `N` `U` `O` `Q` | The hideout's stations: stash, vendor, terminal (prompt tree), Map Device, portal to the world map |
+| `&` `~` | Map chunks only (`levels/chunks/`): a ground and an air enemy slot, filled by `MapGen` |
 
 `index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
 `theme` (palette, scenery and motif), `music`, `signs`, the optional `dark`, `risingVoid` (`speed` px/s, `delay`
@@ -1085,7 +1086,7 @@ stage, the terminal and a sign.
   one's name over it, dim, and "E · NAME" in orange over the one in reach.
 - **Stash**: the inventory with the stash (`open_items_in_level("stash")`). **Terminal**: the prompt tree over
   the hideout (`open_tree_in_level()`, `TreeScreen.overlay`: Escape closes it back there and the stats are applied).
-  **Map Device**: no maps yet (E5). **Portal**: back to the world map.
+  **Map Device**: maps (*Maps* below). **Portal**: back to the world map.
 - **Vendor** (`scripts/vendor.gd`, `Vendor`): the inventory with the vendor's stock on the left (`Progress.vendor`,
   a 12 x 12 grid): ten items of Clawd's level (half normal, 40 % magic, 10 % rare), new after every level cleared
   (`Progress.runs`, counted by `record_run()`). An item is worth 3 x (1 + item level / 10) x its rarity (normal 1,
@@ -1096,6 +1097,48 @@ stage, the terminal and a sign.
   enemies, E at the stash, the vendor's stock, buying and selling and too few tokens, the stock staying until a
   level is cleared, the prices, the terminal's tree and Escape back, the Map Device, the portal, hearts again in
   the campaign.
+
+## Maps
+
+The endgame's loop (`docs/endgame-plan.md`, E5): maps drop as items, the hideout's Map Device opens one, and a
+map is a generated level with a boss that drops more maps.
+
+- **Map items** (`scripts/maps.gd`, `Maps`): the base `map` in `Items.BASES` (never rolled as gear) with `tier`
+  (T1-T5 for now), `theme` and `seed`; rarity and mods roll like an item's from six map mods in `Items.AFFIXES`
+  (kind `map`): more enemies (pack size), enemies' life, enemies' damage, Clawd's less life, less regeneration,
+  less armour and evasion. Area level 30 + 2 x tier (T1 32, T5 40); every mod adds 8 % item quantity and 5 % item
+  rarity. Named like "Latent Map T2" (magic: "Fine-tuned Latent Map T2 of Low Context", rare: "Hollow Wastes
+  Map"); a scroll icon; the tooltip shows tier, area level, quantity and rarity. They cannot be worn.
+- **The generator** (`scripts/map_gen.gd`, `MapGen`, static and free of autoloads): chunks drawn by hand in
+  `levels/chunks/<theme>/*.txt` (world 1's `plains`: start, boss and ten middle ones: meadow, pit, steps, corrupt,
+  planks, mound, spikebed, limiter, ferry, decks), 20 rows each with the ground's surface at row 15 on their edge
+  columns so any two join. A map is the start (the portal home, '@'), 8 + tier / 2 middle chunks drawn by the seed
+  (never one twice in a row) and the boss arena (closed by a wall). Every third middle chunk starts with a
+  checkpoint; '&' becomes a bug, spam bot, shield bot (T2+) or turret (T3+), '~' a drone, each with a 65 % chance
+  raised by pack size, which can also put a second one beside it. `tools/reach.gd -- chunks` crosses every chunk
+  between a flat start and exit; `-- maps` generates three maps a tier (T1-T5, +30 % pack size) and reaches each
+  boss from the start (all pass, 7-12 s a map).
+- **The Map Device** (the hideout's `O` station): the inventory with the device on the left: one slot for a map
+  (put it there, or right click / Ctrl + click / X / C a map in the inventory), its lines, and `O · OPEN THE MAP`
+  (O or a click). With none anywhere and none open, the device gives a normal T1 map, so Clawd is never stuck.
+- **A run** (`Main.map_run`, `start_map()`, `enter_map()`): `Level.build()` on the generated rows; the level id
+  `map`, `Main.endgame` on (hit points), its area level; enemies get x 1.05^(area level - 24) life (x1.48 at T1)
+  and the map's mod on top, once (a level entered again keeps its enemies, decor and scaling: `entered` meta,
+  `SideWalls` added once). The map boss, THE OVERFITTER (`scripts/map_boss.gd`, `MapBoss`: a shield bot 1.8
+  times as big with 25 times its life, the HUD's boss bar within 320 px), stands at 'B'. The map's mods on Clawd go
+  in through `_apply_loadout()` (`Player.hit_mult`, less life, regeneration, armour, evasion). Six portals: the
+  start's portal (HIDEOUT) or QUIT TO MAP goes home with the tokens banked and the level kept, and the device's
+  `O · BACK INTO THE MAP` goes back in at the last checkpoint. Dying there (`_map_death()`) costs a tenth of the
+  level's XP and a portal and goes home; with the last portal THE MAP COLLAPSED. RESTART LEVEL in a map is the
+  checkpoint.
+- **Drops**: in a map items drop more often by its quantity and rarer by its rarity; an enemy drops a map 3 % of
+  the time (times the quantity), of the map's tier or a tier higher a quarter of the time. The boss's death
+  (`map_complete()`): MAP COMPLETE, two maps and three items (+300 % rarity), the tier counted in
+  `Progress.maps_done` (for the Atlas), and a portal home where it fell; through it the map closes.
+- Checks (`tools/checks/maps.gd`): a rare map's mods and quantity, names, the generator's determinism, rows and
+  slots, pack size, no turrets in T1, the device's first map, O, the area level and portals, enemies' and the
+  boss's life and bar, the portal home and the tokens, going back into the same level unscaled, dying (a portal,
+  the XP), the boss's drops and portal, the collapse on the last portal, maps from enemies, QUIT TO MAP.
 
 ## Character level
 
@@ -1177,7 +1220,7 @@ the campaign too (the user's call), at the area level.
 - **Hit points in the endgame** (`Main.endgame`, set by the hideout and maps later; the campaign keeps hearts):
   `Player.hp_mode` with `life` / `max_life`, set in `_apply_loadout()` from `Stats`: life is 50 + 5 a character
   level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes). An enemy's hit costs
-  `Stats.enemy_hit()` of the area level, 8 x 1.06^level (8.5 at 1, 46 at 30, 264 at 60), less armour
+  `Stats.enemy_hit()` of the area level, 8 x 1.045^level (8.4 at 1, 30 at 30, 33 in a T1 map, 112 at 60), less armour
   (armour / (armour + 5 x damage), at most 90 %, Path of Exile's formula); evasion avoids a hit (no damage, no
   knock-back) with a chance of evasion / (evasion + 100 + 20 x area level), at most 75 %, "EVADE" popping up.
   Spikes take 15 % of the life (not evadable), falling out 20 %; at 0 Clawd dies and comes back at the checkpoint
@@ -1403,6 +1446,7 @@ without COOP/COEP headers.
 | `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
 | `scripts/item_tooltip.gd`, `scripts/inventory_screen.gd` | The item tooltip, comparison and icons; the inventory window with the stash |
 | `levels/hideout.txt`, `levels/hideout.json`, `scripts/station.gd`, `scripts/vendor.gd` | The hideout, its stations and the vendor |
+| `scripts/maps.gd`, `scripts/map_gen.gd`, `scripts/map_boss.gd`, `levels/chunks/` | Maps: map items and mods, the generator and its chunks, the map boss |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

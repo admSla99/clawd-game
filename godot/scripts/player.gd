@@ -91,6 +91,8 @@ var regen := 0.0
 var area_level := 1
 ## What the last hit took (after armour), for the popup.
 var last_damage := 0.0
+## Enemies' hits times this (a map's mod).
+var hit_mult := 1.0
 var invuln := 0.0
 var hurt_timer := 0.0
 var coyote := 0.0
@@ -241,7 +243,7 @@ func hurt(from_x: float, damage := -1.0, evadable := true) -> bool:
 	if blocked:
 		shield = false
 	elif hp_mode:
-		var dmg := damage if damage >= 0 else Stats.enemy_hit(area_level)
+		var dmg := damage if damage >= 0 else Stats.enemy_hit(area_level) * hit_mult
 		if evadable and randf() < Stats.evade_chance(evasion, area_level):
 			invuln = HURT_INVULN * 0.5
 			event.emit(&"evade", pos)

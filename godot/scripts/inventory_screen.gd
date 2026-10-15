@@ -12,6 +12,9 @@ extends Node2D
 ## Made by Main under Ui. In a level it pauses the game and Main applies the gear when it closes (gear_changed());
 ## from the map it is Main.Mode.ITEMS, over the drifting backdrop. The hideout's vendor (Vendor) opens it with its
 ## stock on the left: a click there buys, an item put down there (or Ctrl + click / C in the inventory) sells.
+## The Map Device opens it with the device on the left (docs/endgame-plan.md E5): a slot for one map (put it there,
+## or right click / Ctrl + click / X / C a map), its tooltip, and O (or the button) opens it; with a map already
+## open and the slot empty, O goes back in.
 
 const CELL := 12
 const GRID_W := 144
@@ -33,6 +36,7 @@ var main: Node
 var left := "stats"
 var stash_open := false
 var vendor_open := false
+var device_open := false
 var t := 0.0
 ## The item on the cursor and where it came from ({area, at} or {area: "equip", slot}).
 var held := {}
@@ -52,6 +56,7 @@ func open(side := "stats") -> void:
 	left = side
 	stash_open = side == "stash"
 	vendor_open = side == "vendor"
+	device_open = side == "device"
 	t = 0.0
 	held = {}
 	held_from = {}
@@ -95,20 +100,30 @@ func origin(area: String) -> Vector2:
 
 ## Where `area` starts: the stash and the vendor share the left side.
 func _origin_of(area: String) -> Vector2:
+	if area == "device":
+		return origin("stash") + Vector2(GRID_W / 2.0 - CELL / 2.0, 22)
 	return origin("stash" if area == "vendor" else area)
 
 
+## The device's button (O): open the map in the slot, or go back into the open one.
+func device_button() -> Rect2:
+	var o := origin("stash")
+	return Rect2(o.x + 14, o.y + Gear.STASH_SIZE.y * CELL - 22, GRID_W - 28, 14)
+
+
 func grid_size(area: String) -> Vector2i:
-	return Gear.STASH_SIZE if area == "stash" else Vendor.SIZE if area == "vendor" else Gear.INV_SIZE
+	return Gear.STASH_SIZE if area == "stash" else Vendor.SIZE if area == "vendor" else Vector2i.ONE if area == "device" \
+		else Gear.INV_SIZE
 
 
 func items_of(area: String) -> Array:
-	return Progress.stash if area == "stash" else Progress.vendor if area == "vendor" else Progress.inventory
+	return Progress.stash if area == "stash" else Progress.vendor if area == "vendor" else Progress.device if area == "device" \
+		else Progress.inventory
 
 
 ## The grid on the left ("stash", "vendor") or "".
 func left_area() -> String:
-	return "stash" if stash_open else "vendor" if vendor_open else ""
+	return "stash" if stash_open else "vendor" if vendor_open else "device" if device_open else ""
 
 
 func slot_rect(slot: String) -> Rect2:
@@ -142,7 +157,7 @@ func item_at(tg: Dictionary) -> Dictionary:
 	match tg.get("area", ""):
 		"equip":
 			return Progress.gear.get(tg.slot, {})
-		"inv", "stash", "vendor":
+		"inv", "stash", "vendor", "device":
 			return Gear.item_at(items_of(tg.area), tg.cell)
 	return {}
 
@@ -158,6 +173,9 @@ func handle(event: InputEvent) -> bool:
 		_mouse = event.position
 		keys = false
 		var tg := hit(_mouse)
+		if device_open and event.button_index == MOUSE_BUTTON_LEFT and device_button().has_point(_mouse):
+			activate_device()
+			return true
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.ctrl_pressed:
 				move_across(tg)
@@ -184,6 +202,8 @@ func handle(event: InputEvent) -> bool:
 		move_across(cur)
 	elif event.physical_keycode == KEY_DELETE:
 		destroy(target())
+	elif event.physical_keycode == KEY_O and device_open:
+		activate_device()
 	return true
 
 
@@ -226,7 +246,7 @@ func _step(d: Vector2i) -> void:
 			cur.cell = Vector2i(clampi(int((at.x - origin("inv").x) / CELL), 0, Gear.INV_SIZE.x - 1), 0)
 		elif d == Vector2i.LEFT and left_area() != "":
 			cur.area = left_area()
-			cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, 0)
+			cur.cell = Vector2i(grid_size(cur.area).x - 1, 0)
 		return
 	var g := grid_size(cur.area)
 	var next: Vector2i = cur.cell + d
@@ -237,8 +257,8 @@ func _step(d: Vector2i) -> void:
 		cur.slot = "gloves" if at.x < origin("equip").x + 4 * CELL else "boots"
 	elif cur.area == "inv" and d == Vector2i.LEFT and left_area() != "":
 		cur.area = left_area()
-		cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, mini(cur.cell.y, Gear.STASH_SIZE.y - 1))
-	elif cur.area in ["stash", "vendor"] and d == Vector2i.RIGHT:
+		cur.cell = Vector2i(grid_size(cur.area).x - 1, mini(cur.cell.y, grid_size(cur.area).y - 1))
+	elif cur.area in ["stash", "vendor", "device"] and d == Vector2i.RIGHT:
 		cur.area = "inv"
 		cur.cell = Vector2i(0, mini(cur.cell.y, Gear.INV_SIZE.y - 1))
 
@@ -268,6 +288,10 @@ func primary(tg: Dictionary) -> void:
 			held = {}
 			held_from = {}
 		return
+	if tg.area == "device" and not held.is_empty() and not Maps.is_map(held):
+		Sound.play("denied")
+		say("ONLY MAPS GO INTO THE DEVICE")
+		return
 	if held.is_empty():
 		var it := item_at(tg)
 		if it.is_empty():
@@ -276,7 +300,7 @@ func primary(tg: Dictionary) -> void:
 		Sound.play("select")
 		return
 	if tg.area == "equip":
-		if Items.SLOT_KIND[tg.slot] != Items.kind(held):
+		if not Items.equippable(held) or Items.SLOT_KIND[tg.slot] != Items.kind(held):
 			Sound.play("denied")
 			say("THAT GOES IN THE %s SLOT" % Items.KIND_NAME[Items.kind(held)])
 			return
@@ -326,6 +350,14 @@ func quick(tg: Dictionary) -> void:
 	if tg.area == "vendor":
 		_buy(it)
 		return
+	# Maps go into the device, not on Clawd.
+	if Maps.is_map(it):
+		if device_open and tg.area != "device":
+			_into_device(it, tg.area)
+		elif not device_open:
+			Sound.play("denied")
+			say("MAPS GO INTO THE MAP DEVICE (HIDEOUT)")
+		return
 	if tg.area == "equip":
 		if not Gear.take(Progress.gear[tg.slot]):
 			Sound.play("denied")
@@ -358,6 +390,17 @@ func _slot_of(it: Dictionary) -> String:
 
 ## Ctrl + click / C: between the inventory and the stash (the first free cell there).
 func move_across(tg: Dictionary) -> void:
+	if device_open and held.is_empty():
+		var dit := item_at(tg)
+		if Maps.is_map(dit) and tg.get("area", "") == "inv":
+			_into_device(dit, "inv")
+		elif tg.get("area", "") == "device" and not dit.is_empty():
+			Progress.device.erase(dit)
+			if not Gear.take(dit):
+				Progress.device.append(dit)
+				say("INVENTORY FULL")
+			Progress.save_items()
+		return
 	if vendor_open and held.is_empty():
 		var vit := item_at(tg)
 		if tg.get("area", "") == "inv" and not vit.is_empty():
@@ -383,6 +426,41 @@ func move_across(tg: Dictionary) -> void:
 		return
 	Progress.save_items()
 	Sound.play("select")
+
+
+## A map from `area` into the device; the one there goes back into its place.
+func _into_device(it: Dictionary, area: String) -> void:
+	var items := items_of(area)
+	var at := Gear.at_of(it)
+	items.erase(it)
+	var old: Array = Progress.device.duplicate()
+	Progress.device.clear()
+	Gear.place(Progress.device, Vector2i.ONE, it, Vector2i.ZERO)
+	for o in old:
+		if not Gear.place(items, grid_size(area), o, at):
+			Gear.place(Progress.stash, Gear.STASH_SIZE, o)
+	Progress.save_items()
+	Sound.play("confirm")
+
+
+## O / the button: opens the map in the slot (giving up an open one), or goes back into the open map.
+func activate_device() -> void:
+	if not held.is_empty():
+		return
+	if not Progress.device.is_empty():
+		var it: Dictionary = Progress.device[0]
+		Progress.device.clear()
+		Progress.save_items()
+		main.close_items()
+		Sound.play("weaponGet")
+		main.start_map(it)
+	elif not main.map_run.is_empty():
+		main.close_items()
+		Sound.play("confirm")
+		main.enter_map()
+	else:
+		Sound.play("denied")
+		say("PUT A MAP INTO THE DEVICE")
 
 
 ## Sells `it` (already out of its grid or off the cursor) to the vendor.
@@ -489,6 +567,9 @@ func _draw() -> void:
 	elif vendor_open:
 		_label("VENDOR · BUYS ANYTHING", origin("stash"))
 		_draw_grid("vendor")
+	elif device_open:
+		_label("MAP DEVICE", origin("stash"))
+		_draw_device()
 	else:
 		_draw_stats()
 	_label("EQUIPPED", origin("equip"))
@@ -565,7 +646,7 @@ func _draw_tooltips() -> void:
 	var anchor := slot_rect(tg.slot) if tg.area == "equip" else cell_rect(tg.area, Gear.rect_of(it))
 	var rows := ItemTooltip.rows(it, main.endgame)
 	var other := {}
-	if tg.area != "equip":
+	if tg.area != "equip" and Items.equippable(it):
 		other = Progress.gear.get(Gear.slot_for(it), {})
 		rows += ItemTooltip.compare_rows(it, other)
 	if tg.area == "vendor":
@@ -573,7 +654,7 @@ func _draw_tooltips() -> void:
 		rows += [[], ["CLICK BUYS · %d TOKENS" % price, Hud.ORANGE_LIGHT if Progress.wallet >= price else Hud.RED]]
 	elif tg.area == "inv" and vendor_open:
 		rows += [[], ["CTRL+CLICK SELLS · %d TOKENS" % Vendor.sell_price(it), Hud.ORANGE_LIGHT]]
-	var side := "right" if tg.area in ["stash", "vendor"] else "left"
+	var side := "right" if tg.area in ["stash", "vendor", "device"] else "left"
 	var sz := ItemTooltip.size(rows)
 	var at := ItemTooltip.place(sz, anchor, view(), side)
 	var box := ItemTooltip.draw(self, rows, at, Items.color(it).darkened(0.35))
@@ -621,6 +702,46 @@ func _draw_stats() -> void:
 		PixelFont.draw(self, l[0], Vector2(o.x + 6, y), Hud.TEXT_DIM)
 		PixelFont.draw(self, l[1], Vector2(o.x + GRID_W - 6 - PixelFont.width(l[1]), y), Hud.TEXT)
 		y += PixelFont.LINE
+
+
+## The device: its slot in a frame, the map's lines under it, what is open, and the button.
+func _draw_device() -> void:
+	var o := origin("stash")
+	var r := Rect2(o, Vector2(GRID_W, Gear.STASH_SIZE.y * CELL))
+	Hud.panel(self, r.grow(2), Color("#2A2A30"), Color(0.03, 0.03, 0.04, 0.9))
+	var slot := cell_rect("device", Rect2i(Vector2i.ZERO, Vector2i.ONE))
+	var pulse := 0.5 + 0.5 * sin(t * 3)
+	Hud.panel(self, slot.grow(4), Hud.ORANGE.lerp(Hud.ORANGE_LIGHT, pulse) if not Progress.device.is_empty() else Color("#3A3A42"), CELL_FILL)
+	if Progress.device.is_empty():
+		ItemTooltip.draw_icon(self, {}, slot.get_center(), 1, true, "map")
+	else:
+		_draw_item(Progress.device[0], slot, false)
+	var y := slot.end.y + 10
+	var lines := []
+	if not Progress.device.is_empty():
+		var it: Dictionary = Progress.device[0]
+		lines.append([Items.name_of(it), Items.color(it)])
+		lines.append(["TIER %d · AREA LEVEL %d" % [it.tier, it.ilvl], Hud.TEXT_DIM])
+		for l in Items.lines(it) + Maps.extra_lines(it):
+			lines.append([l[0], ItemTooltip.IMPLICIT if l[2] else ItemTooltip.AFFIX])
+		lines.append(["%d PORTALS" % Main.MAP_PORTALS, Hud.TEXT_DIM])
+	else:
+		lines.append(["PUT A MAP IN THE SLOT", Hud.TEXT_DIM])
+	if not main.map_run.is_empty():
+		lines.append(["", Hud.TEXT_DIM])
+		lines.append(["OPEN: " + Items.name_of(main.map_run.item), Items.color(main.map_run.item)])
+		lines.append(["%d / %d PORTALS LEFT" % [main.map_run.portals, Main.MAP_PORTALS], Hud.ORANGE_LIGHT])
+		if not Progress.device.is_empty():
+			lines.append(["(a new map gives it up)", ItemTooltip.DIM])
+	for l in lines:
+		PixelFont.draw_centred(self, l[0], r.get_center().x, y, l[1])
+		y += PixelFont.LINE
+	var b := device_button()
+	var label := "O · OPEN THE MAP" if not Progress.device.is_empty() else "O · BACK INTO THE MAP" if not main.map_run.is_empty() else ""
+	if label != "":
+		var on := b.has_point(_mouse)
+		Hud.panel(self, b, Hud.ORANGE, Color(0.12, 0.07, 0.05, 0.95) if on else Color(0.07, 0.07, 0.08, 0.9))
+		PixelFont.draw_centred(self, label, b.get_center().x, b.position.y + 4, Hud.ORANGE_LIGHT)
 
 
 func _label(s: String, at: Vector2) -> void:

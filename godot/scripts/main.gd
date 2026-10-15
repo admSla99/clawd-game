@@ -21,6 +21,10 @@ const BOSS_RARITY := 200.0
 ## The hideout (docs/endgame-plan.md E4): a level of its own, not in index.json's play order.
 const HIDEOUT := "hideout"
 const HIDEOUT_INFO := "res://levels/hideout.json"
+## A map's level id (docs/endgame-plan.md E5), its portals, and the share of a level's XP a death there costs.
+const MAP := "map"
+const MAP_PORTALS := 6
+const MAP_DEATH_XP := 0.1
 ## Extra pixels the SubViewport renders on every side, hidden by offsetting the container (see
 ## GameCamera.pad): the oblique projection draws block fronts up to 8 px below their real position.
 const PAD := 16
@@ -133,6 +137,9 @@ var endgame := false
 ## The hideout's metadata (levels/hideout.json), and the station Clawd stands at there.
 var hideout_info: Dictionary
 var station_target: Station
+## The map being run, or {}: its item, its level (kept while Clawd is in the hideout, so he can go back in), its
+## metadata, the area level, the portals left, the respawn point, the boss, whether the boss is beaten.
+var map_run := {}
 
 
 func _ready() -> void:
@@ -300,11 +307,14 @@ func use_station(st: Station) -> void:
 		"terminal":
 			open_tree_in_level()
 		"device":
-			Sound.play("denied")
-			overlay.popup("NO MAPS YET", st.feet() + Vector2(0, -st.height() - 10), Hud.ORANGE_LIGHT, 1.6)
+			Maps.ensure_starter()
+			open_items_in_level("device")
 		"portal":
 			Sound.play("confirm")
-			show_map(level_ids.find("3-B"))
+			if level_id == MAP:
+				leave_map()
+			else:
+				show_map(level_ids.find("3-B"))
 
 
 ## The prompt tree over a level (the hideout's terminal): the game pauses until it closes.
@@ -372,16 +382,21 @@ func _backdrop() -> void:
 	player.park()
 
 
-func load_level(id: String) -> void:
-	var next: Level = load("res://levels/%s.tscn" % id).instantiate()
-	# Free the old level at once, so its bugs leave the "enemies" group before the next physics frame.
+func load_level(id: String, prebuilt: Level = null) -> void:
+	var next: Level = prebuilt if prebuilt else load("res://levels/%s.tscn" % id).instantiate()
+	# Free the old level at once, so its bugs leave the "enemies" group before the next physics frame; a map's is
+	# kept for going back in.
 	world.remove_child(level)
-	level.free()
+	if map_run.is_empty() or not is_same(level, map_run.level):
+		level.free()
 	level = next
 	world.add_child(level)
 	level_id = id
-	info = hideout_info if id == HIDEOUT else levels[level_ids.find(id)]
-	area_level = 1 if id == HIDEOUT else Experience.area_level(level_ids.find(id))
+	# A level entered again (a map after the hideout) keeps its enemies, decor and scaling.
+	var fresh := not level.has_meta("entered")
+	level.set_meta("entered", true)
+	info = hideout_info if id == HIDEOUT else map_run.info if id == MAP else levels[level_ids.find(id)]
+	area_level = 1 if id == HIDEOUT else map_run.area if id == MAP else Experience.area_level(level_ids.find(id))
 	level.bake_cells(info.terrainSeed)
 	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
 	boss = _spawn_boss()
@@ -433,6 +448,8 @@ func load_level(id: String) -> void:
 	camera.bounds = level.size()
 	camera.trauma = 0
 	var start := Px.of(level.get_node("Start").position)
+	if id == MAP and map_run.has("spawn"):
+		start = map_run.spawn
 	_apply_loadout()
 	player.enter_level(level, start, camera.bounds.y)
 	beams.clear()
@@ -445,14 +462,18 @@ func load_level(id: String) -> void:
 	echoes.reset()
 	# World 2's bugs and spam bots are tougher (`tough` in spawnEntities()), and every enemy has HP_FACTOR
 	# times its TS hit points in the port (bosses keep theirs, projectiles have none to speak of).
-	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+	# In a map they have more with its area level and its mods (Maps.life_mult()).
+	var map_life := 1.0
+	if id == MAP:
+		map_life = Maps.life_mult(area_level) * (1.0 + Items.stat(map_run.item, "monster_life") / 100.0)
+	for e: Enemy in get_tree().get_nodes_in_group("enemies") if fresh else []:
 		if int(info.world) >= 2:
 			if e is Bug:
 				e.hp = 2.0
 			elif e is SpamBot:
 				e.hp = 3.0
 		if e.health_bar and not e.projectile:
-			e.hp *= Enemy.HP_FACTOR
+			e.hp *= Enemy.HP_FACTOR * map_life
 	camera.snap_to(start + Vector2(0, -Player.SIZE.y))
 	var palette := Themes.palette(info.theme)
 	scenery.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette, info.get("dark", false) == true)
@@ -466,7 +487,8 @@ func load_level(id: String) -> void:
 		motif_3d.name = "Motif3D"
 		world.add_child(motif_3d)
 		motif_3d.setup(info.terrainSeed, camera.bounds, camera.view_size(), palette)
-	Decor.populate(level, info.terrainSeed, palette, info.get("dark", false) == true)
+	if fresh:
+		Decor.populate(level, info.terrainSeed, palette, info.get("dark", false) == true)
 	parallax.setup(info.theme, camera, palette)
 	for key in ["top", "mid", "haze", "ray"]:
 		haze.material.set_shader_parameter(key + "_color", Themes.vec(palette[key]))
@@ -622,6 +644,9 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 		&"zip_end":
 			particles.emit(at + Vector2(0, -9), {count = 8, speed = 60, life = 0.3, color = [Color.WHITE, Anchor.CYAN], drag = 3})
 		&"die", &"fell":
+			# Dying in a map costs a portal and XP and goes to the hideout.
+			if kind == &"die" and level_id == MAP:
+				call_deferred("_map_death")
 			# respawn() in TS puts the rising void back below the checkpoint.
 			if rising_void:
 				rising_void.reset(player.spawn_point.y)
@@ -640,6 +665,8 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 func enemy_died(e: Enemy, at: Vector2) -> void:
 	gain_xp(e.xp_worth())
 	roll_drop(e.xp_worth(), at)
+	if not map_run.is_empty() and is_same(e, map_run.boss):
+		map_complete(e.pos)
 	particles.emit(at, {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
 	particles.emit(at, {count = 6, speed = 40, life = 0.4, color = [ORANGE], size = 2})
 	Sound.play("enemyDie")
@@ -668,14 +695,143 @@ func gain_xp(hp: float) -> void:
 ## A defeated enemy worth `hp` hit points drops an item (docs/endgame-plan.md E2) with a chance of DROP_BASE plus
 ## DROP_PER_HP per hit point, at most DROP_MAX.
 func roll_drop(hp: float, at: Vector2) -> void:
-	if mode == Mode.PLAY and loot_rng.randf() < minf(DROP_MAX, DROP_BASE + hp * DROP_PER_HP):
+	if mode != Mode.PLAY:
+		return
+	# A map's item quantity makes everything likelier; maps drop maps.
+	var quantity := 1.0
+	if level_id == MAP and not map_run.is_empty():
+		quantity += Maps.quantity(map_run.item) / 100.0
+		if loot_rng.randf() < Maps.MAP_DROP * quantity:
+			drop_map(at)
+	if loot_rng.randf() < minf(DROP_MAX, (DROP_BASE + hp * DROP_PER_HP) * quantity):
 		drop_item(at)
 
 
-## A random item of the area level at `at`, rarer with item rarity (Stats) and `rarity_bonus` per cent.
+## A random item of the area level at `at`, rarer with item rarity (Stats, a map's) and `rarity_bonus` per cent.
 func drop_item(at: Vector2, rarity_bonus := 0.0) -> ItemDrop:
+	if level_id == MAP and not map_run.is_empty():
+		rarity_bonus += Maps.rarity(map_run.item)
 	var it := Items.roll(area_level, loot_rng, "", "", Stats.total("rarity") + rarity_bonus)
 	return ItemDrop.drop(level, at, it)
+
+
+## A map of this map's tier (or one higher) at `at`.
+func drop_map(at: Vector2) -> ItemDrop:
+	var tier: int = map_run.item.tier if not map_run.is_empty() else 1
+	return ItemDrop.drop(level, at, Maps.roll(Maps.drop_tier(tier, loot_rng), loot_rng))
+
+
+# --- Maps (docs/endgame-plan.md E5) ---------------------------------------------------------------------------
+
+## Opens `it` from the Map Device (it is used up): a new level from MapGen, MAP_PORTALS portals. An open map is
+## given up.
+func start_map(it: Dictionary) -> void:
+	_end_map()
+	var rows := MapGen.generate(int(it.seed), int(it.tier), Items.stat(it, "pack_size"), it.get("theme", "plains"))
+	var lvl := Level.build(rows)
+	map_run = {"item": it, "level": lvl, "portals": MAP_PORTALS, "area": Maps.area_level(it.tier), "boss": null, "done": false,
+		"info": {"id": MAP, "world": 4, "name": Items.name_of(it), "theme": it.get("theme", "plains"),
+			"music": levels[0].get("music", ""), "terrainSeed": int(it.seed) % 997}}
+	enter_map()
+
+
+## Into the open map (again): its level as it was left, at its last checkpoint.
+func enter_map() -> void:
+	mode = Mode.PLAY
+	endgame = true
+	front.close()
+	shop.close()
+	tree.close()
+	items.visible = false
+	var first: bool = map_run.boss == null and not map_run.done
+	load_level(MAP, map_run.level)
+	if first:
+		var marker := level.get_node_or_null("Boss")
+		var b := MapBoss.new()
+		b.name = "MapBoss"
+		b.position = marker.position if marker else Px.to3(Vector2(level.pixel_size.x - 64, 14 * 16))
+		level.add_child(b)
+		b.hp *= Maps.life_mult(area_level) * (1.0 + Items.stat(map_run.item, "monster_life") / 100.0)
+		b.max_hp = b.hp
+		b.shown_hp = b.hp
+		map_run.boss = b
+		# The portal at the start leads home.
+		for st: Station in get_tree().get_nodes_in_group("stations"):
+			st.label = "HIDEOUT"
+	boss = map_run.boss if map_run.boss and is_instance_valid(map_run.boss) and not map_run.boss.dead else null
+	overlay.popup("%d / %d PORTALS" % [map_run.portals, MAP_PORTALS], player.pos + Vector2(0, -34), Hud.ORANGE_LIGHT, 2.0)
+
+
+## Out of the map to the hideout (its portal, or the pause menu): the tokens are banked; a completed map closes.
+func leave_map() -> void:
+	Progress.wallet += tokens
+	tokens = 0
+	Progress.save()
+	var done: bool = map_run.done
+	if not done:
+		map_run.spawn = player.spawn_point
+	show_hideout()
+	if done:
+		_end_map()
+
+
+## Dying in a map (deferred from the player's "die"): a share of the level's XP is lost and a portal with it; the
+## map waits in the device unless that was the last portal.
+func _map_death() -> void:
+	if map_run.is_empty() or level_id != MAP:
+		return
+	var lost := Progress.lose_xp(MAP_DEATH_XP)
+	map_run.portals -= 1
+	Progress.wallet += tokens
+	tokens = 0
+	Progress.save()
+	var gone: bool = map_run.portals <= 0
+	map_run.spawn = player.spawn_point
+	show_hideout()
+	if gone:
+		_end_map()
+		overlay.popup("THE MAP COLLAPSED", player.pos + Vector2(0, -34), Hud.RED, 3.0)
+	else:
+		overlay.popup("-%d XP · %d PORTALS LEFT" % [lost, map_run.portals], player.pos + Vector2(0, -34), Hud.RED, 3.0)
+
+
+## The map boss fell at `at`: MAP COMPLETE, its maps and items, the tier counted, and a portal home where it fell.
+func map_complete(at: Vector2) -> void:
+	map_run.done = true
+	boss = null
+	var tier: int = map_run.item.tier
+	Progress.maps_done[str(tier)] = int(Progress.maps_done.get(str(tier), 0)) + 1
+	Progress.save()
+	Sound.play("complete")
+	overlay.popup("MAP COMPLETE", at + Vector2(0, -70), Experience.COLOR, 3.0)
+	for i in Maps.BOSS_MAPS:
+		drop_map(at + Vector2(0, -24))
+	for i in BOSS_DROPS:
+		drop_item(at + Vector2(0, -24), Maps.BOSS_RARITY)
+	var portal := Station.new()
+	portal.kind = "portal"
+	portal.label = "HIDEOUT"
+	portal.name = "HomePortal"
+	portal.position = Px.to3(at + Vector2(40, 0))
+	level.add_child(portal)
+
+
+## Gives up the map being run: its level goes (unless Clawd is in it).
+func _end_map() -> void:
+	if map_run.is_empty():
+		return
+	var lvl: Level = map_run.level
+	map_run = {}
+	if lvl and is_instance_valid(lvl) and not is_same(lvl, level):
+		lvl.free()
+
+
+## The pause menu's QUIT TO MAP: out of a map to the hideout, else to the world map.
+func quit_level() -> void:
+	if level_id == MAP:
+		leave_map()
+	else:
+		show_map(level_ids.find(level_id))
 
 
 ## The item Clawd stands by (the nearest in reach), picked up with the `pickup` action.
@@ -882,6 +1038,15 @@ func _apply_loadout() -> void:
 	player.evasion = Stats.total("evasion")
 	player.regen = Stats.total("regen")
 	player.area_level = area_level
+	# A map's mods on Clawd: enemies hit harder, less life, regeneration, armour and evasion.
+	player.hit_mult = 1.0
+	if level_id == MAP and not map_run.is_empty():
+		var it: Dictionary = map_run.item
+		player.hit_mult = 1.0 + Items.stat(it, "monster_damage") / 100.0
+		player.max_life *= 1.0 - Items.stat(it, "less_life") / 100.0
+		player.regen *= 1.0 - Items.stat(it, "less_regen") / 100.0
+		player.armour *= 1.0 - Items.stat(it, "less_defence") / 100.0
+		player.evasion *= 1.0 - Items.stat(it, "less_defence") / 100.0
 	# The prompt tree's allocated nodes (scripts/prompts.gd).
 	player.max_hearts = maxi(1, player.max_hearts + int(Prompts.stat("hearts")))
 	# With the gear's (Stats).

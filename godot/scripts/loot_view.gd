@@ -72,7 +72,8 @@ func _draw_stations() -> void:
 func _tooltip(d: ItemDrop, label: Rect2) -> void:
 	var it := d.item
 	var rows := ItemTooltip.rows(it, main.endgame)
-	rows += ItemTooltip.compare_rows(it, Progress.gear.get(Gear.slot_for(it), {}))
+	if Items.equippable(it):
+		rows += ItemTooltip.compare_rows(it, Progress.gear.get(Gear.slot_for(it), {}))
 	rows.append([])
 	var key := Settings.keys_text([&"pickup"]).split(" ")[0]
 	rows.append(["%s · PICK UP" % key, Hud.ORANGE_LIGHT] if Gear.fits(it) else ["INVENTORY FULL", Hud.RED])

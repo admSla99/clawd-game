@@ -281,7 +281,7 @@ func _draw_life(o: Vector2) -> void:
 	var inner := r.grow(-1)
 	draw_rect(Rect2(inner.position, Vector2(roundf(inner.size.x * clampf(_life_shown, 0, 1)), inner.size.y)), RED.lightened(0.45))
 	draw_rect(Rect2(inner.position, Vector2(roundf(inner.size.x * frac), inner.size.y)), Color.WHITE if _hurt > 0.2 else RED)
-	var text := "%d / %d" % [ceili(_player.life), roundi(_player.max_life)]
+	var text := "%d / %d" % [mini(ceili(_player.life), roundi(_player.max_life)), roundi(_player.max_life)]
 	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 2, SHADOW)
 	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 1, TEXT)
 

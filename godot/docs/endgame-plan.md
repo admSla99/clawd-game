@@ -113,8 +113,10 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
       the weapons found before items are normal items in the stash.
 - [x] E4 The hideout: the room, the stash, the vendor, the terminal, the entry from the world map. The vendor
       sells a stock of ten items that comes anew after every level cleared; the stash stays on the map too.
-- [ ] E5 Maps: chunks of world 1, the generator and its check, map items and mods, the Map Device, portals, the
-      map boss, maps dropping maps (T1-T5). **The vertical slice ends here: a first playtest.**
+- [x] E5 Maps: chunks of world 1, the generator and its check, map items and mods, the Map Device, portals, the
+      map boss, maps dropping maps (T1-T5). **The vertical slice ends here: a first playtest.** The boss is THE
+      OVERFITTER (a giant shield bot); the device gives a T1 map when there is none; an open map lives in memory
+      only (quitting the game gives it up); enemy hits grow 1.045^area level (was 1.06).
 - [ ] E6 Currency orbs: drops, stacks, using them on items and maps.
 - [ ] E7 Damage types, resistances and ailments on enemies, gear and map mods.
 - [ ] E8 Chunks of worlds 2 and 3, tiers up to T16, the Atlas screen and its points.

@@ -167,7 +167,11 @@ func _activate_pause() -> void:
 			main.player.respawn()
 		"RESTART LEVEL":
 			close()
-			main.load_level(main.level_id)
+			# A map cannot start over: back to its checkpoint.
+			if main.level_id == Main.MAP:
+				main.player.respawn()
+			else:
+				main.load_level(main.level_id)
 		"CRT FILTER":
 			Settings.set_crt(not Settings.crt)
 			main.crt.visible = Settings.crt
@@ -177,7 +181,7 @@ func _activate_pause() -> void:
 			open_keys()
 		"QUIT TO MAP":
 			state = NONE
-			main.show_map(main.level_ids.find(main.level_id))
+			main.quit_level()
 
 
 func _keys_rows() -> int:

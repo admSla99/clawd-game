@@ -16,7 +16,7 @@ const SLOT_KIND := {"weapon": "weapon", "helmet": "helmet", "body": "body", "glo
 	"amulet": "amulet", "ring1": "ring", "ring2": "ring"}
 ## What each kind is called (AI themed).
 const KIND_NAME := {"weapon": "WEAPON", "helmet": "CONTEXT WINDOW", "body": "CHASSIS", "gloves": "ACTUATORS",
-	"boots": "TREADS", "amulet": "CORE", "ring": "PLUGIN"}
+	"boots": "TREADS", "amulet": "CORE", "ring": "PLUGIN", "map": "MAP"}
 const RARITY_COLOR := {"normal": Color("#E6E6E6"), "magic": Color("#8C9BFF"), "rare": Color("#F2E36B"),
 	"unique": Color("#E08A4A")}
 ## Stats that only count where Clawd has hit points (the hideout and maps).
@@ -69,6 +69,8 @@ const BASES := {
 	"copper_plugin": {"kind": "ring", "name": "Copper Plugin", "size": [1, 1], "level": 1, "implicit": {"tokens": 5}},
 	"silver_plugin": {"kind": "ring", "name": "Silver Plugin", "size": [1, 1], "level": 5, "implicit": {"run": 3}},
 	"gold_plugin": {"kind": "ring", "name": "Gold Plugin", "size": [1, 1], "level": 10, "implicit": {"rarity": 12}},
+	# Maps (scripts/maps.gd): never rolled as gear (their level is out of reach), made by Maps.roll().
+	"map": {"kind": "map", "name": "Map", "size": [1, 1], "level": 100000},
 }
 
 const WEAPON := ["weapon"]
@@ -127,6 +129,19 @@ const AFFIXES := {
 	"res_lightning": {"type": "suffix", "stat": "res_lightning", "kinds": NOT_WEAPON, "text": "+%d%% voltage resistance",
 		"tiers": [[1, 6, 11], [12, 12, 17], [24, 18, 23], [36, 24, 29], [50, 30, 35], [70, 36, 41]],
 		"names": ["of Grounding", "of the Fuse", "of Insulation", "of the Breaker", "of Faraday", "of the Void"]},
+	# Map mods (scripts/maps.gd): harder maps that drop more.
+	"map_pack": {"type": "prefix", "stat": "pack_size", "kinds": ["map"], "text": "+%d%% more enemies",
+		"tiers": [[1, 15, 25], [36, 26, 35]], "names": ["Crowded", "Swarming"]},
+	"map_life": {"type": "prefix", "stat": "monster_life", "kinds": ["map"], "text": "enemies have +%d%% life",
+		"tiers": [[1, 20, 30], [36, 31, 45]], "names": ["Fine-tuned", "Overtrained"]},
+	"map_damage": {"type": "prefix", "stat": "monster_damage", "kinds": ["map"], "text": "enemies deal +%d%% damage",
+		"tiers": [[1, 15, 25], [36, 26, 35]], "names": ["Overclocked", "Unaligned"]},
+	"map_less_life": {"type": "suffix", "stat": "less_life", "kinds": ["map"], "text": "Clawd has %d%% less life",
+		"tiers": [[1, 10, 15], [36, 16, 20]], "names": ["of Low Context", "of Truncation"]},
+	"map_no_regen": {"type": "suffix", "stat": "less_regen", "kinds": ["map"], "text": "Clawd regenerates %d%% less",
+		"tiers": [[1, 100, 100]], "names": ["of No Retry"]},
+	"map_less_armour": {"type": "suffix", "stat": "less_defence", "kinds": ["map"], "text": "Clawd has %d%% less armour and evasion",
+		"tiers": [[1, 20, 30], [36, 31, 40]], "names": ["of Exposure", "of Stripping"]},
 }
 ## How each implicit stat reads (the same words as the affixes).
 const STAT_TEXT := {"crit": "+%d%% critical strike chance", "armour": "+%d armour", "evasion": "+%d evasion",
@@ -138,7 +153,7 @@ const RARE_FIRST := ["Hollow", "Latent", "Sparse", "Dense", "Frozen", "Quantized
 const RARE_SECOND := {"weapon": ["Gradient", "Sampler", "Decoder", "Kernel", "Argmax"], "helmet": ["Visor", "Crown", "Mask", "Halo"],
 	"body": ["Shell", "Carapace", "Frame", "Hull"], "gloves": ["Grasp", "Touch", "Hands", "Claws"],
 	"boots": ["Stride", "Tread", "Path", "Steps"], "amulet": ["Heart", "Core", "Engine", "Seed"],
-	"ring": ["Loop", "Hook", "Token", "Circuit"]}
+	"ring": ["Loop", "Hook", "Token", "Circuit"], "map": ["Expanse", "Wastes", "Depths", "Reaches", "Fields"]}
 ## Chances of a dropped item being magic or rare (normal otherwise), raised by item rarity.
 const MAGIC_CHANCE := 0.3
 const RARE_CHANCE := 0.06
@@ -171,6 +186,8 @@ static func roll(ilvl: int, rng: RandomNumberGenerator, rarity := "", base := ""
 	if rarity == "rare":
 		var kind: String = BASES[base].kind
 		item.name = RARE_FIRST[rng.randi() % RARE_FIRST.size()] + " " + RARE_SECOND[kind][rng.randi() % RARE_SECOND[kind].size()]
+		if kind == "map":
+			item.name += " Map"
 	return item
 
 
@@ -215,6 +232,11 @@ static func stat(item: Dictionary, key: String) -> float:
 	return n
 
 
+## Whether it can be worn (maps cannot).
+static func equippable(item: Dictionary) -> bool:
+	return kind(item) in SLOT_KIND.values()
+
+
 ## The stats `item` has (its implicit's and its affixes'), in order.
 static func stat_keys(item: Dictionary) -> Array:
 	var out: Array = BASES[item.base].get("implicit", {}).keys()
@@ -246,9 +268,12 @@ static func size(item: Dictionary) -> Vector2i:
 	return Vector2i(s[0], s[1])
 
 
-## The item's name: a rare's own, a magic one's prefix and suffix around the base, else the base's.
+## The item's name: a rare's own, a magic one's prefix and suffix around the base, else the base's (a map's
+## with its tier).
 static func name_of(item: Dictionary) -> String:
 	var base: String = BASES[item.base].name
+	if item.base == "map":
+		base = "%s Map T%d" % [Maps.THEME_NAMES.get(item.get("theme", "plains"), "Latent"), item.get("tier", 1)]
 	if item.rarity == "rare" and item.has("name"):
 		return item.name
 	if item.rarity == "magic":

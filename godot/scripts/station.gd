@@ -95,6 +95,8 @@ const DEPTH := {"o": 8, "L": 8, "m": 8, "d": 8, "#": 10, "W": 10, "S": 6, "e": 8
 static var _meshes := {}
 
 @export var kind := "stash"
+## A name instead of the kind's (a map's portal says HIDEOUT).
+@export var label := ""
 var t := randf() * 10
 var _glow: GlowLight
 
@@ -155,7 +157,7 @@ func feet() -> Vector2:
 
 
 func title() -> String:
-	return TITLES.get(kind, kind.to_upper())
+	return label if label != "" else TITLES.get(kind, kind.to_upper())
 
 
 ## The art's height in px (the prompt goes above it).

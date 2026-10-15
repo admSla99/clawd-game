@@ -16,6 +16,7 @@ const ICONS := {
 	"boots": ["..oo....", "..oL....", "..oL....", "..oLLLo.", ".oLLLLLo", ".oooooo."],
 	"amulet": ["..o..o..", "...oo...", "..oLLo..", ".oLWWLo.", ".oLWWLo.", "..oLLo..", "...oo..."],
 	"ring": ["...WW...", "..oWWo..", ".o....o.", "o......o", "o......o", ".o....o.", "..oooo.."],
+	"map": ["oooooooo", "oLLdLLLo", "oLdLLdLo", "oLLLdLLo", "odLLLLdo", "oLLdLLLo", "oooooooo"],
 }
 
 static var _meshes := {}

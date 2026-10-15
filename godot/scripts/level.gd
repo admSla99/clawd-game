@@ -77,7 +77,9 @@ var pixel_size := Vector2.ZERO
 func _ready() -> void:
 	pixel_size = size()
 	width = int(pixel_size.x / 16)
-	_add_side_walls()
+	# Once: a map's level comes back into the tree when Clawd goes back in.
+	if not has_node("SideWalls"):
+		_add_side_walls()
 
 
 ## Like `tile()` in src/world/level.ts, everything left and right of the map is solid: two invisible walls
