@@ -87,8 +87,11 @@ crosshair, and the shop's ARMORY and GUN MODS once a weapon is found.
 
 **`godot/docs/world3-plan.md` is world 3's plan** (design, decisions, milestones W0-W10, all done), and
 **`godot/docs/prompt-tree-plan.md`** the changes after its playthrough (the prompt tree, sub-agents that shoot, a
-longer 3-4); the next ideas (endless maps with modifiers built on the prompt tree, a farm level, accounts) are not
-planned yet.
+longer 3-4). **`godot/docs/endgame-plan.md` is the next work**: a Path of Exile-like ARPG endgame (character
+levels from XP, gear with affixes, a grid inventory and stash, currency orbs, a playable hideout with a Map
+Device, procedural maps from chunks, elements and resistances, the Atlas, Delirium, Breaches, pinnacle bosses),
+the user's decisions and milestones E0-E13; HP replaces hearts only in the hideout and maps, the campaign keeps
+hearts.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
 

@@ -1,7 +1,7 @@
 # CLAWD — the Godot 2.5D game
 
 CLAWD in Godot 4.7.2, in 3D with a side camera (2.5D): fourteen levels in three worlds, three bosses, shooting,
-the shop, and world 3's Tool Call, sub-agents and prompt tree (*World 3: AGENT MODE*, `docs/world3-plan.md`, `docs/prompt-tree-plan.md`),
+the shop, and world 3's Tool Call, sub-agents and prompt tree (*World 3: AGENT MODE*, `docs/world3-plan.md`, `docs/prompt-tree-plan.md`; the ARPG endgame being built is planned in `docs/endgame-plan.md`),
 playable from the title to the end of 3-B. GDScript; Forward+ renderer on desktop, Compatibility (WebGL 2) on the
 web export.
 

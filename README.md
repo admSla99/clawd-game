@@ -82,6 +82,6 @@ Sparks are spent in the shop but still count as found on the map.
 | Path | What |
 |---|---|
 | `godot/` | The game (scenes, scripts, shaders, levels, tools); see `godot/README.md` |
-| `godot/docs/` | Plans: `port-plan.md` (the finished port), `world3-plan.md`, `scenery-themes.md` |
+| `godot/docs/` | Plans: `port-plan.md` (the finished port), `world3-plan.md`, `prompt-tree-plan.md`, `endgame-plan.md` (the ARPG endgame, in progress), `scenery-themes.md` |
 | `docs/` | Images for this README |
 | `references/` | Reference images |
