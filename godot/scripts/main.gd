@@ -18,6 +18,9 @@ const DROP_PER_HP := 0.004
 const DROP_MAX := 0.4
 const BOSS_DROPS := 3
 const BOSS_RARITY := 200.0
+## The hideout (docs/endgame-plan.md E4): a level of its own, not in index.json's play order.
+const HIDEOUT := "hideout"
+const HIDEOUT_INFO := "res://levels/hideout.json"
 ## Extra pixels the SubViewport renders on every side, hidden by offsetting the container (see
 ## GameCamera.pad): the oblique projection draws block fronts up to 8 px below their real position.
 const PAD := 16
@@ -127,11 +130,15 @@ var loot_rng := RandomNumberGenerator.new()
 ## The endgame (the hideout and maps, docs/endgame-plan.md): Clawd has hit points instead of hearts there, and the
 ## gear's life, armour, evasion and resistances count.
 var endgame := false
+## The hideout's metadata (levels/hideout.json), and the station Clawd stands at there.
+var hideout_info: Dictionary
+var station_target: Station
 
 
 func _ready() -> void:
 	add_to_group("main")
 	levels = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_INDEX))
+	hideout_info = JSON.parse_string(FileAccess.get_file_as_string(HIDEOUT_INFO))
 	level_ids = levels.map(func(l): return l.id)
 	player = PLAYER.instantiate()
 	world.add_child(player)
@@ -195,6 +202,10 @@ func _input(event: InputEvent) -> void:
 		if items.handle(event):
 			get_viewport().set_input_as_handled()
 		return
+	if mode == Mode.PLAY and tree.visible:
+		tree.handle(event)
+		get_viewport().set_input_as_handled()
+		return
 	if mode == Mode.PLAY and event.is_action_pressed("inventory") and not menu.is_open() and complete_t < 0:
 		open_items_in_level()
 		get_viewport().set_input_as_handled()
@@ -224,6 +235,8 @@ func next_level() -> void:
 ## Starts level `id` (startLevel() in src/app.ts).
 func play(id: String) -> void:
 	mode = Mode.PLAY
+	# Hit points in the hideout (and the maps, E5); the campaign keeps hearts.
+	endgame = id == HIDEOUT
 	front.close()
 	shop.close()
 	tree.close()
@@ -267,20 +280,65 @@ func show_tree() -> void:
 	tree.open()
 
 
+## The hideout: opens once 3-B is beaten (FrontEnd), from the map.
+func show_hideout() -> void:
+	play(HIDEOUT)
+
+
+static func hideout_open() -> bool:
+	return Progress.progress_for("3-B").completed
+
+
+## Uses the hideout station Clawd stands at.
+func use_station(st: Station) -> void:
+	match st.kind:
+		"stash":
+			open_items_in_level("stash")
+		"vendor":
+			Vendor.ensure_stock()
+			open_items_in_level("vendor")
+		"terminal":
+			open_tree_in_level()
+		"device":
+			Sound.play("denied")
+			overlay.popup("NO MAPS YET", st.feet() + Vector2(0, -st.height() - 10), Hud.ORANGE_LIGHT, 1.6)
+		"portal":
+			Sound.play("confirm")
+			show_map(level_ids.find("3-B"))
+
+
+## The prompt tree over a level (the hideout's terminal): the game pauses until it closes.
+func open_tree_in_level() -> void:
+	Sound.play("confirm")
+	Game.paused = true
+	hud.visible = false
+	tree.open()
+	tree.overlay = true
+
+
+func close_tree_in_level() -> void:
+	tree.close()
+	tree.overlay = false
+	Game.paused = false
+	hud.visible = true
+	gear_changed()
+
+
 ## The inventory with the stash, over the drifting backdrop (the map's music plays on).
 func show_items() -> void:
 	_backdrop()
 	mode = Mode.ITEMS
 	front.close()
-	items.open(true)
+	items.open("stash")
 
 
-## The inventory over a level: the game pauses until it closes.
-func open_items_in_level() -> void:
+## The inventory over a level (with the stash or the vendor from a hideout station): the game pauses until it
+## closes.
+func open_items_in_level(left := "stats") -> void:
 	Sound.play("select")
 	Game.paused = true
 	hud.visible = false
-	items.open(false)
+	items.open(left)
 
 
 ## Closes the inventory: back to the map, or on with the level with the gear applied (gear_changed()).
@@ -322,8 +380,8 @@ func load_level(id: String) -> void:
 	level = next
 	world.add_child(level)
 	level_id = id
-	info = levels[level_ids.find(id)]
-	area_level = Experience.area_level(level_ids.find(id))
+	info = hideout_info if id == HIDEOUT else levels[level_ids.find(id)]
+	area_level = 1 if id == HIDEOUT else Experience.area_level(level_ids.find(id))
 	level.bake_cells(info.terrainSeed)
 	rising_void = RisingVoid.create(level, info.risingVoid) if info.has("risingVoid") else null
 	boss = _spawn_boss()
@@ -632,6 +690,14 @@ func _update_loot() -> void:
 			loot_target = d
 	if loot_target and Input.is_action_just_pressed("pickup"):
 		pick_up(loot_target)
+	# The hideout's stations, when no item is in reach.
+	station_target = null
+	if loot_target == null:
+		for st: Station in get_tree().get_nodes_in_group("stations"):
+			if st.in_reach(player):
+				station_target = st
+		if station_target and Input.is_action_just_pressed("pickup"):
+			use_station(station_target)
 
 
 ## Into the inventory with its name popping up, or INVENTORY FULL. Returns whether it was taken.

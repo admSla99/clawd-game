@@ -1,0 +1,10 @@
+{
+	"id": "hideout",
+	"world": 4,
+	"name": "Your Hideout",
+	"subtitle": "where the agent rests between runs",
+	"theme": "hideout",
+	"music": "map",
+	"terrainSeed": 404,
+	"signs": ["YOUR HIDEOUT\nstand by a station and press E"]
+}

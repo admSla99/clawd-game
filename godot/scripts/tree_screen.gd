@@ -44,6 +44,8 @@ var reset_armed := 0.0
 var flash_id := ""
 var flash_t := 0.0
 var _field: Node2D
+## Opened over a level (the hideout's terminal): back closes it there instead of going to the map.
+var overlay := false
 
 
 func _ready() -> void:
@@ -100,7 +102,10 @@ func handle(event: InputEvent) -> bool:
 		return false
 	if event.is_action_pressed("back") or event.is_action_pressed("tree"):
 		Sound.play("select")
-		main.show_map(main.front.sel)
+		if overlay:
+			main.close_tree_in_level()
+		else:
+			main.show_map(main.front.sel)
 	elif event.physical_keycode == KEY_U:
 		buy()
 	elif event.physical_keycode == KEY_R:

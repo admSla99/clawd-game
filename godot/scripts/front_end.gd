@@ -173,6 +173,9 @@ func _map_key(event: InputEvent) -> bool:
 	elif event.is_action_pressed("inventory"):
 		Sound.play("confirm")
 		main.show_items()
+	elif event is InputEventKey and event.physical_keycode == KEY_O and Main.hideout_open():
+		Sound.play("confirm")
+		main.show_hideout()
 	elif event.is_action_pressed("back"):
 		Sound.play("select")
 		main.show_title()
@@ -226,6 +229,13 @@ func _tree_label() -> String:
 	return "T · PROMPTS" + (" (%d)" % free if free > 0 else "")
 
 
+## Left of the items' button, once 3-B is beaten.
+func _hideout_rect() -> Rect2:
+	var r := _items_rect()
+	var w := PixelFont.width("O · HIDEOUT") + 14
+	return Rect2(r.position.x - 6 - w, r.position.y, w, 14)
+
+
 ## Left of the prompt tree's button (or the shop's).
 func _items_rect() -> Rect2:
 	var r := _tree_rect() if tree_open() else _shop_rect()
@@ -241,6 +251,10 @@ func _shop_rect() -> Rect2:
 
 
 func _map_click(p: Vector2) -> bool:
+	if Main.hideout_open() and _hideout_rect().has_point(p):
+		Sound.play("confirm")
+		main.show_hideout()
+		return true
 	if _items_rect().has_point(p):
 		Sound.play("confirm")
 		main.show_items()
@@ -542,8 +556,8 @@ func _draw_map() -> void:
 		PackedColorArray([clear, clear, dark, dark]))
 	draw_rect(Rect2(0, y1, full.x, full.y - y1), dark)
 	_big("WORLD MAP", v.position + Vector2(14, 8), Hud.TEXT)
-	Hud.draw_xp(self, v.position + Vector2(14 + PixelFont.width("WORLD MAP") * 2 + 14, 12), Progress.char_level,
-		Experience.fraction())
+	# Clawd's level under the title (the top row is full of buttons).
+	Hud.draw_xp(self, v.position + Vector2(14, 28), Progress.char_level, Experience.fraction())
 	# Shop button, then the wallet: banked tokens and sparks not spent (top right, like the TS map).
 	var sr := _shop_rect()
 	var shop_ok := shop_open()
@@ -562,6 +576,11 @@ func _draw_map() -> void:
 	Hud.panel(self, ir, Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.9))
 	PixelFont.draw_centred(self, "I · ITEMS", ir.get_center().x, ir.position.y + 4, Hud.ORANGE_LIGHT if ir.has_point(_mouse) else Hud.TEXT)
 	sr = ir
+	if Main.hideout_open():
+		var hr := _hideout_rect()
+		Hud.panel(self, hr, Hud.ORANGE, Color(0.07, 0.07, 0.08, 0.9))
+		PixelFont.draw_centred(self, "O · HIDEOUT", hr.get_center().x, hr.position.y + 4, Hud.ORANGE_LIGHT if hr.has_point(_mouse) else Hud.TEXT)
+		sr = hr
 	var sparks := str(Progress.sparks_available())
 	var wx := sr.position.x - 8 - PixelFont.width(sparks)
 	_text(sparks, Vector2(wx, v.position.y + 12), Hud.TEXT)
@@ -618,7 +637,8 @@ func _draw_map() -> void:
 		all += sparks_total.get(id, 0)
 	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
 	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
-	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   I ITEMS   B SHOP   " + ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
+	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   " + ("O HIDEOUT   " if Main.hideout_open() else "") + "I ITEMS   B SHOP   " \
+		+ ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
 	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
 

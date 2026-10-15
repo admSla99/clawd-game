@@ -4,7 +4,8 @@ extends Node2D
 ## Labels over the items lying in the level and the tooltip of the one Clawd stands by (docs/endgame-plan.md E2),
 ## Path of Exile's way: every ItemDrop gets a small dark label with its name in its rarity's colour (labels that
 ## would overlap stack upwards); the target (Main.loot_target) gets ItemTooltip's panel, what equipping it would
-## change, and the key that picks it up. Drawn in view pixels under Ui, like the Overlay; made by Main.
+## change, and the key that picks it up; the hideout's stations get their names and the key that uses them. Drawn
+## in view pixels under Ui, like the Overlay; made by Main.
 
 const LABEL_BG := Color(0.03, 0.03, 0.04, 0.82)
 
@@ -16,7 +17,7 @@ func _process(_dt: float) -> void:
 
 
 func _draw() -> void:
-	if main == null or main.mode != Main.Mode.PLAY or main.complete_t >= 1.6:
+	if main == null or main.mode != Main.Mode.PLAY or main.complete_t >= 1.6 or Game.paused:
 		return
 	var placed: Array[Rect2] = []
 	var target: ItemDrop = main.loot_target
@@ -48,6 +49,22 @@ func _draw() -> void:
 	# The tooltip over every label.
 	if target and is_instance_valid(target) and target_label.has_area():
 		_tooltip(target, target_label)
+	_draw_stations()
+
+
+## The hideout's stations: each one's name over it, dim; the one Clawd stands at as "E · NAME" in orange.
+func _draw_stations() -> void:
+	var key := Settings.keys_text([&"pickup"]).split(" ")[0]
+	for st: Station in get_tree().get_nodes_in_group("stations"):
+		var at: Vector2 = main.overlay.to_view(st.feet() + Vector2(0, -st.height() - 5), Station.Z)
+		if st == main.station_target:
+			var text := "%s · %s" % [key, st.title()]
+			var w := PixelFont.width(text) + 10
+			var r := Rect2(roundf(at.x - w / 2.0), roundf(at.y - 11), w, 11)
+			Hud.panel(self, r, Hud.ORANGE, Color(0.05, 0.05, 0.06, 0.9))
+			PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 2, Hud.ORANGE_LIGHT)
+		else:
+			PixelFont.draw_centred(self, st.title(), at.x, at.y - 9, Color(Hud.TEXT_DIM, 0.8))
 
 
 ## The tooltip of `d`, above its label `label`, kept on screen: ItemTooltip's rows, what equipping it would change,

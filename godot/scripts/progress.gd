@@ -39,6 +39,11 @@ var xp := 0
 var gear := {}
 var inventory: Array = []
 var stash: Array = []
+## The hideout vendor's stock (Vendor) and the number of runs it was stocked at.
+var vendor: Array = []
+var vendor_at := -1
+## Levels cleared, all runs counted (the vendor restocks after each).
+var runs := 0
 ## The weapons found before items existed were given as normal items into the stash (once).
 var weapon_items := false
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
@@ -67,6 +72,7 @@ func load_file() -> void:
 	points_bought = 0
 	char_level = 1
 	xp = 0
+	runs = 0
 	_load_items()
 	if not FileAccess.file_exists(path):
 		return
@@ -86,6 +92,7 @@ func load_file() -> void:
 		points_bought = int(data.get("points_bought", 0))
 		char_level = clampi(int(data.get("char_level", 1)), 1, Experience.MAX_LEVEL)
 		xp = maxi(0, int(data.get("xp", 0)))
+		runs = int(data.get("runs", 0))
 		# World 3's first System Prompts (bought, then switched on within a budget) are refunded.
 		for id in data.get("prompts", []):
 			if OLD_PROMPTS.has(id):
@@ -118,7 +125,7 @@ func save() -> void:
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
-			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp}))
+			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp, "runs": runs}))
 
 
 ## Where the items are saved: next to the progress, "<name>_items.json".
@@ -129,13 +136,16 @@ func items_path() -> String:
 func save_items() -> void:
 	var f := FileAccess.open(items_path(), FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory, "stash": stash, "weapon_items": weapon_items}))
+		f.store_string(JSON.stringify({"gear": gear, "inventory": inventory, "stash": stash, "weapon_items": weapon_items,
+			"vendor": vendor, "vendor_at": vendor_at}))
 
 
 func _load_items() -> void:
 	gear = {}
 	inventory = []
 	stash = []
+	vendor = []
+	vendor_at = -1
 	weapon_items = false
 	if FileAccess.file_exists(items_path()):
 		var data = JSON.parse_string(FileAccess.get_file_as_string(items_path()))
@@ -147,6 +157,8 @@ func _load_items() -> void:
 			inventory = data.get("inventory", []).filter(_valid_item)
 			stash = data.get("stash", []).filter(_valid_item)
 			weapon_items = data.get("weapon_items", false) == true
+			vendor = data.get("vendor", []).filter(_valid_item)
+			vendor_at = int(data.get("vendor_at", -1))
 	# Every item on a spot of its own; what the inventory cannot hold goes to the stash.
 	for it in Gear.normalize(inventory, Gear.INV_SIZE):
 		Gear.place(stash, Gear.STASH_SIZE, it)
@@ -185,6 +197,7 @@ func record_run(id: String, sparks: Array, agents: Array, time: float, tokens: i
 		"best_time": time if prev.best_time == null else minf(prev.best_time, time),
 	}
 	wallet += tokens
+	runs += 1
 	save()
 
 

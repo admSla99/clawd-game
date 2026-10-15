@@ -92,7 +92,8 @@ longer 3-4). **`godot/docs/endgame-plan.md` is the next work**: a Path of Exile-
 levels from XP, gear with affixes, a grid inventory and stash, currency orbs, a playable hideout with a Map
 Device, procedural maps from chunks, elements and resistances, the Atlas, Delirium, Breaches, pinnacle bosses),
 the user's decisions and milestones E0-E13; HP replaces hearts only in the hideout and maps, the campaign keeps
-hearts.
+hearts. E1-E4 are done (character level, items and drops, the inventory and stash, the hideout: `levels/hideout.txt`
++ `hideout.json`, outside index.json's play order, opened from the map with O once 3-B is beaten).
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
 

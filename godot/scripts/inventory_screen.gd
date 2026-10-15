@@ -10,7 +10,8 @@ extends Node2D
 ## twice destroys, I or Escape closes (a held item goes back first). The hovered item shows its tooltip, what
 ## equipping it would change, and the equipped one's tooltip beside it.
 ## Made by Main under Ui. In a level it pauses the game and Main applies the gear when it closes (gear_changed());
-## from the map it is Main.Mode.ITEMS, over the drifting backdrop.
+## from the map it is Main.Mode.ITEMS, over the drifting backdrop. The hideout's vendor (Vendor) opens it with its
+## stock on the left: a click there buys, an item put down there (or Ctrl + click / C in the inventory) sells.
 
 const CELL := 12
 const GRID_W := 144
@@ -28,8 +29,10 @@ const CELL_FILL := Color(0.06, 0.06, 0.07, 0.92)
 const CELL_LINE := Color("#202024")
 
 var main: Node
-## The stash is open beside the inventory (from the map).
+## What is on the left: "stats", "stash" (from the map and the hideout's stash) or "vendor" (the hideout's vendor).
+var left := "stats"
 var stash_open := false
+var vendor_open := false
 var t := 0.0
 ## The item on the cursor and where it came from ({area, at} or {area: "equip", slot}).
 var held := {}
@@ -44,9 +47,11 @@ var destroy_armed := 0.0
 var _mouse := Vector2(-1000, -1000)
 
 
-func open(with_stash: bool) -> void:
+func open(side := "stats") -> void:
 	visible = true
-	stash_open = with_stash
+	left = side
+	stash_open = side == "stash"
+	vendor_open = side == "vendor"
 	t = 0.0
 	held = {}
 	held_from = {}
@@ -88,12 +93,22 @@ func origin(area: String) -> Vector2:
 	return Vector2(v.position.x + 14, v.position.y + 40)
 
 
+## Where `area` starts: the stash and the vendor share the left side.
+func _origin_of(area: String) -> Vector2:
+	return origin("stash" if area == "vendor" else area)
+
+
 func grid_size(area: String) -> Vector2i:
-	return Gear.STASH_SIZE if area == "stash" else Gear.INV_SIZE
+	return Gear.STASH_SIZE if area == "stash" else Vendor.SIZE if area == "vendor" else Gear.INV_SIZE
 
 
 func items_of(area: String) -> Array:
-	return Progress.stash if area == "stash" else Progress.inventory
+	return Progress.stash if area == "stash" else Progress.vendor if area == "vendor" else Progress.inventory
+
+
+## The grid on the left ("stash", "vendor") or "".
+func left_area() -> String:
+	return "stash" if stash_open else "vendor" if vendor_open else ""
 
 
 func slot_rect(slot: String) -> Rect2:
@@ -103,12 +118,12 @@ func slot_rect(slot: String) -> Rect2:
 
 
 func cell_rect(area: String, r: Rect2i) -> Rect2:
-	return Rect2(origin(area) + Vector2(r.position) * CELL, Vector2(r.size) * CELL)
+	return Rect2(_origin_of(area) + Vector2(r.position) * CELL, Vector2(r.size) * CELL)
 
 
 ## What lies under `p`: {area, cell} for a grid, {area: "equip", slot}, or {area: ""}.
 func hit(p: Vector2) -> Dictionary:
-	for area in (["inv", "stash"] if stash_open else ["inv"]):
+	for area in (["inv", left_area()] if left_area() != "" else ["inv"]):
 		var r := cell_rect(area, Rect2i(Vector2i.ZERO, grid_size(area)))
 		if r.has_point(p):
 			return {"area": area, "cell": Vector2i(((p - r.position) / CELL).floor())}
@@ -127,7 +142,7 @@ func item_at(tg: Dictionary) -> Dictionary:
 	match tg.get("area", ""):
 		"equip":
 			return Progress.gear.get(tg.slot, {})
-		"inv", "stash":
+		"inv", "stash", "vendor":
 			return Gear.item_at(items_of(tg.area), tg.cell)
 	return {}
 
@@ -209,8 +224,8 @@ func _step(d: Vector2i) -> void:
 		elif d == Vector2i.DOWN:
 			cur.area = "inv"
 			cur.cell = Vector2i(clampi(int((at.x - origin("inv").x) / CELL), 0, Gear.INV_SIZE.x - 1), 0)
-		elif d == Vector2i.LEFT and stash_open:
-			cur.area = "stash"
+		elif d == Vector2i.LEFT and left_area() != "":
+			cur.area = left_area()
 			cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, 0)
 		return
 	var g := grid_size(cur.area)
@@ -220,10 +235,10 @@ func _step(d: Vector2i) -> void:
 	elif cur.area == "inv" and d == Vector2i.UP:
 		cur.area = "equip"
 		cur.slot = "gloves" if at.x < origin("equip").x + 4 * CELL else "boots"
-	elif cur.area == "inv" and d == Vector2i.LEFT and stash_open:
-		cur.area = "stash"
+	elif cur.area == "inv" and d == Vector2i.LEFT and left_area() != "":
+		cur.area = left_area()
 		cur.cell = Vector2i(Gear.STASH_SIZE.x - 1, mini(cur.cell.y, Gear.STASH_SIZE.y - 1))
-	elif cur.area == "stash" and d == Vector2i.RIGHT:
+	elif cur.area in ["stash", "vendor"] and d == Vector2i.RIGHT:
 		cur.area = "inv"
 		cur.cell = Vector2i(0, mini(cur.cell.y, Gear.INV_SIZE.y - 1))
 
@@ -244,6 +259,14 @@ func say(s: String) -> void:
 ## Left click / Space: picks up what is there, or puts the held item down (swapping with one item under it).
 func primary(tg: Dictionary) -> void:
 	if tg.get("area", "") == "":
+		return
+	if tg.area == "vendor":
+		if held.is_empty():
+			_buy(item_at(tg))
+		else:
+			_sell(held)
+			held = {}
+			held_from = {}
 		return
 	if held.is_empty():
 		var it := item_at(tg)
@@ -286,7 +309,7 @@ func primary(tg: Dictionary) -> void:
 func _drop_cell(tg: Dictionary, size: Vector2i) -> Vector2i:
 	if keys:
 		return tg.cell
-	var o := origin(tg.area)
+	var o := _origin_of(tg.area)
 	var tl := (_mouse - o - Vector2(size) * CELL / 2.0 + Vector2.ONE * CELL / 2.0) / CELL
 	var g := grid_size(tg.area)
 	return Vector2i(clampi(floori(tl.x), 0, g.x - size.x), clampi(floori(tl.y), 0, g.y - size.y))
@@ -299,6 +322,9 @@ func quick(tg: Dictionary) -> void:
 		return
 	var it := item_at(tg)
 	if it.is_empty():
+		return
+	if tg.area == "vendor":
+		_buy(it)
 		return
 	if tg.area == "equip":
 		if not Gear.take(Progress.gear[tg.slot]):
@@ -332,9 +358,17 @@ func _slot_of(it: Dictionary) -> String:
 
 ## Ctrl + click / C: between the inventory and the stash (the first free cell there).
 func move_across(tg: Dictionary) -> void:
+	if vendor_open and held.is_empty():
+		var vit := item_at(tg)
+		if tg.get("area", "") == "inv" and not vit.is_empty():
+			Progress.inventory.erase(vit)
+			_sell(vit)
+		elif tg.get("area", "") == "vendor":
+			_buy(vit)
+		return
 	if not stash_open or not held.is_empty() or tg.get("area", "") not in ["inv", "stash"]:
 		if not stash_open:
-			say("THE STASH OPENS FROM THE MAP")
+			say("THE STASH IS IN THE HIDEOUT (OR ON THE MAP)")
 		return
 	var it := item_at(tg)
 	if it.is_empty():
@@ -351,8 +385,35 @@ func move_across(tg: Dictionary) -> void:
 	Sound.play("select")
 
 
+## Sells `it` (already out of its grid or off the cursor) to the vendor.
+func _sell(it: Dictionary) -> void:
+	var price := Vendor.sell_price(it)
+	Progress.wallet += price
+	Progress.save()
+	Progress.save_items()
+	Sound.play("buy")
+	say("SOLD %s FOR %d TOKENS" % [Items.name_of(it).to_upper(), price])
+
+
+func _buy(it: Dictionary) -> void:
+	if it.is_empty():
+		return
+	match Vendor.buy(it):
+		"bought":
+			Sound.play("buy")
+			say("BOUGHT %s" % Items.name_of(it).to_upper())
+		"poor":
+			Sound.play("denied")
+			say("NOT ENOUGH TOKENS (%d)" % Vendor.buy_price(it))
+		"full":
+			Sound.play("denied")
+			say("INVENTORY FULL")
+
+
 ## Delete: the held item, or the one under the cursor, is destroyed on the second press.
 func destroy(tg: Dictionary) -> void:
+	if tg.get("area", "") == "vendor" and held.is_empty():
+		return
 	var it := held if not held.is_empty() else item_at(tg)
 	if it.is_empty():
 		return
@@ -425,6 +486,9 @@ func _draw() -> void:
 	if stash_open:
 		_label("STASH", origin("stash"))
 		_draw_grid("stash")
+	elif vendor_open:
+		_label("VENDOR · BUYS ANYTHING", origin("stash"))
+		_draw_grid("vendor")
 	else:
 		_draw_stats()
 	_label("EQUIPPED", origin("equip"))
@@ -445,8 +509,9 @@ func _draw() -> void:
 		ItemTooltip.draw_icon(self, held, at + size / 2.0, _scale(held))
 	else:
 		_draw_tooltips()
-	var help := "LMB PICK UP / PUT DOWN   RMB EQUIP   CTRL+LMB STASH   DEL DEL DESTROY   I / ESC CLOSE" if not keys \
-		else "ARROWS MOVE   SPACE PICK UP / PUT DOWN   X EQUIP   C STASH   DEL DEL DESTROY   I / ESC CLOSE"
+	var across := "SELL" if vendor_open else "STASH"
+	var help := "LMB PICK UP / PUT DOWN   RMB EQUIP   CTRL+LMB %s   DEL DEL DESTROY   I / ESC CLOSE" % across if not keys \
+		else "ARROWS MOVE   SPACE PICK UP / PUT DOWN   X EQUIP   C %s   DEL DEL DESTROY   I / ESC CLOSE" % across
 	if note_t > 0:
 		help = note
 	PixelFont.draw_centred(self, help, v.get_center().x, v.end.y - 10, Hud.ORANGE_LIGHT if note_t > 0 else Color("#5C5C5C"))
@@ -503,7 +568,12 @@ func _draw_tooltips() -> void:
 	if tg.area != "equip":
 		other = Progress.gear.get(Gear.slot_for(it), {})
 		rows += ItemTooltip.compare_rows(it, other)
-	var side := "right" if tg.area == "stash" else "left"
+	if tg.area == "vendor":
+		var price := Vendor.buy_price(it)
+		rows += [[], ["CLICK BUYS · %d TOKENS" % price, Hud.ORANGE_LIGHT if Progress.wallet >= price else Hud.RED]]
+	elif tg.area == "inv" and vendor_open:
+		rows += [[], ["CTRL+CLICK SELLS · %d TOKENS" % Vendor.sell_price(it), Hud.ORANGE_LIGHT]]
+	var side := "right" if tg.area in ["stash", "vendor"] else "left"
 	var sz := ItemTooltip.size(rows)
 	var at := ItemTooltip.place(sz, anchor, view(), side)
 	var box := ItemTooltip.draw(self, rows, at, Items.color(it).darkened(0.35))

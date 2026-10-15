@@ -48,6 +48,7 @@ const WEBHOOK := "res://scripts/webhook.gd"
 const BRITTLE := "res://scripts/brittle.gd"
 const RETRY_LOOP := "res://scripts/retry_loop.gd"
 const GATE_SCRIPT := "res://scripts/gate.gd"
+const STATION := "res://scripts/station.gd"
 # '@' becomes a Marker3D named Start; 'E' a bug; 'o' a token; 'C' a checkpoint; 'G' the exit; '?' a sign
 # (numbered in map order, like Spawn.index); 'M' / 'V' a moving platform (horizontal / vertical, each one
 # 1.3 s further in its swing than the one before, like platPhase in src/scenes/game.ts); 'A' a sub-agent and
@@ -56,7 +57,7 @@ const GATE_SCRIPT := "res://scripts/gate.gd"
 # (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "*": "timeout_anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "*": "timeout_anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop", "K": "stash", "N": "vendor", "U": "terminal", "O": "device", "Q": "portal"}
 
 ## Brittle blocks by tile (scripts/brittle.gd adds itself).
 var brittle := {}
@@ -396,6 +397,10 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"gate":
 			node = load(GATE_SCRIPT).new()
 			node.name = "Gate"
+		"stash", "vendor", "terminal", "device", "portal":
+			node = load(STATION).new()
+			node.name = "Station"
+			node.kind = kind
 		"platform_h", "platform_v":
 			node = load(PLATFORM).new()
 			node.name = "Platform"

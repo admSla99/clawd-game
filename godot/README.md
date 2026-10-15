@@ -69,6 +69,7 @@ Map legend:
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
 | `B` | Where `Main` places the level's boss |
+| `K` `N` `U` `O` `Q` | The hideout's stations: stash, vendor, terminal (prompt tree), Map Device, portal to the world map |
 
 `index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
 `theme` (palette, scenery and motif), `music`, `signs`, the optional `dark`, `risingVoid` (`speed` px/s, `delay`
@@ -1067,6 +1068,35 @@ tool calls.) is read with `Prompts.on()`.
   and keystones allocated under its panel. Clawd's level and XP bar sit after the points; the start's card says
   where the points come from (levels, world 3's sparks, bought).
 
+## The hideout
+
+The endgame's home (`docs/endgame-plan.md`, E4): `levels/hideout.txt`, converted like any level, but with its
+metadata in `levels/hideout.json` (not in index.json's play order; theme `hideout`, a warm lamp-lit den, the map's
+music). Once 3-B is beaten the world map has `O · HIDEOUT` (and the O key; `Main.hideout_open()`):
+`Main.show_hideout()` plays it with `Main.endgame` on, so Clawd has hit points there (`play()` turns it off for
+the campaign). A 56 x 18 room: the portal, the start, the stash, the vendor under a shelf, the Map Device on a
+stage, the terminal and a sign.
+
+- **Stations** (`scripts/station.gd`, `Station`, group `stations`; map characters `K` `N` `U` `O` `Q`, `kind`
+  exported so the converted scene keeps it): voxel art at 2 px a cell behind the gameplay plane with a breathing
+  GlowLight, a vault crate, a merchant bot with a screen face, a terminal showing the tree, the Map Device (a stone
+  arch on a plinth with a ring of runes) and an arched portal. `Main._update_loot()` finds the one Clawd stands
+  at (when no item is in reach: `station_target`) and E (`pickup`) uses it (`use_station()`); LootView puts each
+  one's name over it, dim, and "E · NAME" in orange over the one in reach.
+- **Stash**: the inventory with the stash (`open_items_in_level("stash")`). **Terminal**: the prompt tree over
+  the hideout (`open_tree_in_level()`, `TreeScreen.overlay`: Escape closes it back there and the stats are applied).
+  **Map Device**: no maps yet (E5). **Portal**: back to the world map.
+- **Vendor** (`scripts/vendor.gd`, `Vendor`): the inventory with the vendor's stock on the left (`Progress.vendor`,
+  a 12 x 12 grid): ten items of Clawd's level (half normal, 40 % magic, 10 % rare), new after every level cleared
+  (`Progress.runs`, counted by `record_run()`). An item is worth 3 x (1 + item level / 10) x its rarity (normal 1,
+  magic 3, rare 8): the vendor pays that and sells for four times as much. A click on its stock buys (NOT ENOUGH
+  TOKENS / INVENTORY FULL), Ctrl + click / C on an item in the inventory or putting a held item down on its grid
+  sells; the tooltips show the prices.
+- Checks (`tools/checks/hideout.gd`): O only after 3-B, the hideout with hit points, five stations and no
+  enemies, E at the stash, the vendor's stock, buying and selling and too few tokens, the stock staying until a
+  level is cleared, the prices, the terminal's tree and Escape back, the Map Device, the portal, hearts again in
+  the campaign.
+
 ## Character level
 
 The first step of the ARPG endgame (`docs/endgame-plan.md`, E1): `scripts/experience.gd` (`Experience`, static)
@@ -1372,6 +1402,7 @@ without COOP/COEP headers.
 | `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |
 | `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
 | `scripts/item_tooltip.gd`, `scripts/inventory_screen.gd` | The item tooltip, comparison and icons; the inventory window with the stash |
+| `levels/hideout.txt`, `levels/hideout.json`, `scripts/station.gd`, `scripts/vendor.gd` | The hideout, its stations and the vendor |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |
 | `shaders/motif_ravine.gdshader` | Ravine motif (3-4): ravine walls, clocks timing out, spinners |

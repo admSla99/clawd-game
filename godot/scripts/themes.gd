@@ -30,6 +30,8 @@ const PALETTES := {
 	"ravine": {"top": Color8(9, 6, 12), "mid": Color8(32, 14, 36), "haze": Color8(72, 30, 72), "ray": Color8(224, 122, 192), "light": Color8(216, 112, 174)},
 	# Night-blue network glow.
 	"router": {"top": Color8(4, 5, 12), "mid": Color8(12, 16, 42), "haze": Color8(26, 40, 98), "ray": Color8(124, 172, 255), "light": Color8(120, 164, 250)},
+	# The hideout (the endgame): a warm, lamp-lit den.
+	"hideout": {"top": Color8(12, 9, 8), "mid": Color8(36, 24, 20), "haze": Color8(84, 52, 40), "ray": Color8(240, 170, 120), "light": Color8(236, 170, 128)},
 }
 
 
