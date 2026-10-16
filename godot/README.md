@@ -1172,6 +1172,38 @@ item's (or a map's) rarity or affixes.
   the pouch saved, picking one up on touch, the drop rate, taking and using one in the window, the reason on a
   wrong item, right click putting it back.
 
+## Top-down prototype (branch `topdown-prototype`)
+
+The user's test of an isometric ARPG view (2026-10-16: should the endgame, or worlds 2-3, be seen from above like
+Path of Exile?). A scene of its own, `scenes/topdown.tscn` (`scripts/topdown/`), opened with Y on the world map;
+Esc goes back to the map. Nothing of the side-view game changes; the endgame's systems are used as they are.
+
+- **View** (`TdMain`): an orthographic camera turned 45 degrees and tilted 35.264 down (isometric), 24 view pixels a
+  metre, easing after Clawd with a little shake on hits; rendered into a SubViewport of the view's size (~480 x 270),
+  so it is pixel art like the main game, nearest-scaled by the window's integer stretch. The HUD (`TdHud`) is drawn
+  in that viewport: life bar, LV and XP (`Hud.draw_xp()`), wave, kills and area level, the weapon, the controls,
+  popups and damage numbers projected from 3D (`TdMain.to_view()`), enemies' bars once hurt, and a panel when Clawd
+  falls.
+- **The arena** (`TdRoom`): 34 x 26 cells of 1 m, walled round, 22 seeded blocks (1 x 1 to 3 x 2) kept off the
+  middle, anything the middle cannot reach filled in; one mesh of a checkered floor and 0.9 m walls (lit tops,
+  darker sides) in the hideout's colours. Movement is a circle sliding along the grid (`slide()`), shots stop on
+  walls, `line_clear()` for sight.
+- **Clawd** (`TdPlayer`): WASD relative to the screen (W is up the screen), aiming at the mouse's point on the
+  ground, the left button (or the attack key) fires the gun he holds (the equipped weapon item or the campaign's,
+  every `Weapons` / `Stats` multiplier and critical strikes; no context heat), Space dodges (0.2 s at 13 m/s in the
+  move or aim direction, no hits meanwhile, 0.55 s cooldown). Life, armour, evasion and regeneration from `Stats`;
+  a hit is the area level's enemy hit (`Stats.enemy_hit()`), then 0.8 s of grace.
+- **Sprites** (`TdActor`): the side-view voxel sprites (Clawd, the bug, the spam bot) turned to face the camera
+  like cut-outs, mirrored to face left or right on screen, with a blob shadow and a white hit flash; their colours
+  read like the main game's voxel shader (vertex colours as linear), the room's as sRGB.
+- **Enemies** (`TdEnemy`): bugs walk at Clawd and bite (thrown back 1.4 m when they do), spam bots float, keep
+  4-6 m away circling and fire a slow shot every 2.2 s when they see him. Life as in a map (`Maps.life_mult()`).
+- **Waves**: 4 + 2 x wave enemies (30 % spam bots) at least 7 m from Clawd, area level 32 + wave - 1. A kill: XP
+  (LEVEL n popping up), 10 tokens into the wallet, an item straight into the inventory with the map's drop chance,
+  an orb into the pouch 5 % of the time. Dying loses 10 % of the level's XP; Space starts a new arena.
+- Checks (`tools/checks/topdown.gd`): the arena all reachable, the starting life, W up the screen, the dodge and
+  its immunity, a shot's kill with XP and tokens, waves growing, a bite and the throw-back.
+
 ## Character level
 
 The first step of the ARPG endgame (`docs/endgame-plan.md`, E1): `scripts/experience.gd` (`Experience`, static)

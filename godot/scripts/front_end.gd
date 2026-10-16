@@ -173,6 +173,10 @@ func _map_key(event: InputEvent) -> bool:
 	elif event.is_action_pressed("inventory"):
 		Sound.play("confirm")
 		main.show_items()
+	elif event is InputEventKey and event.physical_keycode == KEY_Y:
+		# The top-down prototype (branch topdown-prototype).
+		Sound.play("confirm")
+		get_tree().change_scene_to_file("res://scenes/topdown.tscn")
 	elif event is InputEventKey and event.physical_keycode == KEY_O and Main.hideout_open():
 		Sound.play("confirm")
 		main.show_hideout()
@@ -637,7 +641,7 @@ func _draw_map() -> void:
 		all += sparks_total.get(id, 0)
 	draw_texture(Spark.icon(Progress.total_sparks() == 0), Vector2(v.position.x + 10, v.end.y - 12))
 	_text("%d / %d" % [Progress.total_sparks(), all], Vector2(v.position.x + 23, v.end.y - 10), Color(DIM))
-	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   " + ("O HIDEOUT   " if Main.hideout_open() else "") + "I ITEMS   B SHOP   " \
+	var help := "← → LEVEL   ↑ ↓ WORLD   SPACE PLAY   " + ("O HIDEOUT   " if Main.hideout_open() else "") + "I ITEMS   B SHOP   Y TOP-DOWN   " \
 		+ ("T PROMPTS   " if tree_open() else "") + "ESC TITLE"
 	_text(help, Vector2(v.end.x - 10 - PixelFont.width(help), v.end.y - 10), Color(DIM))
 
