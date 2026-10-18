@@ -5,8 +5,8 @@ extends RefCounted
 ## the equipped gear (Gear.stat()); map mods will join them. Per cent stats add up before they multiply, like
 ## Path of Exile's "increased". The shop's upgrades stay where they were (Weapons, Main._apply_loadout()).
 
-## Critical strikes: the weapon's base chance (its implicit) plus `crit` from gear, in per cent; they deal
-## CRIT_MULTI plus `crit_multi` per cent.
+## Critical strikes: the weapon's base chance (its implicit) plus `crit` from gear, in per cent, `crit_inc` per cent
+## more (the tree); they deal CRIT_MULTI plus `crit_multi` per cent. Temperature 0. (the tree's `precise`) has none.
 const CRIT_MULTI := 150.0
 
 
@@ -14,8 +14,9 @@ static func total(key: String) -> float:
 	return Prompts.stat(key) + Gear.stat(key)
 
 
+## Damage times this: `damage` from both, and Temperature 0.'s more.
 static func damage_mult() -> float:
-	return maxf(0.1, 1.0 + total("damage") / 100.0)
+	return maxf(0.1, 1.0 + total("damage") / 100.0) * (1.0 + Prompts.PRECISE_MORE if Prompts.on("precise") else 1.0)
 
 
 static func rate_mult() -> float:
@@ -27,7 +28,9 @@ static func token_mult() -> float:
 
 
 static func crit_chance() -> float:
-	return clampf(total("crit") / 100.0, 0.0, 1.0)
+	if Prompts.on("precise"):
+		return 0.0
+	return clampf(total("crit") * (1.0 + total("crit_inc") / 100.0) / 100.0, 0.0, 1.0)
 
 
 static func crit_mult() -> float:
@@ -37,7 +40,8 @@ static func crit_mult() -> float:
 # --- The endgame's hit points (Main.endgame: the hideout and maps) -------------------------------------------
 
 ## Life: BASE_LIFE, LIFE_PER_LEVEL per character level, the gear's `life`, and LIFE_PER_HEART for every heart the
-## prompt tree and the shop's Extra Heart give or take in the campaign.
+## prompt tree and the shop's Extra Heart give or take in the campaign, `life_pct` per cent more (the tree), and
+## Air-gapped.'s less.
 const BASE_LIFE := 50.0
 const LIFE_PER_LEVEL := 5.0
 const LIFE_PER_HEART := 25.0
@@ -53,7 +57,37 @@ const EVADE_CAP := 0.75
 
 static func max_life() -> float:
 	var hearts := Prompts.stat("hearts") + Progress.upgrade("hearts")
-	return maxf(1.0, BASE_LIFE + LIFE_PER_LEVEL * Progress.char_level + total("life") + LIFE_PER_HEART * hearts)
+	var flat := BASE_LIFE + LIFE_PER_LEVEL * Progress.char_level + total("life") + LIFE_PER_HEART * hearts
+	var less := 1.0 - Prompts.AIRGAP_LESS_LIFE if Prompts.on("airgap") else 1.0
+	return maxf(1.0, flat * (1.0 + total("life_pct") / 100.0) * less)
+
+
+## Armour and evasion: flat ones (gear, the tree) `armour_pct` / `evasion_pct` per cent more; with Robustness.
+## evasion counts as armour and none is left to evade with.
+static func armour() -> float:
+	var a := total("armour") * (1.0 + total("armour_pct") / 100.0)
+	if Prompts.on("robust"):
+		a += total("evasion") * (1.0 + total("evasion_pct") / 100.0)
+	return a
+
+
+static func evasion() -> float:
+	if Prompts.on("robust"):
+		return 0.0
+	return total("evasion") * (1.0 + total("evasion_pct") / 100.0)
+
+
+## Life regenerated a second: the gear's `regen` and `regen_pct` per cent of maximum life (the tree); none with
+## Gradient Leech.
+static func regen() -> float:
+	if Prompts.on("gradleech"):
+		return 0.0
+	return total("regen") + max_life() * total("regen_pct") / 100.0
+
+
+## The share of the damage Clawd deals that is leeched as life (`leech`, per cent).
+static func leech() -> float:
+	return total("leech") / 100.0
 
 
 static func enemy_hit(area: int) -> float:
@@ -98,21 +132,26 @@ const SHOCK_TIME := 2.0
 const SHOCK_TAKEN := 0.2
 
 
-## Clawd's resistances (element -> per cent) after `penalty`, at most RES_CAP each.
+## Clawd's resistances (element -> per cent) after `penalty`, at most RES_CAP each; `res_ele` counts for Overheat,
+## Latency and Voltage. Air-gapped.: Corruption cannot hurt (100).
 static func resistances(penalty := 0.0) -> Dictionary:
 	var out := {}
 	for k in ELEMENTS:
-		out[k] = minf(RES_CAP, total("res_" + k) - penalty)
+		out[k] = minf(RES_CAP, total("res_" + k) + (total("res_ele") if k != "chaos" else 0.0) - penalty)
+	if Prompts.on("airgap"):
+		out.chaos = 100.0
 	return out
 
 
-## The share of Clawd's damage added as each element (element -> fraction; fire, cold, lightning).
+## The share of Clawd's damage added as each element (element -> fraction; fire, cold, lightning), `ele_damage`
+## per cent more.
 static func elements() -> Dictionary:
 	var out := {}
+	var more := 1.0 + total("ele_damage") / 100.0
 	for k in ["fire", "cold", "lightning"]:
 		var v := total("extra_" + k) / 100.0
 		if v > 0:
-			out[k] = v
+			out[k] = v * more
 	return out
 
 
@@ -132,3 +171,30 @@ static func ailment_parts(damage: float) -> Dictionary:
 	for k in e:
 		out[k] = damage * e[k] / ele_mult()
 	return out
+
+
+## Clawd's ailments on enemies, more by the tree: igniting and shocking more often (`ignite`, `shock`), freezing
+## with less of a hit (`freeze`), burning harder (`burn`), every ailment longer (`ailment_time`).
+static func ignite_chance() -> float:
+	return minf(1.0, IGNITE_CHANCE * (1.0 + total("ignite") / 100.0))
+
+
+static func shock_chance() -> float:
+	return minf(1.0, SHOCK_CHANCE * (1.0 + total("shock") / 100.0))
+
+
+static func freeze_share() -> float:
+	return FREEZE_SHARE / (1.0 + total("freeze") / 100.0)
+
+
+static func burn_mult() -> float:
+	return 1.0 + total("burn") / 100.0
+
+
+static func ailment_time() -> float:
+	return 1.0 + total("ailment_time") / 100.0
+
+
+## The chance Clawd avoids an ailment (`avoid`, per cent).
+static func avoid_chance() -> float:
+	return clampf(total("avoid") / 100.0, 0.0, 1.0)

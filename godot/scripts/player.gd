@@ -50,6 +50,8 @@ const HURT_STUN := 0.32
 const HURT_KNOCK_X := 170.0
 const HURT_KNOCK_Y := 250.0
 const MAX_HEARTS := 3
+## Leech heals at most this share of maximum life a second (twice with Gradient Leech.).
+const LEECH_RATE := 0.1
 const SPIN_DOTS := 10
 ## Spin ring radius and height above the feet in px, like the ring drawn by drawClawd().
 const SPIN_RING_R := 17.0
@@ -103,6 +105,14 @@ var burn_dps := 0.0
 var burn_t := 0.0
 var chill_t := 0.0
 var shock_t := 0.0
+## The prompt tree in the endgame (docs/endgame-plan.md E9): the share of the damage Clawd deals that is leeched
+## (leech_hit(): into `leech_pool`, healed at LEECH_RATE of maximum life a second, twice that with Gradient
+## Leech.), the chance to avoid an ailment, and Agentic loop. (nothing hurts him while he zips).
+var leech := 0.0
+var leech_fast := false
+var leech_pool := 0.0
+var avoid := 0.0
+var zip_guard := false
 var invuln := 0.0
 var hurt_timer := 0.0
 var coyote := 0.0
@@ -248,12 +258,15 @@ func hitbox() -> Rect2:
 ## In the endgame (hp_mode) the hit takes `damage` life (an enemy's hit of the area level when negative), less
 ## armour; an `evadable` one may be evaded ("evade": no damage, no knock-back, a short grace).
 func hurt(from_x: float, damage := -1.0, evadable := true, element := "physical") -> bool:
-	if invuln > 0:
+	if invuln > 0 or (zip_guard and state == &"zip"):
 		return false
 	var blocked := shield
 	if blocked:
 		shield = false
 	elif hp_mode:
+		# Air-gapped. (the prompt tree): Corruption cannot hurt at all.
+		if element == "chaos" and res.get("chaos", 0.0) >= 100.0:
+			return false
 		var dmg := damage if damage >= 0 else Stats.enemy_hit(area_level) * hit_mult
 		if evadable and randf() < Stats.evade_chance(evasion, area_level):
 			invuln = HURT_INVULN * 0.5
@@ -306,14 +319,20 @@ func _mitigate(dmg: float, element: String, with_map: bool) -> float:
 			last_element = k
 	if shock_t > 0:
 		total *= 1.0 + Stats.SHOCK_TAKEN
-	if parts.get("fire", 0.0) > 0 and randf() < Stats.IGNITE_CHANCE:
+	if parts.get("fire", 0.0) > 0 and randf() < Stats.IGNITE_CHANCE and randf() >= avoid:
 		burn_t = Stats.BURN_TIME
 		burn_dps = maxf(burn_dps, parts.fire * Stats.BURN_SHARE / Stats.BURN_TIME)
-	if parts.get("cold", 0.0) > 0:
+	if parts.get("cold", 0.0) > 0 and randf() >= avoid:
 		chill_t = Stats.CHILL_TIME
-	if parts.get("lightning", 0.0) > 0 and randf() < Stats.SHOCK_CHANCE:
+	if parts.get("lightning", 0.0) > 0 and randf() < Stats.SHOCK_CHANCE and randf() >= avoid:
 		shock_t = Stats.SHOCK_TIME
 	return total
+
+
+## Clawd's hit took `damage` from an enemy: its leeched share goes into the pool (at most a full life's worth).
+func leech_hit(damage: float) -> void:
+	if hp_mode and leech > 0:
+		leech_pool = minf(max_life, leech_pool + damage * leech)
 
 
 ## Ailments on Clawd in the endgame: burning takes life (and can kill), chill and shock run out.
@@ -353,6 +372,10 @@ func _physics_process(dt: float) -> void:
 	hurt_timer = maxf(0.0, hurt_timer - dt)
 	if hp_mode:
 		life = minf(max_life, life + regen * dt)
+		if leech_pool > 0:
+			var heal := minf(leech_pool, max_life * LEECH_RATE * (2.0 if leech_fast else 1.0) * dt)
+			leech_pool -= heal
+			life = minf(max_life, life + heal)
 		_tick_ailments(dt)
 	jump_buffer = maxf(0.0, jump_buffer - dt)
 	spin_cooldown -= dt

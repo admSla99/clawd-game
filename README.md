@@ -78,13 +78,14 @@ Spreader, Stream Output, Attention Beam, Opus Cannon.
 **Shop**: upgrades (Extra Heart, Bigger Model, Faster Inference, Longer Context, Jet Tuning, Token Magnet), tools
 (Spark Radar, Fortune Haiku), consumables (Firewall, Double Tokens) and, once a weapon is found, the armory.
 
-**Prompt tree** (world 3, T on the map): a passive tree like Path of Exile's, with a point per character level,
-one per world 3 spark and more for tokens; small nodes and notables such as Be concise. (faster, weaker shots),
-Delegate. (one more sub-agent), Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back).
-Refunds are free.
+**Prompt tree** (world 3, T on the map): a passive tree like Path of Exile's, 137 nodes in eight sectors (tool
+call, elements, offense, precision, movement and tokens, sustain, defence, sub-agents), with a point per character
+level, one per world 3 spark and more for tokens; small nodes, notables such as Be concise. (faster, weaker shots),
+Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back), and keystones such as Temperature 0.
+(straight shots, no critical strikes) or Air-gapped. (immune to Corruption, less life). Refunds are free.
 
 **Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T16, orbs,
-elements, the Atlas)
+elements, the Atlas, the prompt tree for levels up to 100)
 - Character level: XP from every enemy (less from ones far below Clawd), up to level 100; about 13 by the end of 3-B.
 - Items drop everywhere: weapons (the five guns), context windows, chassis, actuators, treads, cores and plugins,
   normal / magic / rare with tiered affixes; E picks them up, I opens the inventory (equip, compare, stash).

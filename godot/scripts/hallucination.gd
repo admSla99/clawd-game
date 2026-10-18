@@ -210,7 +210,7 @@ func hurtbox() -> Rect2:
 
 
 ## Hallucination.hit(): only while dazed, one hit point per hit whatever it was.
-func hit(_kind: StringName, _damage := 1.0) -> bool:
+func hit(_kind: StringName, _damage := 1.0, _own := true) -> bool:
 	if mode != &"vulnerable":
 		return false
 	hp -= 1

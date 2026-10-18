@@ -1101,9 +1101,15 @@ func _apply_loadout() -> void:
 	# The endgame's hit points (Stats).
 	player.hp_mode = endgame
 	player.max_life = Stats.max_life()
-	player.armour = Stats.total("armour")
-	player.evasion = Stats.total("evasion")
-	player.regen = Stats.total("regen")
+	player.armour = Stats.armour()
+	player.evasion = Stats.evasion()
+	player.regen = Stats.regen()
+	# The prompt tree's leech, ailment avoidance and Agentic loop. (docs/endgame-plan.md E9).
+	player.leech = Stats.leech()
+	player.leech_fast = Prompts.on("gradleech")
+	player.leech_pool = 0.0
+	player.avoid = Stats.avoid_chance()
+	player.zip_guard = Prompts.on("zipguard")
 	player.area_level = area_level
 	# A map's mods on Clawd: enemies hit harder, less life, regeneration, armour and evasion; resistances lower by
 	# the tier and its mod, and enemies' hits with elements added (docs/endgame-plan.md E7).

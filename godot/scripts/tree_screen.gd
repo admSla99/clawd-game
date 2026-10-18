@@ -8,7 +8,9 @@ extends Node2D
 ## allocated. Top right the points (free / all) and the wallet, and a button that buys a point. Keys: arrows / WASD
 ## move to the nearest node that way, Space / Enter (or a click) allocates or refunds, U buys a point, R twice
 ## refunds everything, Escape or T goes back to the map; dragging with the mouse pans, and the view follows the
-## selection.
+## selection made with the keys. A tree bigger than the field (the prompt tree, docs/endgame-plan.md E9) has a
+## small map of itself in the field's corner (the view's frame on it; a click or drag there moves the view), and
+## the start's selected card lists what every allocated node adds up to in a panel over the field.
 ## The same window draws the Atlas's tree (scripts/atlas.gd, docs/endgame-plan.md E8) while `atlas` is set: its nodes,
 ## a strip of the sixteen map tiers over the field (completed, open, locked; coloured by world) and no point to buy.
 ## Tab switches between the two once the hideout is open.
@@ -18,11 +20,8 @@ const CARD_H := 46
 const FIELD_TOP := 27
 ## A node's half-size by kind.
 const HALF := {"start": 7, "small": 3, "notable": 5, "keystone": 7}
-## The branches' names, dim, by where they grow (tree px).
-const LABELS := [["OFFENSE", Vector2(115, -36)], ["TOOL CALL", Vector2(62, -72)], ["SUB-AGENTS", Vector2(-115, -36)],
-	["SURVIVAL", Vector2(-62, 72)], ["TOKENS", Vector2(112, 56)]]
-const ATLAS_LABELS := [["LOOT", Vector2(100, -38)], ["MAPS", Vector2(0, -72)], ["ORBS", Vector2(-100, -38)],
-	["SUSTAIN", Vector2(0, 70)]]
+## The small map of a big tree: its scale.
+const MINI_SCALE := 0.14
 ## The Atlas's tier strip: its height over the field, a cell's size, and each world's colour.
 const STRIP_H := 18
 const TIER_CELL := Vector2(21, 11)
@@ -30,10 +29,20 @@ const WORLD_COLOR := {1: Color("#968CD2"), 2: Color("#EA7C3E"), 3: Color("#5FD8C
 const LINK_OFF := Color("#34343A")
 const NODE_OFF := Color("#4A4A50")
 const FILL_OFF := Color(0.06, 0.06, 0.07, 1.0)
-## What the stats are called on the start's card, in order.
-const STAT_NAMES := [["damage", "% damage"], ["rate", "% fire rate"], ["tokens", "% tokens"], ["reach", "% hook reach"],
-	["zip", "% zip speed"], ["hover", "% hover"], ["run", "% run speed"], ["hearts", " heart(s)"], ["slots", " sub-agent(s)"],
-	["stand", " s standing"], ["magnet", " px magnet"], ["minion_damage", "% sub-agent damage"], ["minion_rate", "% sub-agent fire rate"]]
+## What the stats are called in the start's list, in order, and the keystones' and notables' flags.
+const STAT_NAMES := [["damage", "% damage"], ["rate", "% fire rate"], ["crit_inc", "% critical chance"],
+	["crit_multi", "% critical damage"], ["heat", "% context window"], ["ele_damage", "% elemental damage"],
+	["extra_fire", "% added as overheat"], ["extra_cold", "% added as latency"], ["extra_lightning", "% added as voltage"],
+	["ignite", "% ignite chance"], ["shock", "% shock chance"], ["freeze", "% easier freezing"], ["burn", "% burning damage"],
+	["ailment_time", "% ailment duration"], ["hearts", " heart(s)"], ["life_pct", "% maximum life"], ["armour", " armour"],
+	["armour_pct", "% armour"], ["evasion", " evasion"], ["evasion_pct", "% evasion"], ["res_ele", "% elemental res."],
+	["res_chaos", "% corruption res."], ["regen_pct", "% life regen a second"], ["leech", "% leech"],
+	["avoid", "% ailment avoidance"], ["reach", "% hook reach"], ["zip", "% zip speed"], ["hover", "% hover"],
+	["run", "% run speed"], ["tokens", "% tokens"], ["magnet", " px magnet"], ["slots", " sub-agent(s)"],
+	["stand", " s standing"], ["minion_damage", "% sub-agent damage"], ["minion_rate", "% sub-agent fire rate"]]
+const FLAG_NAMES := [["temperature", "temperature 1.5"], ["precise", "temperature 0"], ["reflect", "reflect"],
+	["zipguard", "agentic loop"], ["minions", "tool use"], ["parallel", "parallel tool calls"], ["robust", "robustness"],
+	["airgap", "air-gapped"], ["gradleech", "gradient leech"]]
 const ATLAS_STAT_NAMES := [["quantity", "% item quantity"], ["rarity", "% item rarity"], ["pack", "% more enemies"],
 	["mod_loot", "% loot from mods"], ["monster_damage", "% enemy damage"], ["map_drop", "% maps dropped"],
 	["map_up", "% maps a tier higher"], ["boss_maps", " map(s) from bosses"], ["currency", "% orbs"],
@@ -55,6 +64,10 @@ var note := ""
 var note_t := 0.0
 ## R pressed once: a second press within this time resets the tree.
 var reset_armed := 0.0
+## The view keeps the selection in sight (after the keys moved it; not after the mouse panned).
+var follow := true
+## Dragging on the small map.
+var _mini_drag := false
 ## A node just allocated or refunded flashes.
 var flash_id := ""
 var flash_t := 0.0
@@ -87,6 +100,11 @@ func open(show_atlas := false) -> void:
 	reset_armed = 0.0
 	_dragging = false
 	_pressing = false
+	_mini_drag = false
+	follow = true
+	if Progress.tree_redrawn and not atlas:
+		Progress.tree_redrawn = false
+		say("THE TREE WAS REDRAWN · EVERY POINT IS BACK")
 
 
 func close() -> void:
@@ -98,16 +116,27 @@ func close() -> void:
 func handle(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
 		_mouse = event.position
-		if _pressing and (_dragging or _mouse.distance_to(_press) > 3):
+		if _mini_drag:
+			cam = mini_to_tree(_mouse)
+		elif _pressing and (_dragging or _mouse.distance_to(_press) > 3):
 			_dragging = true
+			follow = false
 			cam -= event.relative
 		return false
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse = event.position
 		if event.pressed:
+			if mini_rect().has_point(_mouse):
+				_mini_drag = true
+				follow = false
+				cam = mini_to_tree(_mouse)
+				return true
 			_pressing = true
 			_dragging = false
 			_press = _mouse
+			return true
+		if _mini_drag:
+			_mini_drag = false
 			return true
 		_pressing = false
 		if _dragging:
@@ -148,6 +177,7 @@ func handle(event: InputEvent) -> bool:
 		var next := step(src().NODES, sel, _dir(event))
 		if next != "":
 			sel = next
+			follow = true
 			Sound.play("select")
 	elif event.is_action_pressed("confirm") or event.is_action_pressed("jump"):
 		activate()
@@ -232,22 +262,25 @@ func _view() -> Rect2:
 	return Rect2(Vector2.ONE * Main.PAD, get_viewport_rect().size - Vector2.ONE * Main.PAD * 2)
 
 
-## The box round the tree's nodes, with room for the biggest.
-static func bounds(nodes: Dictionary) -> Rect2:
+## The box round a tree's (Prompts' or Atlas') nodes and its labels, with room for the biggest.
+static func bounds(tree) -> Rect2:
 	var box := Rect2(Vector2.ZERO, Vector2.ZERO)
-	for id in nodes:
-		box = box.expand(nodes[id].at)
+	for id in tree.NODES:
+		box = box.expand(tree.NODES[id].at)
+	for l in tree.LABELS:
+		var w := PixelFont.width(l[0]) / 2.0
+		box = box.expand(l[1] - Vector2(w, 4)).expand(l[1] + Vector2(w, 4))
 	return box.grow(8)
 
 
 ## The middle of the tree shown (where the view starts).
 func centre() -> Vector2:
-	return bounds(src().NODES).get_center().round()
+	return bounds(src()).get_center().round()
 
 
-## Keeps the view on the tree of `nodes`: along an axis where the whole tree fits it stays in the middle.
-static func clamp_cam(nodes: Dictionary, c: Vector2, size: Vector2) -> Vector2:
-	var b := bounds(nodes)
+## Keeps the view on `tree`: along an axis where the whole tree fits it stays in the middle.
+static func clamp_cam(tree, c: Vector2, size: Vector2) -> Vector2:
+	var b := bounds(tree)
 	for i in 2:
 		var lo := b.position[i] + size[i] / 2
 		var hi := b.end[i] - size[i] / 2
@@ -270,7 +303,7 @@ func screen_of(id: String) -> Vector2:
 
 ## The node under screen point `p`, or "".
 func node_at(p: Vector2) -> String:
-	if not field().has_point(p):
+	if not field().has_point(p) or mini_rect().has_point(p):
 		return ""
 	var nodes: Dictionary = src().NODES
 	for id in nodes:
@@ -278,6 +311,23 @@ func node_at(p: Vector2) -> String:
 		if Rect2(screen_of(id) - Vector2(h, h), Vector2(h, h) * 2 + Vector2.ONE).has_point(p):
 			return id
 	return ""
+
+
+## The small map in the field's top right corner, or an empty Rect2 when the whole tree fits the field.
+func mini_rect() -> Rect2:
+	var b := bounds(src())
+	var fr := field()
+	if b.size.x <= fr.size.x and b.size.y <= fr.size.y:
+		return Rect2()
+	var size := (b.size * MINI_SCALE).ceil()
+	return Rect2(Vector2(fr.end.x - size.x - 5, fr.position.y + 5), size)
+
+
+## The tree point under screen point `p` on the small map.
+func mini_to_tree(p: Vector2) -> Vector2:
+	var r := mini_rect()
+	var b := bounds(src())
+	return b.position + (p.clamp(r.position, r.end) - r.position) / MINI_SCALE
 
 
 func _card_rect() -> Rect2:
@@ -302,8 +352,8 @@ func _process(dt: float) -> void:
 	note_t = maxf(0.0, note_t - dt)
 	reset_armed = maxf(0.0, reset_armed - dt)
 	flash_t = maxf(0.0, flash_t - dt)
-	# The view follows the selection once it nears the field's edge (not while the mouse drags it).
-	if not _dragging:
+	# The view follows the selection once it nears the field's edge (after the keys moved it).
+	if follow and not _dragging and not _mini_drag:
 		var f := field().grow(-26)
 		var s: Vector2 = field().get_center() + src().NODES[sel].at - cam
 		var want := cam
@@ -316,9 +366,9 @@ func _process(dt: float) -> void:
 		elif s.y > f.end.y:
 			want.y += s.y - f.end.y
 		cam = cam.lerp(want, minf(1.0, dt * 10))
-	cam = clamp_cam(src().NODES, cam, field().size)
+	cam = clamp_cam(src(), cam, field().size)
 	var hover := node_at(_mouse)
-	if hover != "" and not _dragging:
+	if hover != "" and not _dragging and not _mini_drag:
 		sel = hover
 	queue_redraw()
 	_field.queue_redraw()
@@ -405,7 +455,7 @@ func _draw_field() -> void:
 	# A window too small for the tree (headless runs) draws none of it.
 	if fr.size.x < 40 or fr.size.y < 40:
 		return
-	for l in ATLAS_LABELS if atlas else LABELS:
+	for l in src().LABELS:
 		var at: Vector2 = (fr.get_center() + l[1] - cam).round()
 		if fr.grow(-4).has_point(at):
 			PixelFont.draw_centred(_field, l[0], at.x, at.y - 3, Color("#4E4E56"))
@@ -419,11 +469,51 @@ func _draw_field() -> void:
 		_line(screen_of(a), screen_of(b), c, 2 if both else 1)
 	for id in tree.NODES:
 		_draw_node(id)
+	if sel == tree.START and not atlas:
+		_draw_totals()
+	_draw_mini()
 	if note_t > 0:
 		var w := PixelFont.width(note) + 12
 		var r := Rect2(fr.get_center().x - w / 2.0, fr.position.y + 4, w, 13)
 		Hud.panel(_field, r, Color("#3A3A3A"), Color(0.05, 0.05, 0.06, 0.95))
 		PixelFont.draw_centred(_field, note, r.get_center().x, r.position.y + 3, Hud.RED if note.begins_with("NO") else Hud.ORANGE_LIGHT)
+
+
+## The start's list: what every allocated node adds up to, in columns over the field's top left.
+func _draw_totals() -> void:
+	var lines := totals_lines()
+	if lines.is_empty():
+		return
+	var fr := field()
+	var rows := maxi(1, floori((fr.size.y - 16) / PixelFont.LINE))
+	var cols := ceili(float(lines.size()) / rows)
+	var col_w := 0
+	for l in lines:
+		col_w = maxi(col_w, PixelFont.width(l) + 10)
+	var r := Rect2(fr.position + Vector2(5, 5), Vector2(col_w * cols + 4, mini(rows, lines.size()) * PixelFont.LINE + 7))
+	Hud.panel(_field, r, Color("#3A3A3A"), Color(0.04, 0.04, 0.05, 0.94))
+	for i in lines.size():
+		var at := r.position + Vector2(6 + (i / rows) * col_w, 4 + (i % rows) * PixelFont.LINE)
+		var line: String = lines[i]
+		PixelFont.draw(_field, line, at, Hud.ORANGE_LIGHT if line.begins_with("+") else Hud.RED if line.begins_with("-") else Hud.TEXT)
+
+
+## The small map of a big tree: every node a dot (allocated ones orange, the selection white), the view's frame.
+func _draw_mini() -> void:
+	var r := mini_rect()
+	if r.size == Vector2.ZERO:
+		return
+	var tree = src()
+	var b := bounds(tree)
+	Hud.panel(_field, r.grow(2), Color("#3A3A3A"), Color(0.03, 0.03, 0.04, 0.94))
+	for id in tree.NODES:
+		var p: Vector2 = (r.position + (tree.NODES[id].at - b.position) * MINI_SCALE).floor()
+		var big: bool = tree.NODES[id].kind != "small"
+		var c: Color = Hud.TEXT if id == sel else Hud.ORANGE if tree.on(id) else Color("#7A7A82") if big else NODE_OFF
+		_field.draw_rect(Rect2(p, Vector2(2, 2) if big or id == sel else Vector2.ONE), c)
+	var fr := field()
+	var view := Rect2(r.position + (cam - fr.size / 2 - b.position) * MINI_SCALE, fr.size * MINI_SCALE).intersection(r)
+	_field.draw_rect(view, Color(Hud.TEXT, 0.6), false, 1.0)
 
 
 ## A pixel line from `a` to `b`, `w` px thick, inside the field.
@@ -492,10 +582,17 @@ func _draw_card() -> void:
 		PixelFont.draw(self, kind, d.position + Vector2(14 + PixelFont.width(String(node.name).to_upper()), 6), Hud.ORANGE if kind == "KEYSTONE" else Hud.ORANGE_LIGHT)
 	var desc: String = node.desc
 	if sel == tree.START:
-		desc = (atlas_totals() if not Progress.atlas.is_empty() else node.desc) if atlas else totals()
+		if atlas:
+			desc = atlas_totals() if not Progress.atlas.is_empty() else node.desc
+		elif not Progress.tree.is_empty():
+			desc = "%d nodes allocated. What they add up to is listed above." % Progress.tree.size()
 	var lines := wrap_text(desc, d.size.x - 16)
 	for i in mini(2, lines.size()):
 		PixelFont.draw(self, lines[i], d.position + Vector2(8, 17 + i * 8), Hud.TEXT_DIM)
+	# Which branch it is on, dim on the right (the names over the field show only near its edges).
+	var branch := branch_of(tree, sel)
+	if branch != "":
+		PixelFont.draw(self, branch, Vector2(d.end.x - 8 - PixelFont.width(branch), d.position.y + 6), Hud.TEXT_DIM)
 	var hint := ""
 	var col := Hud.ORANGE
 	if sel == tree.START and atlas:
@@ -522,6 +619,21 @@ func _draw_card() -> void:
 	PixelFont.draw(self, hint, d.position + Vector2(8, 35), col)
 
 
+## The name of the branch (LABELS) whose direction from the start is nearest `id`'s, or "" for the start.
+static func branch_of(tree, id: String) -> String:
+	if id == tree.START:
+		return ""
+	var at: Vector2 = tree.NODES[id].at
+	var best := ""
+	var best_off := INF
+	for l in tree.LABELS:
+		var off := absf(at.angle_to(l[1]))
+		if off < best_off:
+			best_off = off
+			best = l[0]
+	return best
+
+
 ## The words of `s` in lines at most `w` px wide.
 static func wrap_text(s: String, w: float) -> Array:
 	var out := []
@@ -538,17 +650,17 @@ static func wrap_text(s: String, w: float) -> Array:
 	return out
 
 
-## What the allocated nodes add up to, for the start's card.
-static func totals() -> String:
-	var parts := []
+## What the allocated nodes add up to, a line each (the start's list): the stats, then the flags.
+static func totals_lines() -> Array:
+	var out := []
 	for s in STAT_NAMES:
 		var v := Prompts.stat(s[0])
 		if v != 0:
-			parts.append("%s%d%s" % ["+" if v > 0 else "", roundi(v), s[1]])
-	for id in ["temperature", "reflect", "tooluse", "parallel"]:
-		if Prompts.on(id):
-			parts.append(String(Prompts.NODES[id].short).to_lower())
-	return "Nothing allocated yet." if parts.is_empty() else ", ".join(PackedStringArray(parts))
+			out.append(("%+d" % roundi(v) if is_equal_approx(v, roundf(v)) else "%+.1f" % v) + s[1])
+	for f in FLAG_NAMES:
+		if Prompts.on(f[0]):
+			out.append(f[1])
+	return out
 
 
 ## What the Atlas's allocated nodes add up to, for its start's card.

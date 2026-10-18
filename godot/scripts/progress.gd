@@ -53,6 +53,9 @@ var atlas_bonus: Array = []
 var device: Array = []
 ## Currency orbs (scripts/currency.gd): id -> count.
 var currency := {}
+## The prompt tree was redrawn (Prompts.VERSION) since this save's points went in: they are back, said once by
+## the tree's window (not saved).
+var tree_redrawn := false
 ## The weapons found before items existed were given as normal items into the stash (once).
 var weapon_items := false
 ## What world 3's first System Prompts cost (bought once each, for tokens and sparks), and Longer System Prompt's
@@ -78,6 +81,7 @@ func load_file() -> void:
 	equipped = ""
 	tools = []
 	tree = []
+	tree_redrawn = false
 	points_bought = 0
 	char_level = 1
 	xp = 0
@@ -119,6 +123,12 @@ func load_file() -> void:
 		var migrated: bool = data.has("prompts") or upgrades.has("sysprompt")
 		upgrades.erase("sysprompt")
 		sparks_spent = maxi(0, sparks_spent)
+		# A tree of an older layout: its nodes are gone, every point is free again.
+		if int(data.get("tree_version", 1)) < Prompts.VERSION and not tree.is_empty():
+			tree = []
+			tree_redrawn = true
+			migrated = true
+		tree = tree.filter(func(id): return Prompts.NODES.has(id))
 		# Saved at once, so the refund is not paid again on the next start.
 		if migrated:
 			save()
@@ -141,7 +151,7 @@ func save() -> void:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
 			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp, "runs": runs, "maps_done": maps_done,
-			"atlas": atlas, "atlas_bonus": atlas_bonus}))
+			"atlas": atlas, "atlas_bonus": atlas_bonus, "tree_version": Prompts.VERSION}))
 
 
 ## Where the items are saved: next to the progress, "<name>_items.json".

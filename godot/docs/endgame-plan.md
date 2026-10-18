@@ -2,7 +2,8 @@
 
 > **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
 > tuned harder after it, see *Added beyond the plan*). E6 (currency orbs), E7 (damage types) and E8 (the Atlas:
-> worlds 2 and 3 as maps, tiers to T16, the Atlas's tree) are done; E9 (the prompt tree to ~120 nodes) is next.
+> worlds 2 and 3 as maps, tiers to T16, the Atlas's tree) and E9 (the prompt tree redrawn, 137 nodes) are done;
+> E10 (Delirium fog) is next.
 > The view stays 2.5D from the side: a top-down prototype was tried on a branch on 2026-10-16 and the user turned
 > it down (2026-10-18).
 
@@ -136,7 +137,13 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
       map (19). Area levels grow 2 / 3 / 4 a tier by world (T16 79, so the top affix tiers drop), enemy life
       x1.045 a level past area level 40; maps drop no higher than the open tier; the hideout has a globe for the
       Atlas, Tab switches it with the prompt tree.
-- [ ] E9 The prompt tree grows to ~120 nodes for levels up to 100, new keystones.
+- [x] E9 The prompt tree grows to ~120 nodes for levels up to 100, new keystones. The user's calls (2026-10-18):
+      a new tree from scratch (an old save's points come back once), endgame stats plus a few new mechanics (per
+      cent life / armour / evasion, elemental resistances, regeneration of life, leech, ailments on enemies likelier
+      and longer, avoiding them on Clawd), four new keystones (Temperature 0., Air-gapped., Gradient Leech.,
+      Robustness.; You are an expert. and Orchestrator. stay), refunds stay free. 137 nodes in eight sectors with
+      an outer ring; 129 points at level 100 with every spark and bought point. The window got a small map and a
+      list of the totals.
 - [ ] E10 Delirium fog.
 - [ ] E11 Breaches.
 - [ ] E12 Pinnacle bosses and uniques.

@@ -1345,11 +1345,12 @@ func check_prompts() -> bool:
 	# Earlier sections defeated enemies: no levels gained, so the points below are sparks and bought ones only.
 	progress.char_level = 1
 	progress.xp = 0
-	# The tree: every link joins two nodes, every node hangs on the start, the eight prompts are in it.
+	# The tree: every link joins two nodes, every node hangs on the start, the eight prompts are in it (the rest of
+	# the tree, docs/endgame-plan.md E9, is checked in tools/checks/tree.gd).
 	var nodes: Dictionary = prompts.NODES
 	ok(prompts.LINKS.all(func(l): return nodes.has(l[0]) and nodes.has(l[1])) and prompts.joined(nodes.keys()).size() == nodes.size(),
 		"the prompt tree's %d nodes all hang on the start through its %d links" % [nodes.size(), prompts.LINKS.size()])
-	ok(["concise", "cite", "temperature", "steps", "ontask", "delegate", "expert", "reflect"].all(func(id): return nodes.has(id) and nodes[id].kind in ["notable", "keystone"]),
+	ok(["concise", "cite", "temp15", "steps", "ontask", "delegate", "expert", "reflect"].all(func(id): return nodes.has(id) and nodes[id].kind in ["notable", "keystone"]),
 		"the eight System Prompts are its notables and keystones")
 	ok(not shop_items.items().any(func(it): return it.section == "SYSTEM PROMPT"), "the shop sells no System Prompts")
 	# Points: world 3's sparks, not the shop's.
@@ -1367,30 +1368,31 @@ func check_prompts() -> bool:
 	ok(progress.points_bought == prompts.BUY_MAX and prompts.buy_point() == "max", "at most %d of them" % prompts.BUY_MAX)
 	# Allocating next to the tree, refunding what nothing hangs on.
 	progress.points_bought = 1
-	ok(prompts.toggle("dmg2") == "far" and prompts.toggle("dmg1") == "allocated" and prompts.toggle("dmg2") == "allocated"
-		and prompts.toggle("hover1") == "allocated" and prompts.points_free() == 0 and prompts.toggle("reach1") == "no points",
+	ok(prompts.toggle("of_a2") == "far" and prompts.toggle("of_a1") == "allocated" and prompts.toggle("of_a2") == "allocated"
+		and prompts.toggle("mv_a1") == "allocated" and prompts.points_free() == 0 and prompts.toggle("tc_a1") == "no points",
 		"a point allocates a node next to the tree, while points last")
-	ok(prompts.toggle("dmg1") == "holds" and prompts.toggle("dmg2") == "refunded" and prompts.toggle("dmg1") == "refunded"
-		and progress.tree == ["hover1"], "a refund is free, but not of a node others hang on")
+	ok(prompts.toggle("of_a1") == "holds" and prompts.toggle("of_a2") == "refunded" and prompts.toggle("of_a1") == "refunded"
+		and progress.tree == ["mv_a1"], "a refund is free, but not of a node others hang on")
 	prompts.reset()
 	ok(progress.tree.is_empty() and prompts.points_free() == 3, "reset gives every point back")
 	# Effects.
-	progress.tree = ["dmg1", "dmg2", "concise", "dmg3", "expert", "hover1", "hover2", "steps"]
-	ok(is_equal_approx(weapons.damage_mult(), 1.44) and is_equal_approx(weapons.rate_mult(), 1.2),
-		"damage nodes, Be concise. and You are an expert. add up: damage x1.44, fire rate x1.2")
+	progress.tree = ["of_a1", "of_a2", "bigger", "of_l1", "of_l2", "concise", "of_m1", "of_m2", "of_m3", "expert", "mv_a1", "mv_a2", "steps"]
+	ok(is_equal_approx(weapons.damage_mult(), 1.69) and is_equal_approx(weapons.rate_mult(), 1.44),
+		"damage nodes, Bigger model., Be concise. and You are an expert. add up: damage x1.69, fire rate x1.44")
 	m.load_level("3-1")
 	await frames(3)
-	ok(p.max_hearts == 2 and is_equal_approx(p.hover_duration, 0.85 * 1.9) and is_equal_approx(p.run_speed, 135.0),
-		"expert takes a heart; hover nodes and Think step by step.: hover x1.9, run x0.9")
-	progress.tree = ["tok1", "tok2", "cite", "magnet1", "retrieval", "reach1", "zip1", "ontask", "stand1", "stand2", "delegate", "hover1", "run1", "guardrails"]
+	ok(p.max_hearts == 2 and is_equal_approx(p.hover_duration, 0.85 * 1.75) and is_equal_approx(p.run_speed, 141.0),
+		"expert takes a heart; Jet Fuel, Quick Feet and Think step by step.: hover x1.75, run x0.94")
+	progress.tree = ["mv_a1", "mv_a2", "steps", "mv_l1", "mv_l2", "cite", "mv_m1", "mv_m2", "mv_m3", "retrieval", "tc_a1", "tc_a2", "ontask",
+		"sa_a1", "sa_a2", "tooluse", "sa_r1", "sa_r2", "delegate", "guardrails"]
 	m.load_level("3-1")
 	await frames(3)
-	ok(is_equal_approx(prompts.token_mult(), 1.42) and is_equal_approx(m.tool_call.reach_mult, 1.62) and is_equal_approx(p.zip_speed, 440.0 * 1.35)
-		and m.echoes.extra == 1 and is_equal_approx(m.echoes.stand, 12.0) and p.max_hearts == 4 and is_equal_approx(p.run_speed, 157.5)
-		and prompts.stat("magnet") == 108, "tokens x1.42, reach x1.62, zips x1.35, a sub-agent more standing 4 s longer, a heart more, magnet +108 px")
+	ok(is_equal_approx(prompts.token_mult(), 1.48) and is_equal_approx(m.tool_call.reach_mult, 1.62) and is_equal_approx(p.zip_speed, 440.0 * 1.35)
+		and m.echoes.extra == 1 and is_equal_approx(m.echoes.stand, 14.0) and p.max_hearts == 4 and is_equal_approx(p.run_speed, 141.0)
+		and prompts.stat("magnet") == 120, "tokens x1.48, reach x1.62, zips x1.35, a sub-agent more standing 6 s longer, a heart more, magnet +120 px")
 	var bug = load("res://scenes/bug.tscn").instantiate()
 	m.level.add_child(bug)
-	ok(bug.token_total() == 14, "a bug then drops 14 tokens")
+	ok(bug.token_total() == 15, "a bug then drops 15 tokens")
 	bug.queue_free()
 	# Embeddings and Retrieval.: a token 100 px away flies to Clawd without the Token Magnet.
 	flat_ground(m)
@@ -1403,7 +1405,7 @@ func check_prompts() -> bool:
 	ok(tok.popped, "the magnet nodes pull a token 100 px away, without the Token Magnet")
 	tok.queue_free()
 	# Reflect: the hook catches an enemy shot and throws it back.
-	progress.tree = ["reach1", "zip1", "reach2", "reflect"]
+	progress.tree = ["tc_a1", "tc_a2", "ontask", "tc_l1", "tc_l2", "reflect"]
 	m.load_level("3-1")
 	await frames(3)
 	flat_ground(m)
@@ -1420,7 +1422,7 @@ func check_prompts() -> bool:
 		return null if i > 12 else (["tool"] if i < 2 else []), 20)
 	ok(not is_instance_valid(shot) or shot.dead, "Reflect: the hook catches an enemy shot")
 	ok(seen.more, "and throws it back as Clawd's own")
-	ok(prompts.big_ones() == ["REFLECT"], "the pause menu lists the notables and keystones allocated")
+	ok(prompts.big_ones() == ["ON TASK", "REFLECT"], "the pause menu lists the notables and keystones allocated")
 	m.menu.handle(key(KEY_P))
 	await frames(2)
 	m.menu.close()
@@ -1440,15 +1442,15 @@ func check_prompts() -> bool:
 	var tree = m.tree
 	ok(m.mode == m.Mode.TREE and tree.visible and tree.sel == "root", "T on the map opens the prompt tree on its start")
 	tree.handle(key(KEY_RIGHT))
-	ok(tree.sel == "dmg1", "right goes to the nearest node that way")
+	ok(tree.sel == "of_a1", "right goes to the nearest node that way")
 	tree.handle(key(KEY_SPACE))
-	ok(progress.tree == ["dmg1"], "Space allocates it (a world-3 spark's point)")
+	ok(progress.tree == ["of_a1"], "Space allocates it (a world-3 spark's point)")
 	tree.handle(key(KEY_RIGHT))
 	tree.handle(key(KEY_SPACE))
-	ok(progress.tree == ["dmg1"] and tree.note.begins_with("NO FREE"), "with no point left it says so")
+	ok(progress.tree == ["of_a1"] and tree.note.begins_with("NO FREE"), "with no point left it says so")
 	tree.handle(key(KEY_U))
 	tree.handle(key(KEY_SPACE))
-	ok(progress.wallet == 940 and progress.tree == ["dmg1", "dmg2"], "U buys a point (60 tokens), and Space spends it")
+	ok(progress.wallet == 940 and progress.tree == ["of_a1", "of_a2"], "U buys a point (60 tokens), and Space spends it")
 	tree.handle(key(KEY_R))
 	ok(progress.tree.size() == 2, "R once only asks")
 	tree.handle(key(KEY_R))
@@ -1645,7 +1647,7 @@ func check_items() -> bool:
 		"plugins go into the first free ring slot")
 	ok(gear.stat("damage") == 20.0 and is_equal_approx(stats.damage_mult(), 1.2) and is_equal_approx(stats.rate_mult(), 1.04)
 		and is_equal_approx(weapons.damage_mult(), 1.2), "two plugins: +20% damage, +4% fire rate, read by the weapons")
-	progress.tree = ["dmg1"]
+	progress.tree = ["of_a1"]
 	ok(is_equal_approx(stats.damage_mult(), 1.28), "the tree's +8% adds to the gear's (x1.28)")
 	progress.tree = []
 	var gun_item := {"base": "spreader", "rarity": "magic", "ilvl": 20, "affixes": [{"id": "local_damage", "tier": 2, "value": 50}]}
@@ -1763,7 +1765,7 @@ func check_life() -> bool:
 		and is_equal_approx(stats.evade_chance(120, 1), 0.5) and stats.evade_chance(1e9, 1) == 0.75 and stats.evade_chance(0, 1) == 0.0,
 		"life 50 + 5 a level (100 at 10), an enemy's hit grows with the area, armour and evasion with their caps")
 	gear.equip({"base": "scrap_plating", "rarity": "magic", "ilvl": 10, "affixes": [{"id": "life", "tier": 1, "value": 20}]})
-	progress.tree = ["hover1", "hover2", "run1", "guardrails"]
+	progress.tree = ["guardrails"]
 	ok(is_equal_approx(stats.max_life(), 145.0), "+20 life from gear and a heart from the tree (25) count")
 	# In the campaign: hearts as ever.
 	m.endgame = false
@@ -2239,7 +2241,7 @@ func check_minions() -> bool:
 	var got: Array = await setup.call([])
 	await frames(90)
 	ok(not got[0].gunner and got[1].hp == 100.0 and bullets.call().is_empty(), "without Tool use. a standing sub-agent does not shoot")
-	got = await setup.call(["stand1", "stand2", "tooluse"])
+	got = await setup.call(["sa_a1", "sa_a2", "tooluse"])
 	var seen := {"max": 0, "first": -1}
 	for i in 90:
 		await physics_frame
@@ -2250,15 +2252,15 @@ func check_minions() -> bool:
 		"with Tool use. it turns to the bug and shoots it (%.1f hp left, first hit after %d frames)" % [got[1].hp, seen.first])
 	ok(seen.max == 1, "one pellet at a time")
 	# Through a wall it does not shoot.
-	got = await setup.call(["stand1", "stand2", "tooluse"])
+	got = await setup.call(["sa_a1", "sa_a2", "tooluse"])
 	for y in range(12, 16):
 		m.level.terrain.set_cell_item(Vector3i(13, -y - 1, 0), 0)
 	await frames(90)
 	ok(got[1].hp == 100.0, "an enemy behind a block is out of its sight")
 	# Shared Weights, Async Calls and Parallel tool calls.
-	got = await setup.call(["stand1", "stand2", "tooluse", "mdmg1", "mrate1", "parallel"])
-	ok(is_equal_approx(got[0].gun_damage, got[0].GUN_DAMAGE * 1.3) and is_equal_approx(got[0].gun_every, got[0].GUN_EVERY / 1.3) and got[0].gun_pair,
-		"Shared Weights: damage x1.3; Async Calls: fire rate x1.3; Parallel tool calls.: two shots")
+	got = await setup.call(["sa_a1", "sa_a2", "tooluse", "sa_m1", "sa_m2", "sa_l1", "sa_l2", "parallel"])
+	ok(is_equal_approx(got[0].gun_damage, got[0].GUN_DAMAGE * 1.6) and is_equal_approx(got[0].gun_every, got[0].GUN_EVERY / 1.2) and got[0].gun_pair,
+		"Shared Weights: damage x1.6; Async Calls: fire rate x1.2; Parallel tool calls.: two shots")
 	seen.max = 0
 	for i in 60:
 		await physics_frame

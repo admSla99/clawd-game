@@ -131,7 +131,7 @@ func _shoot(dt: float) -> void:
 	from += Vector2(aim_facing * 5, 0)
 	var a := (at - from).angle()
 	for o in ([-0.08, 0.08] if gun_pair else [0.0]):
-		Bullet.fire(level, from, a + o, GUN_SPEED, GUN, gun_damage)
+		Bullet.fire(level, from, a + o, GUN_SPEED, GUN, gun_damage).minion = true
 	Sound.play("gunPellet")
 
 

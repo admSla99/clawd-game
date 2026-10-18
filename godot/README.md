@@ -776,7 +776,12 @@ WORLD 3 CLEAR and THANKS FOR PLAYING!), the prompt tree (every node joined to th
 in the shop, world 3's sparks as points and not shop sparks, buying points and the limit, allocating next to the
 tree, refunds and what hangs on a node, reset, every stat adding up in a level, a bug's tokens, the magnet pulling
 a token without the Token Magnet, Reflect catching a shot and throwing it back, the pause line, the window: T only
-with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once), sub-agents that
+with the hook, moving, allocating, no free points, U, R twice, Escape; an old save's refund, once; the endgame's
+tree in `tools/checks/tree.gd`: its size, keystones, spacing, more nodes than points, every stat named and every
+text fitting, the new stats and keystones in numbers, an enemy frozen and burning by the tree's numbers, leech
+(not from sub-agents) healing, twice as fast with Gradient Leech., avoided ailments, no hit while zipping with
+Agentic loop., a Corruption hit doing nothing when Air-gapped., the small map and a click on it, the start's list,
+the branch on the card, the Atlas without a small map, and an old layout's points given back once), sub-agents that
 shoot (not without Tool use.; with it one turns to a bug and hits it, one pellet at a time; not through a block;
 Shared Weights, Async Calls and Parallel tool calls.' numbers and two pellets at once), the character level (XP to
 the next level growing, the area levels, the penalty far below, a bug's XP in 1-1, a level-up: a prompt point, LEVEL
@@ -1021,54 +1026,69 @@ whose haiku type out in a bubble (idle ones every 9 s, thanks, refusals, the for
 
 ## Prompt tree
 
-World 3's builds (`docs/prompt-tree-plan.md`), Path of Exile's passive tree in small: `scripts/prompts.gd`
-(`Prompts`) defines 33 nodes joined by links round the start, SYSTEM PROMPT, in five branches (OFFENSE east,
-TOOL CALL north, SUB-AGENTS west, SURVIVAL south, TOKENS south-east). Small nodes add a few per cent to one stat;
-the notables (rounded, with a ring) and keystones (octagons) are world 3's eight System Prompts, with their ids, and
-four more; every node's `mods` add up in `Prompts.stat()`, and a flag (Temperature, Reflect, Tool use., Parallel
-tool calls.) is read with `Prompts.on()`.
+World 3's builds (`docs/prompt-tree-plan.md`), Path of Exile's passive tree, redrawn for the endgame's levels up
+to 100 (`docs/endgame-plan.md` E9): `scripts/prompts.gd` (`Prompts`) defines 137 nodes (103 small, 27 notables, 6
+keystones) joined by 159 links round the start, SYSTEM PROMPT. Eight sectors grow from it (`LABELS`, the names
+drawn dim past their ends): TOOL CALL north, ELEMENTS north-east, OFFENSE east, PRECISION south-east, MOVEMENT &
+TOKENS south, SUSTAIN south-west, DEFENCE west, SUB-AGENTS north-west. Each is the same shape: two small nodes to a
+hub notable, two branches of two small nodes to a notable each, a middle path of three small nodes, and at the end
+a keystone (octagon) or a big notable that both branches (through one more small node each) and the middle path
+reach; DEFENCE has a second keystone on its middle path. An outer ring of two small nodes joins every sector's
+outer notable to the next one's, so a build can go round. `NODES` and `LINKS` are written by a generator from that
+layout (the sectors' angles, an ellipse 1.5 wide and 0.8 high); hand edits are fine, the checks keep nodes 16 px
+apart. Every node's `mods` add up in `Prompts.stat()` (cached until `Progress.tree` changes), and a flag is read with
+`Prompts.on()`. A save from the first layout (`Prompts.VERSION`, `tree_version` in the save) gets every point back
+once (`Progress.tree_redrawn`; the window says so the next time it opens).
 
 - **The Atlas** (*The Atlas* below) uses the same window: Tab switches between the two once the hideout is open.
 - **Points**: one per character level gained (*Character level* below), every spark found in world 3 (or later)
   is one (`Progress.tree_sparks()`; those sparks are not the shop's, `sparks_available()` leaves them out), and up
-  to 10 more are bought with tokens: 60, then 30 more each (1950 for all). A point allocates a node next to one Clawd has; refunds are free, a node at a time when the rest
-  stays joined to the start, or all at once. Saved as `Progress.tree` (ids) and `points_bought`.
-- **Where it matters**: `Weapons.damage_mult()` / `rate_mult()` (damage, fire rate), `Gun.fire()` (Temperature),
-  `Enemy` (tokens), `Token` (magnet: the Token Magnet's 72 px plus Embeddings / Retrieval., which pull without it
-  too), `ToolCall` (Reflect., reach), `Main._apply_loadout()` (hearts, hover, run speed, zip speed, sub-agent slots
-  and how long they stand: `EchoControl.extra`, `stand`, `Echo.stand`).
+  to 10 more are bought with tokens: 60, then 30 more each (1950 for all). At level 100 with world 3's 20 sparks
+  and all ten bought that is 129 points for 137 nodes: not everything. A point allocates a node next to one Clawd
+  has; refunds are free, a node at a time when the rest stays joined to the start, or all at once. Saved as
+  `Progress.tree` (ids) and `points_bought`.
+- **Where it matters**: through `Stats` (with the gear's, *Items and gear* below): `Weapons.damage_mult()` /
+  `rate_mult()` (damage, fire rate, Temperature 0.'s 30 % more), `Gun.fire()` (critical strikes, Temperature 1.5,
+  Temperature 0.'s straight shots), `Enemy` (tokens; `afflict()`: ignite / shock chance, freezing, burning,
+  ailment time), `Token` (magnet: the Token Magnet's 72 px plus Embeddings / Retrieval., which pull without it too),
+  `ToolCall` (Reflect., reach), `Player` (leech, avoiding ailments, Agentic loop., Air-gapped.) and
+  `Main._apply_loadout()` (hearts, life, armour, evasion, regeneration, resistances, hover, run speed, zip speed,
+  sub-agent slots and how long they stand: `EchoControl.extra`, `stand`, `Echo.stand`).
+- **New stats** (E9; the ones marked endgame only count where Clawd has hit points): `life_pct`, `armour_pct`,
+  `evasion_pct` (per cent more of the flat ones, `Stats.max_life()` / `armour()` / `evasion()`), `res_ele` (the three
+  elements' resistances), `regen_pct` (per cent of maximum life a second, `Stats.regen()`), `leech` (per cent of the
+  damage Clawd's own hits deal, not his sub-agents', `Enemy.hit(..., own)` -> `Player.leech_hit()`: into a pool
+  of at most a full life, healed at `Player.LEECH_RATE` = 10 % of maximum life a second), `avoid` (the chance an
+  ignite, chill or shock does not take, `Player.avoid`), `crit_inc` (the weapon's critical chance per cent more),
+  `ele_damage` (the damage added as elements per cent more), `ignite`, `shock` (more often), `freeze` (a smaller
+  share of an enemy's life freezes it), `burn` (burning harder), `ailment_time` (ailments on enemies longer), and
+  `heat` (the context window, as on gear).
 
-  | Node | Kind | Effect |
+  | Sector | Small nodes | Notables (and keystones) |
   |---|---|---|
-  | Sharper Tokens ×3 / Fast Inference ×2 | small | +8 % damage / +8 % fire rate |
-  | Be concise. | notable | +20 % fire rate, −15 % damage |
-  | You are an expert. | keystone | +35 % damage, one heart less |
-  | Temperature 1.5 | notable | +0.06 rad spread, one shot in seven deals double |
-  | Long Context ×2 / Low Latency | small | the hook reaches 12 % farther / zips 10 % faster |
-  | Stay on task. | notable | reach +50 %, zips +25 % |
-  | Reflect. | notable | the hook, thrown straight, catches an enemy shot and throws it back as a 4-damage token |
-  | Patience ×3 | small | sub-agents stand 2 s longer (8 s) |
-  | Delegate. | notable | one more sub-agent out at once |
-  | Orchestrator. | keystone | one more sub-agent, but Clawd's own shots −20 % damage |
-  | Tool use. | notable | standing sub-agents shoot the nearest enemy in sight |
-  | Shared Weights / Async Calls | small | sub-agents' shots +30 % damage / +30 % fire rate |
-  | Parallel tool calls. | notable | sub-agents fire two shots at once |
-  | Jet Fuel ×2 / Quick Feet | small | +15 % hover / +5 % run speed |
-  | Think step by step. | notable | hover +60 %, run −10 % |
-  | Guardrails. | notable | one more heart |
-  | Billing ×2 / Embeddings | small | enemies drop 6 % more tokens / tokens fly in from 36 px farther |
-  | Cite your sources. | notable | enemies drop 30 % more tokens |
-  | Retrieval. | notable | tokens fly in from 72 px farther |
+  | TOOL CALL | Long Context (reach +12 %), Low Latency (zips +10 %) | Stay on task. (reach +50 %, zips +25 %); Reflect. (the hook catches enemy shots and throws them back); Fast path. (zips +30 %, run +5 %); Agentic loop. (nothing hurts Clawd while he zips) |
+  | ELEMENTS | Multimodal Input (+10 % elemental), Overclock / Cold Storage / Power Draw (+3 % as Overheat / Latency / Voltage), Hot Path (ignites +25 %), Surge Line (shocks +25 %), Frozen Weights (freezes 30 % easier), Thermal Load (burning +20 %), Long Tail (ailments +15 %) | Multimodal. (+4 % as each element); Thermal runaway. (+6 % Overheat, burning +40 %); Power surge. (+6 % Voltage, shocks +40 %); Cold start. (+8 % Latency, freezes 60 % easier, ailments +20 %) |
+  | OFFENSE | Sharper Tokens (+8 % damage), Fast Inference (+6 % fire rate) | Bigger model. (+25 % damage); Be concise. (+20 % fire rate, −15 % damage); Batching. (+12 % both); keystone **You are an expert.** (+35 % damage, a heart less: 25 life in the endgame) |
+  | PRECISION | Top-p Sampling (critical chance +15 %), Logit Bias (critical damage +12 %), Context Window (+10 % heat) | Temperature 1.5 (+0.06 rad spread, one shot in seven double); Chain of thought. (critical damage +40 %); Context caching. (+30 % heat, +6 % fire rate); keystone **Temperature 0.** (no spread at all, 30 % more damage, no critical strikes or double hits) |
+  | MOVEMENT & TOKENS | Jet Fuel (+15 % hover), Quick Feet (+4 % run), Billing (+6 % tokens), Embeddings (+24 px magnet) | Think step by step. (hover +60 %, run −10 %); Cite your sources. (+30 % tokens); Streaming. (run +10 %, hover +20 %); Retrieval. (+72 px magnet) |
+  | SUSTAIN | Self-repair (0.4 % of life a second), Backprop (0.4 % leech), Fault Tolerance (10 % to avoid ailments) | Self-healing. (1.2 % a second, +4 % life); Gradient flow. (1.2 % leech); Graceful degradation. (30 % avoid, +4 % life); keystone **Gradient Leech.** (leech heals twice as fast, no regeneration at all) |
+  | DEFENCE | More Parameters (+5 % life), Hardening (+12 % armour), Dropout (+12 % evasion), Red Teaming (+6 % elemental resistances), Sandboxing (+10 % Corruption resistance) | Guardrails. (a heart more, +5 % elemental resistances); Hardened weights. (+40 armour, +30 %); Stochastic depth. (+40 evasion, +30 %); keystones **Air-gapped.** (Corruption cannot hurt Clawd, resistance 100 whatever the map; 40 % less life) and **Robustness.** (evasion counts as armour, none to evade with) |
+  | SUB-AGENTS | Patience (stand 2 s longer), Shared Weights (+20 % their damage), Async Calls (+20 % their fire rate) | Tool use. (standing sub-agents shoot the nearest enemy in sight); Parallel tool calls. (two shots at once); Delegate. (one more out at once); keystone **Orchestrator.** (one more, but Clawd's own shots −20 % damage) |
 
 - **The window** (`scripts/tree_screen.gd`, `TreeScreen`, made by Main under `Ui`; `Main.Mode.TREE`): T on the
   map (the `tree` action) or its `T · PROMPTS` button, next to SHOP once the hook is Clawd's, with the free points
   in brackets. Over the drifting backdrop: the tree in a field, links lit orange between allocated nodes, nodes
-  filled orange once allocated and outlined pulsing where a point could go, the branches' names dim beside them;
+  filled orange once allocated and outlined pulsing where a point could go, the sectors' names dim past their ends;
   the points (free · allocated / all) and the wallet at the top, a `U · BUY POINT` button with the price; a card at
-  the bottom with the selected (or hovered) node's name, kind and effect and what Space would do (the start's card
-  adds up everything allocated). Arrows / WASD move to the nearest node that way (`step()`), Space / Enter or a
-  click allocates or refunds, U buys a point, R twice refunds all, Escape or T goes back; dragging pans, the view
-  follows the selection and stays on the tree (centred along an axis it fits). The pause menu lists the notables
+  the bottom with the selected (or hovered) node's name, kind, sector (right, `branch_of()`: the label nearest its
+  direction) and effect and what Space would do. With the start selected a panel over the field's top left lists
+  what every allocated node adds up to (`totals_lines()`, a line a stat in `STAT_NAMES` order, then the flags of
+  `FLAG_NAMES`, in columns when long). A tree bigger than the field has a small map of itself in the field's top
+  right corner (`mini_rect()`, `MINI_SCALE` 0.14: a dot a node, orange once allocated, the selection white, the
+  view's frame); a click or a drag there moves the view (`mini_to_tree()`). Arrows / WASD move to the nearest node
+  that way (`step()`), Space / Enter or a click allocates or refunds, U buys a point, R twice refunds all, Escape or
+  T goes back; dragging pans, the view follows a selection made with the keys (`follow`, not after panning) and
+  stays on the tree and its labels (`bounds()`, centred along an axis it fits). The pause menu lists the notables
   and keystones allocated under its panel. Clawd's level and XP bar sit after the points; the start's card says
   where the points come from (levels, world 3's sparks, bought).
 
@@ -1212,7 +1232,7 @@ The endgame's elements (`docs/endgame-plan.md`, E7; `Stats`), where Clawd has hi
   turrets, webhooks and THE OVERFITTER Voltage, drones Latency, the rest physical. A map can add elements to every
   enemy hit (mods "enemies add +n% of their hits as overheat / latency / voltage", `Player.map_ele`).
 - **Mitigation** (`Player._mitigate()`): a hit is split into its parts; the physical one is reduced by armour,
-  each other by its resistance (`Stats.resistances()`: the gear's and the tree's `res_*`, at most 75 %, lowered in a
+  each other by its resistance (`Stats.resistances()`: the gear's and the tree's `res_*` and `res_ele`, at most 75 %, lowered in a
   map by 5 % a tier and the mod "Clawd has -n% all resistances"; Corruption only by its own, the new suffix
   `res_chaos` from item level 20). Shocked, the total is 20 % more.
 - **Ailments**, on Clawd and on enemies alike (`Stats` constants): an Overheat part ignites 25 % of the time (60 % of
@@ -1224,7 +1244,10 @@ The endgame's elements (`docs/endgame-plan.md`, E7; `Stats`), where Clawd has hi
 - **Clawd's elements**: the prefixes "+n% of damage as overheat / latency / voltage" (weapons, actuators, cores,
   plugins; from item level 5) add that much damage (`Stats.ele_mult()`, in `Weapons.damage_mult()`) and their
   part of every shot (`Stats.ailment_parts()`) can ignite, chill, freeze or shock what it hits (`Bullet`). The
-  inventory's stats show them (ADDED HEAT/LAG/VOLT) and the four resistances.
+  inventory's stats show them (ADDED HEAT/LAG/VOLT) and the four resistances. The prompt tree's ELEMENTS sector
+  adds more of them and makes their ailments likelier, harder and longer (`Stats.ignite_chance()`,
+  `shock_chance()`, `freeze_share()`, `burn_mult()`, `ailment_time()`), and SUSTAIN lets Clawd avoid his
+  (`Stats.avoid_chance()`).
 - Checks: the enemies' elements, the cap and the penalty, a resisted hit, a chill, a shocked hit, a map's added
   element, burning, running chilled, a shocked enemy, an enemy burning, chilled, frozen in place and burnt to death,
   the added damage and its parts.
@@ -1338,7 +1361,9 @@ the campaign too (the user's call), at the area level.
   item's tooltip sits beside it with what equipping it would change, and the equipped one's beside that.
 - **Hit points in the endgame** (`Main.endgame`, set by the hideout and maps later; the campaign keeps hearts):
   `Player.hp_mode` with `life` / `max_life`, set in `_apply_loadout()` from `Stats`: life is 50 + 5 a character
-  level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes). An enemy's hit costs
+  level + the gear's life + 25 a heart the prompt tree or the shop gives (or takes), the tree's `life_pct` more
+  (and Air-gapped.'s 40 % less); armour, evasion and regeneration likewise (`Stats.armour()`, `evasion()`,
+  `regen()`, *Prompt tree* above), and leech from Clawd's hits. An enemy's hit costs
   `Stats.enemy_hit()` of the area level, 11 x 1.045^level (11.5 at 1, 41 at 30, 45 in a T1 map, 154 at 60), less armour
   (armour / (armour + 5 x damage), at most 90 %, Path of Exile's formula); evasion avoids a hit (no damage, no
   knock-back) with a chance of evasion / (evasion + 100 + 20 x area level), at most 75 %, "EVADE" popping up.
@@ -1559,7 +1584,7 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
-| `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: nodes, links, points, allocating, the stats others read; its window |
+| `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: 137 nodes in eight sectors, links, points, allocating, the stats others read; its window (small map, totals list) |
 | `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
 | `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |
 | `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
@@ -1617,7 +1642,7 @@ without COOP/COEP headers.
 | `shaders/voxel.gdshader`, `shaders/grade.gdshader` | Voxel material (hit tint, sway, lit edges); colour grade on top of the view |
 | `shaders/oblique.gdshaderinc`, `shaders/fog.gdshaderinc`, `shaders/reveal.gdshaderinc` | Shader includes: the oblique projection (every 3D material), depth fog, the foreground's see-through dither around Clawd |
 | `scripts/game.gd`, `scripts/game_camera.gd`, `scripts/noise.gd` | Autoload `Game` (game time, hitstop, pause); the camera (`src/core/camera.ts`); `DotNoise`, bit-exact noise ports |
-| `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level sections, see *Checks* |
+| `tools/check.gd`, `tools/checks/<id>.gd` | Headless checks and the per-level and per-feature sections (`atlas.gd`, `tree.gd`, ...), see *Checks* |
 | `levels/<id>.txt`, `levels/index.json`, `levels/<id>.tscn` | Level maps and metadata (edited by hand), and the 3D level scenes converted from them |
 | `tiles/terrain_meshlib.tres` | MeshLibrary of the level GridMaps. Item id = tile id from `src/world/tiles.ts` minus one: `#` solid (0), `=` one-way (1), `^` spike (2), `X` corrupted (3); 4 is an invisible solid box (a shape, no mesh) for shut gates and brittle crates. Spikes have no collision shape; the player detects them by item like the TS version. Their mesh is the spike bed (`tools/build_meshlib.gd`), the others are boxes |
 | `tools/build_meshlib.gd` | Generates `tiles/terrain_meshlib.tres` |

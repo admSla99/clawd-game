@@ -25,6 +25,8 @@ var damage := 1.0
 var color := ORANGE
 var splash := {}
 var pierce := 0
+## A sub-agent's shot: its hits leech no life for Clawd.
+var minion := false
 var vel := Vector2.ZERO
 var life := 1.0
 var t := 0.0
@@ -157,7 +159,7 @@ func _check_enemies() -> void:
 			Fx.burst(self, pos, {count = 5, speed = 70, life = 0.2, color = [Color("#5FD0D8"), Color.WHITE]})
 			continue
 		hits.append(e)
-		if e.hit(&"shot", damage):
+		if e.hit(&"shot", damage, not minion):
 			# Damage added as elements may ignite, chill or shock (docs/endgame-plan.md E7).
 			if not Stats.elements().is_empty():
 				e.afflict(Stats.ailment_parts(damage))

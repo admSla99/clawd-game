@@ -1,5 +1,9 @@
 # Prompt tree plan (after world 3's playthrough, 2026-10-15)
 
+> The tree below is the first one (33 nodes). The endgame redrew it (2026-10-18, `docs/endgame-plan.md` E9):
+> 137 nodes in eight sectors; the eight prompts are still notables or keystones in it. See *Prompt tree* in
+> `godot/README.md`.
+
 The user's notes after playing world 3: the System Prompts become a **skill tree in a window of its own, like Path
 of Exile's passive tree**; **3-4 is too short** (longer, more enemies); **sub-agents as allies** that shoot enemies,
 as a node in the tree.

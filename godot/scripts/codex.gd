@@ -149,7 +149,7 @@ func hurtbox() -> Rect2:
 
 
 ## Codex.hit(): any hit but while it types its intro, refactors or dies; damage numbers as on every enemy.
-func hit(_kind: StringName, damage := 1.0) -> bool:
+func hit(_kind: StringName, damage := 1.0, _own := true) -> bool:
 	if mode in [&"intro", &"refactor", &"dead"]:
 		return false
 	hp -= damage

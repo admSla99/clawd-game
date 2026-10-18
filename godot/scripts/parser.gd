@@ -86,13 +86,13 @@ func hook_hit(_dir: Vector2) -> bool:
 
 
 ## Armoured, every hit just clanks (stomps still bounce Clawd: Player bounces whatever hit() says).
-func hit(kind: StringName, damage := 1.0) -> bool:
+func hit(kind: StringName, damage := 1.0, own := true) -> bool:
 	if armoured:
 		if clank <= 0:
 			Sound.play("deflect")
 		clank = 0.12
 		return false
-	return super(kind, damage)
+	return super(kind, damage, own)
 
 
 func _physics_process(dt: float) -> void:

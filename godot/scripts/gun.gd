@@ -192,8 +192,10 @@ func fire(dt: float, trigger: bool) -> bool:
 	heat += w.heat
 	var muzzle := pivot() + Vector2(cos(angle), sin(angle)) * 16
 	var damage: float = w.damage * Weapons.damage_mult()
-	# Temperature 1.5 (a System Prompt): wilder aim, now and then a double hit.
-	var temp := Prompts.on("temperature")
+	# Temperature 1.5 (a System Prompt): wilder aim, now and then a double hit. Temperature 0.: neither, and no
+	# spread at all (its damage is in Stats.damage_mult(), its lack of critical strikes in Stats.crit_chance()).
+	var precise := Prompts.on("precise")
+	var temp := Prompts.on("temperature") and not precise
 	if temp and randf() < Prompts.TEMP_CRIT:
 		damage *= 2.0
 	# Critical strikes (gear): the weapon item's base chance and `crit`, for 150 % plus `crit_multi`.
@@ -204,7 +206,8 @@ func fire(dt: float, trigger: bool) -> bool:
 	else:
 		for i in w.pellets:
 			var fan_offset: float = -w.fan / 2 + w.fan * i / (w.pellets - 1) if w.pellets > 1 else 0.0
-			var a: float = angle + fan_offset + (randf() - 0.5) * 2 * (w.spread + (Prompts.TEMP_SPREAD if temp else 0.0))
+			var spread: float = 0.0 if precise else w.spread + (Prompts.TEMP_SPREAD if temp else 0.0)
+			var a: float = angle + fan_offset + (randf() - 0.5) * 2 * spread
 			var speed: float = w.speed * (0.85 + randf() * 0.3 if w.pellets > 1 else 1.0)
 			Bullet.fire(main.level, muzzle, a, speed, w, damage)
 	shot_count += 1

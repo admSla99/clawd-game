@@ -50,6 +50,8 @@ const NODES := {
 		"desc": "Resistances drop 2% less a map tier."},
 	"redundancy": {"kind": "notable", "name": "Redundancy.", "at": Vector2(22, 56), "mods": {"portals": 2}, "desc": "Maps open two more portals."},
 }
+## The branches' names, dim (tree px).
+const LABELS := [["LOOT", Vector2(100, -38)], ["MAPS", Vector2(0, -62)], ["ORBS", Vector2(-100, -38)], ["SUSTAIN", Vector2(0, 64)]]
 const LINKS := [
 	["root", "qty1"], ["qty1", "qty2"], ["qty2", "scaling"], ["scaling", "emergence"], ["qty2", "rar1"], ["rar1", "rar2"],
 	["root", "drop1"], ["drop1", "drop2"], ["drop2", "curriculum"], ["curriculum", "up1"], ["drop2", "selfplay"], ["selfplay", "drop3"],

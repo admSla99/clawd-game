@@ -96,8 +96,9 @@ func stomp_line() -> float:
 
 
 ## Enemy.hit(): returns true if the hit was accepted. `kind` is stomp, pound, spin, beam or shot. The damage
-## shows as a number over it (Overlay.damage_number(), a port addition).
-func hit(kind: StringName, damage := 1.0) -> bool:
+## shows as a number over it (Overlay.damage_number(), a port addition). Clawd's own hits (`own`; not his
+## sub-agents') leech what they take as life (Player.leech_hit()).
+func hit(kind: StringName, damage := 1.0, own := true) -> bool:
 	if dead or invincible or immune > 0:
 		return false
 	if max_hp <= 0:
@@ -106,11 +107,14 @@ func hit(kind: StringName, damage := 1.0) -> bool:
 	# Shocked: it takes more.
 	if shock_t > 0:
 		damage *= 1.0 + Stats.SHOCK_TAKEN
+	var took := minf(damage, maxf(hp, 0.0))
 	hp -= damage
 	flash = 0.12
 	var main := get_tree().get_first_node_in_group("main")
 	if main and not projectile:
 		main.overlay.damage_number(self, damage, hp <= 0)
+		if own:
+			main.player.leech_hit(took)
 	if hp <= 0:
 		die(kind)
 	elif kind != &"shot":
@@ -153,19 +157,21 @@ func held() -> bool:
 
 
 ## Ailments from a hit whose elemental parts are `parts` (element -> damage): an Overheat part may ignite it, a
-## Latency part chills it (and freezes it when big), a Voltage part may shock it.
+## Latency part chills it (and freezes it when big), a Voltage part may shock it; the prompt tree makes them
+## likelier, harder and longer (Stats.ignite_chance() etc.).
 func afflict(parts: Dictionary) -> void:
 	if dead or invincible:
 		return
-	if parts.get("fire", 0.0) > 0 and randf() < Stats.IGNITE_CHANCE:
-		burn_t = Stats.BURN_TIME
-		burn_dps = maxf(burn_dps, parts.fire * Stats.BURN_SHARE / Stats.BURN_TIME)
+	var time := Stats.ailment_time()
+	if parts.get("fire", 0.0) > 0 and randf() < Stats.ignite_chance():
+		burn_t = Stats.BURN_TIME * time
+		burn_dps = maxf(burn_dps, parts.fire * Stats.BURN_SHARE * Stats.burn_mult() / Stats.BURN_TIME)
 	if parts.get("cold", 0.0) > 0:
-		chill_t = Stats.CHILL_TIME
-		if max_hp > 0 and parts.cold >= max_hp * Stats.FREEZE_SHARE:
-			freeze_t = Stats.FREEZE_TIME
-	if parts.get("lightning", 0.0) > 0 and randf() < Stats.SHOCK_CHANCE:
-		shock_t = Stats.SHOCK_TIME
+		chill_t = Stats.CHILL_TIME * time
+		if max_hp > 0 and parts.cold >= max_hp * Stats.freeze_share():
+			freeze_t = Stats.FREEZE_TIME * time
+	if parts.get("lightning", 0.0) > 0 and randf() < Stats.shock_chance():
+		shock_t = Stats.SHOCK_TIME * time
 
 
 ## The ailments' timers, and burning (Main, every physics frame): the burn's damage shows every point or so.

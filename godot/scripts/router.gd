@@ -142,7 +142,7 @@ func hurtbox() -> Rect2:
 	return Rect2()
 
 
-func hit(_kind: StringName, damage := 1.0) -> bool:
+func hit(_kind: StringName, damage := 1.0, _own := true) -> bool:
 	if mode in [&"intro", &"reroute", &"dead"] or exposed <= 0:
 		if mode != &"dead":
 			flash = 0.05
