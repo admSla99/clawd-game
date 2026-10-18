@@ -29,7 +29,7 @@ static func rows(it: Dictionary, endgame: bool, header := "") -> Array:
 		var w := Weapons.get_def(Items.BASES[it.base].weapon)
 		out.append(["%s · ITEM LEVEL %d" % [Weapons.CLASS_NAME[Weapons.class_of(w)], it.ilvl], Hud.TEXT_DIM])
 		out.append(["%s DAMAGE · %s %s A SECOND" % [_num(w.damage * w.get("pellets", 1)), _num(w.fire_rate),
-			"SWINGS" if Weapons.is_melee(w) else "SHOTS"], Hud.TEXT_DIM])
+			"SWINGS" if Weapons.is_melee(w) else "FULL DRAWS" if Weapons.is_bow(w) else "SHOTS"], Hud.TEXT_DIM])
 	else:
 		out.append(["%s · ITEM LEVEL %d" % [Items.KIND_NAME[Items.kind(it)], it.ilvl], Hud.TEXT_DIM])
 	var lines: Array = Items.lines(it)

@@ -61,7 +61,7 @@ const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break"
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
 	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "levelUp", "itemPick", "gunBeam", "gunOrb", "overheat",
 	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip", "agentSend", "agentGone",
-	"plateOn", "plateOff", "gateOpen", "gateShut", "swordSwing", "axeSwing", "slashHit"]
+	"plateOn", "plateOff", "gateOpen", "gateShut", "swordSwing", "axeSwing", "slashHit", "bowShot", "bowFull"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -413,6 +413,12 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 		"slashHit":
 			noise(buf, 0.09, 0.32, 3500, 600, 0, 1.2)
 			tone(buf, "square", 320, 110, 0.08, 0.1)
+		# Bows (E14.2): a twang and a click at a full draw.
+		"bowShot":
+			tone(buf, "triangle", 520, 180, 0.14, 0.12)
+			noise(buf, 0.06, 0.18, 4000, 1500, 0, 2)
+		"bowFull":
+			tone(buf, "square", 1600, 1600, 0.03, 0.05)
 		"bossHit":
 			tone(buf, "sawtooth", 300, 60, 0.4, 0.2)
 			noise(buf, 0.4, 0.4, 4000, 200, 0, 0.8)
@@ -498,6 +504,8 @@ static func _sfx_length(id: String) -> float:
 		"swordSwing": return 0.12
 		"axeSwing": return 0.22
 		"slashHit": return 0.09
+		"bowShot": return 0.14
+		"bowFull": return 0.03
 		"bossTeleport": return 0.3
 		"weaponGet": return 6 * 0.08 + 0.25
 		"crush": return 0.35

@@ -20,10 +20,19 @@ const SPRITES := {
 	"pruning_axe": [".......AAa", "ggggggggAa", ".......AAa", "........a."],
 	"gradient_cleaver": ["......AAAa", ".......AAa", "gggggggggA", ".......AAa", "......AAAa"],
 	"dropout_reaver": ["aAA....AAa", ".AA....AA.", "gggggggggg", ".AA....AA.", "aAA....AAa"],
+	# Bows (E14.2): held by the middle, the string (S) towards Clawd, the stave (W, w) in front.
+	"recurrent_bow": ["..W.", ".S.W", ".S.W", "gS.W", ".S.W", ".S.W", "..W."],
+	"backprop_longbow": ["..W.", ".S.W", ".S.W", ".S.W", "gS.w", ".S.W", ".S.W", ".S.W", "..W."],
+	"residual_bow": ["..Ww", ".S.W", ".S.W", "gS.C", ".S.W", ".S.W", "..Ww"],
+	# Staves (E14.2): a long shaft, a crystal at its head.
+	"inference_staff": ["..........C", "gwwwwwwwwwC", "..........C"],
+	"embedding_rod": [".........cC", "gwwwwwwwwCC", ".........cC"],
+	"oracle_staff": ["........OCO", "gwwwwwwwwCC", "........OCO"],
 }
 ## The row (from the top) a sprite is held by: the guns by their top one, the blades by their grip.
 const GRIP_ROW := {"tokenizer_blade": 1, "attention_sabre": 2, "transformer_edge": 1, "pruning_axe": 1, "gradient_cleaver": 2,
-	"dropout_reaver": 2}
+	"dropout_reaver": 2, "recurrent_bow": 3, "backprop_longbow": 4, "residual_bow": 3, "inference_staff": 1, "embedding_rod": 1,
+	"oracle_staff": 1}
 const PALETTE := {
 	"G": Color("#CFCFCF"),
 	"g": Color("#7A7A7A"),
@@ -34,10 +43,14 @@ const PALETTE := {
 	"b": Color("#F4F8FA"),
 	"A": Color("#9AA6AE"),
 	"a": Color("#E6EEF2"),
+	"W": Color("#8A5A3A"),
+	"w": Color("#B07A50"),
+	"S": Color("#E6E6E6"),
+	"c": Color("#2F8F99"),
 }
 ## Depth in cells: the grey body deeper than the grip, the orange and cyan muzzle as deep as the body.
 ## Blades are thin, axe heads a little thicker.
-const DEPTH := {"G": 4, "g": 2, "O": 4, "o": 4, "C": 4, "B": 2, "b": 2, "A": 4, "a": 2}
+const DEPTH := {"G": 4, "g": 2, "O": 4, "o": 4, "C": 4, "B": 2, "b": 2, "A": 4, "a": 2, "W": 2, "w": 2, "S": 2, "c": 4}
 
 static var _cache := {}
 

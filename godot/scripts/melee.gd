@@ -153,7 +153,7 @@ func _strike() -> void:
 	if struck:
 		Sound.play("slashHit")
 		Game.hitstop(HITSTOP)
-		main.shake(0.06 if w["class"] == "sword" else 0.12)
+		main.shake(0.12 if w["class"] == "axe" else 0.06)
 		# The pogo: a downward swing in the air bounces off what it hit, once a swing.
 		if not pogo_done and not player.on_ground and sin(angle) >= POGO_SIN:
 			pogo_done = true

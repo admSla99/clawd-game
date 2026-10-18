@@ -27,7 +27,8 @@ const ORDER := ["blaster", "spreader", "stream", "beam", "cannon"]
 ## The endgame's melee weapons (docs/endgame-plan.md E14), the weapon items of swords and axes: `class` (the guns'
 ## is "gun"), swings a second (`fire_rate`, so the gun's stats read the same), damage a swing, `reach` (px from
 ## Clawd's arm), `arc` (radians round the aim it hits in), a combo of `combo` swings whose last deals `finisher`
-## times as much in an arc 1.3 times as wide, and `swing` (seconds the blade sweeps and hits). Scripts/melee.gd
+## times as much in an arc 1.3 times as wide, and `swing` (seconds the blade sweeps and hits). Staves (E14.2) swing
+## the same way, a short weak bonk: their worth is their implicit spell damage and COMPUTE (for the skills, E14.3). Scripts/melee.gd
 ## swings them. Swords are quick; axes slow and heavy, their swing a whole circle round Clawd (a cleave).
 const MELEE := {
 	"tokenizer_blade": {"id": "tokenizer_blade", "name": "Tokenizer Blade", "class": "sword", "kind": "sword", "fire_rate": 2.6,
@@ -42,9 +43,30 @@ const MELEE := {
 		"damage": 19.0, "reach": 36.0, "arc": 6.3, "combo": 1, "finisher": 1.0, "swing": 0.28, "color": Color("#FF8A3D")},
 	"dropout_reaver": {"id": "dropout_reaver", "name": "Dropout Reaver", "class": "axe", "kind": "axe", "fire_rate": 1.25,
 		"damage": 27.0, "reach": 38.0, "arc": 6.3, "combo": 1, "finisher": 1.0, "swing": 0.27, "color": Color("#B07CFF")},
+	"inference_staff": {"id": "inference_staff", "name": "Inference Staff", "class": "staff", "kind": "staff", "fire_rate": 1.7,
+		"damage": 4.0, "reach": 26.0, "arc": 1.8, "combo": 1, "finisher": 1.0, "swing": 0.18, "color": Color("#5FD0D8")},
+	"embedding_rod": {"id": "embedding_rod", "name": "Embedding Rod", "class": "staff", "kind": "staff", "fire_rate": 1.7,
+		"damage": 6.0, "reach": 27.0, "arc": 1.8, "combo": 1, "finisher": 1.0, "swing": 0.18, "color": Color("#8C9BFF")},
+	"oracle_staff": {"id": "oracle_staff", "name": "Oracle Staff", "class": "staff", "kind": "staff", "fire_rate": 1.75,
+		"damage": 9.0, "reach": 28.0, "arc": 1.8, "combo": 1, "finisher": 1.0, "swing": 0.18, "color": Color("#F2D27A")},
+}
+## The endgame's bows (E14.2), drawn by holding the attack and shot on its release (scripts/bow.gd): `fire_rate`
+## is full draws a second (a full draw takes 1 / fire_rate, faster with the attack speed), `damage` and `speed`
+## a fully drawn arrow's (a short draw shoots weaker and slower), arrows fall with `gravity` (px/s²) and pierce
+## `pierce` enemies; fired as Bullets of kind "arrow".
+const BOWS := {
+	"recurrent_bow": {"id": "recurrent_bow", "name": "Recurrent Bow", "class": "bow", "kind": "arrow", "fire_rate": 1.5,
+		"damage": 12.0, "speed": 430.0, "spread": 0.0, "pellets": 1, "fan": 0.0, "life": 1.4, "heat": 0.0, "pierce": 1,
+		"gravity": 380.0, "color": Color("#E0B070")},
+	"backprop_longbow": {"id": "backprop_longbow", "name": "Backprop Longbow", "class": "bow", "kind": "arrow", "fire_rate": 1.45,
+		"damage": 18.0, "speed": 470.0, "spread": 0.0, "pellets": 1, "fan": 0.0, "life": 1.4, "heat": 0.0, "pierce": 1,
+		"gravity": 360.0, "color": Color("#8CE0FF")},
+	"residual_bow": {"id": "residual_bow", "name": "Residual Bow", "class": "bow", "kind": "arrow", "fire_rate": 1.5,
+		"damage": 26.0, "speed": 500.0, "spread": 0.0, "pellets": 1, "fan": 0.0, "life": 1.4, "heat": 0.0, "pierce": 1,
+		"gravity": 340.0, "color": Color("#B07CFF")},
 }
 ## What each class is called (the item's tooltip, the HUD).
-const CLASS_NAME := {"gun": "GUN", "sword": "SWORD", "axe": "AXE"}
+const CLASS_NAME := {"gun": "GUN", "sword": "SWORD", "axe": "AXE", "bow": "BOW", "staff": "STAFF"}
 ## The gun upgrades of UPGRADES (the others, Extra Heart, Jet Tuning and Token Magnet, are in Shop.ITEMS).
 const UPGRADES := [
 	{"id": "damage", "name": "Bigger Model", "desc": "+25% weapon damage per level.", "prices": [100, 220, 400], "sparks": [0, 2, 6]},
@@ -54,20 +76,25 @@ const UPGRADES := [
 
 
 static func get_def(id: String) -> Dictionary:
-	return WEAPONS.get(id, MELEE.get(id, WEAPONS.blaster))
+	return WEAPONS.get(id, MELEE.get(id, BOWS.get(id, WEAPONS.blaster)))
 
 
 static func has(id: String) -> bool:
-	return WEAPONS.has(id) or MELEE.has(id)
+	return WEAPONS.has(id) or MELEE.has(id) or BOWS.has(id)
 
 
-## A weapon's class: "gun", "sword" or "axe".
+## A weapon's class: "gun", "sword", "axe", "bow" or "staff".
 static func class_of(w: Dictionary) -> String:
 	return w.get("class", "gun")
 
 
+## Swung by Melee: swords, axes, staves.
 static func is_melee(w: Dictionary) -> bool:
-	return class_of(w) in ["sword", "axe"]
+	return class_of(w) in ["sword", "axe", "staff"]
+
+
+static func is_bow(w: Dictionary) -> bool:
+	return class_of(w) == "bow"
 
 
 ## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level; times the prompt

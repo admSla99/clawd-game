@@ -8,7 +8,8 @@ extends Node3D
 ## ricochet (enemies with blocks_direction()). Lives in the level; `pos` is its centre in level pixels.
 ## Drawn as small glowing voxels: a spinning coin (token), a hot square (pellet), a code character (glyph) or
 ## an orange core with ten dots circling it in depth (orb, with a GlowLight); tokens and pellets leave a dot
-## behind them.
+## behind them. A bow's arrow (kind "arrow", docs/endgame-plan.md E14.2) falls with `gravity` and is turned along
+## its flight.
 
 const ORANGE := Color("#D97757")
 const ORANGE_LIGHT := Color("#F0A585")
@@ -27,6 +28,8 @@ var splash := {}
 var pierce := 0
 ## A sub-agent's shot: its hits leech no life for Clawd.
 var minion := false
+## Px/s² it falls (an arrow).
+var gravity := 0.0
 var vel := Vector2.ZERO
 var life := 1.0
 var t := 0.0
@@ -75,6 +78,10 @@ func _ready() -> void:
 			add_child(_trail)
 			if kind == "pellet":
 				_body.mesh = _mesh("pellet%s" % color.to_html(), ["ccc", "ccc", "ccc"], {"c": color}, 4)
+		"arrow":
+			# Fletching, a shaft, a head in the bow's colour: pointing right, turned along the flight.
+			_body.mesh = _mesh("arrow%s" % color.to_html(), ["f.......", "fsssssHH", "f......."],
+				{"f": color, "s": Color("#C8B78A"), "H": Color("#F4F8FA")}, 2)
 		"orb":
 			_body.mesh = _mesh("orb", ["ooooo", "ooooo", "ooooo", "ooooo", "ooooo"], {"o": ORANGE}, 6)
 			for i in 10:
@@ -98,6 +105,7 @@ func _physics_process(dt: float) -> void:
 		return
 	t += dt
 	life -= dt
+	vel.y += gravity * dt
 	# Swept in 2 px steps, so a fast bullet can't skip a one-way plank.
 	var from := pos
 	var to := pos + vel * dt
@@ -207,6 +215,9 @@ func _update_visual() -> void:
 				_dots[i].position = Vector3(roundf(cos(a) * 5), roundf(sin(a) * 2) - 0.5, roundf(sin(a) * 5)) * Px.M
 	# The bodies are anchored at their bottom: centre them on the bullet.
 	_body.position.y = -2.5 * Px.M if kind != "glyph" else -3.0 * Px.M
+	if kind == "arrow":
+		_body.position = Vector3(0, -1.5, 0) * Px.M
+		rotation.z = -vel.angle()
 	if _trail:
 		var back := (-vel * (0.012 if kind == "token" else 0.015)).round()
 		_trail.position = Vector3(back.x, -back.y - 1, -1) * Px.M

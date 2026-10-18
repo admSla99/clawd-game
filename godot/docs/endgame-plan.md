@@ -237,7 +237,9 @@ character level. The HUD shows a skill bar (the four, their keys, cooldown sweep
         a class; swords and axes (the arc, the combo, the pogo, cutting shots, the cleave), their models, sounds,
         checks. Done: `Weapons.MELEE`, `scripts/melee.gd`; base item levels 30 / 46 / 62; an axe's swing is a whole
         circle; the HUD shows the class and the sword's combo.
-  - [ ] E14.2 Bows and staves: drawing, arcing arrows that pierce; the staff's bonk and its spell stats.
+  - [x] E14.2 Bows and staves: drawing, arcing arrows that pierce; the staff's bonk and its spell stats. Done:
+        `Weapons.BOWS`, `scripts/bow.gd` (a tap shoots at 35 %), arrows as falling Bullets; staves in
+        `Weapons.MELEE` with `spell_damage` / `compute` implicits that count from E14.3.
   - [ ] E14.3 COMPUTE and the skill system: the bar, gems as items, the inventory's SKILLS page, four slots on 1-4,
         the HUD's skill bar, gem XP and levels; the first skills: Overheat Bolt, Context Switch, Gradient Slam.
   - [ ] E14.4 The other skills: Voltage Arc, Cold Cache, Prompt Injection, Rate Limit Strike, Spawn Subprocess,

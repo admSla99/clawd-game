@@ -1372,9 +1372,10 @@ the campaign too (the user's call), at the area level.
   worth of tokens heals a quarter. The hit pops up as "-n"; the HUD shows a 64 px red life bar with "life / max"
   instead of the hearts (the part just lost drains after a hit), the Firewall's slot after it.
 
-## Melee weapons
+## Melee weapons, bows and staves
 
-The endgame's swords and axes (`docs/endgame-plan.md` E14.1), weapon items like the guns but swung:
+The endgame's swords and axes (`docs/endgame-plan.md` E14.1), weapon items like the guns but swung; bows and
+staves (E14.2) at the end of this section:
 
 - **Bases** (`Items.BASES`, `Weapons.MELEE`): swords Tokenizer Blade, Attention Sabre, Transformer Edge and axes
   Pruning Axe, Gradient Cleaver, Dropout Reaver, at item levels 30 / 46 / 62, so only maps drop them (the
@@ -1398,9 +1399,23 @@ The endgame's swords and axes (`docs/endgame-plan.md` E14.1), weapon items like 
   `a`) held by their grip row (`GRIP_ROW`), turned through the arc as it swings (`Melee.blade_angle()`), sparks at
   the tip as a trail; "swordSwing", "axeSwing", "slashHit". The HUD's weapon panel shows the class instead of the
   context bar, and a sword's combo as three pips (the finisher's red).
-- Checks (`tools/checks/weapons.gd`): six bases from item level 30, none from the campaign's last area and some from
-  a T16 map's, the sprites' grips, the tooltip, the sword held, a swing hitting in front and not behind, the combo's
-  3.5 swings' worth with no heat, a cut shot, the pogo, an axe's cleave behind.
+- **Bows** (`Weapons.BOWS`, `scripts/bow.gd`, `Bow`, owned by `Gun` as `bow`): Recurrent Bow, Backprop Longbow,
+  Residual Bow (item levels 30 / 46 / 62; 12 / 18 / 26 damage at a full draw, about 1.5 full draws a second,
+  430-500 px/s). Holding the attack draws (a full draw takes 1 / (fire rate x attack speed) s, then "bowFull" and a
+  flash at the hand); letting go shoots a Bullet of kind "arrow" along the aim ("bowShot"): its damage from 35 % of
+  the weapon's at no draw to all of it, its speed from 55 %, critical strikes, Temperature 1.5 and elements as a
+  gun's. Arrows fall (`Bullet.gravity`, 340-380 px/s²), are turned along their flight and pierce one enemy. No
+  context heat; being hurt or spinning lets the draw go slack. While drawing the bow is pulled back towards Clawd;
+  the HUD's bar is the draw (DRAW, blinking white once full); the tooltip counts FULL DRAWS A SECOND.
+- **Staves** (in `Weapons.MELEE`, class "staff"): Inference Staff, Embedding Rod, Oracle Staff (item levels 30 /
+  46 / 62): a short, weak bonk swung by `Melee` (4 / 6 / 9 damage, 1.7 a second, 26-28 px), their implicit +20 /
+  30 / 40 % spell damage and +15 / 25 / 35 maximum COMPUTE (`spell_damage`, `compute`; they count once the skills
+  come, E14.3). Sprites: a bow's string `S` and stave `W` / `w`, a staff's shaft and crystal `C` / `c`.
+- Checks (`tools/checks/weapons.gd`): three bases of each class from item level 30, none from the campaign's last
+  area and some from a T16 map's, the sprites' grips, the tooltip, the sword held, a swing hitting in front and not
+  behind, the combo's 3.5 swings' worth with no heat, a cut shot, the pogo, an axe's cleave behind; a bow's tap
+  shooting a weak arrow, a held full draw shooting nothing until let go and then all its damage, the arrow falling,
+  piercing one enemy and stopping in the next; a staff's bonk and its implicit lines.
 
 ## Menus and key bindings
 
@@ -1614,7 +1629,7 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
-| `scripts/melee.gd` | Swords' and axes' swings: the arc, the combo, cut shots, the pogo (for `Gun`) |
+| `scripts/melee.gd`, `scripts/bow.gd` | Swords', axes' and staves' swings (the arc, the combo, cut shots, the pogo) and a bow's draw and arrows (for `Gun`) |
 | `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: 137 nodes in eight sectors, links, points, allocating, the stats others read; its window (small map, totals list) |
 | `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
 | `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |

@@ -39,6 +39,17 @@ const BASES := {
 	"pruning_axe": {"kind": "weapon", "name": "Pruning Axe", "size": [2, 3], "level": 30, "weapon": "pruning_axe", "implicit": {"crit": 5}},
 	"gradient_cleaver": {"kind": "weapon", "name": "Gradient Cleaver", "size": [2, 3], "level": 46, "weapon": "gradient_cleaver", "implicit": {"crit": 5}},
 	"dropout_reaver": {"kind": "weapon", "name": "Dropout Reaver", "size": [2, 3], "level": 62, "weapon": "dropout_reaver", "implicit": {"crit": 5}},
+	# Bows and staves (E14.2, Weapons.BOWS and MELEE), from the same item levels. A staff's implicit is for the skills
+	# (spell damage and COMPUTE, E14.3).
+	"recurrent_bow": {"kind": "weapon", "name": "Recurrent Bow", "size": [2, 3], "level": 30, "weapon": "recurrent_bow", "implicit": {"crit": 5}},
+	"backprop_longbow": {"kind": "weapon", "name": "Backprop Longbow", "size": [2, 3], "level": 46, "weapon": "backprop_longbow", "implicit": {"crit": 5}},
+	"residual_bow": {"kind": "weapon", "name": "Residual Bow", "size": [2, 3], "level": 62, "weapon": "residual_bow", "implicit": {"crit": 6}},
+	"inference_staff": {"kind": "weapon", "name": "Inference Staff", "size": [1, 3], "level": 30, "weapon": "inference_staff",
+		"implicit": {"spell_damage": 20, "compute": 15}},
+	"embedding_rod": {"kind": "weapon", "name": "Embedding Rod", "size": [1, 3], "level": 46, "weapon": "embedding_rod",
+		"implicit": {"spell_damage": 30, "compute": 25}},
+	"oracle_staff": {"kind": "weapon", "name": "Oracle Staff", "size": [1, 3], "level": 62, "weapon": "oracle_staff",
+		"implicit": {"spell_damage": 40, "compute": 35}},
 	# Context windows (helmets): armour or evasion, three tiers of base.
 	"tin_visor": {"kind": "helmet", "name": "Tin Visor", "size": [2, 2], "level": 1, "implicit": {"armour": 6}},
 	"mesh_hood": {"kind": "helmet", "name": "Mesh Hood", "size": [2, 2], "level": 1, "implicit": {"evasion": 8}},
@@ -171,7 +182,8 @@ const AFFIXES := {
 ## How each implicit stat reads (the same words as the affixes).
 const STAT_TEXT := {"crit": "+%d%% critical strike chance", "armour": "+%d armour", "evasion": "+%d evasion",
 	"damage": "+%d%% damage", "life": "+%d maximum life", "rate": "+%d%% fire rate", "crit_multi": "+%d%% critical strike damage",
-	"tokens": "+%d%% tokens from enemies", "run": "+%d%% run speed", "rarity": "+%d%% item rarity"}
+	"tokens": "+%d%% tokens from enemies", "run": "+%d%% run speed", "rarity": "+%d%% item rarity",
+	"spell_damage": "+%d%% spell damage", "compute": "+%d maximum compute"}
 ## Rare names: one word of each.
 const RARE_FIRST := ["Hollow", "Latent", "Sparse", "Dense", "Frozen", "Quantized", "Stochastic", "Recursive", "Feral",
 	"Silent", "Broken", "Gilded", "Vanishing", "Exploding", "Greedy", "Attentive", "Residual", "Masked"]

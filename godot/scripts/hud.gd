@@ -502,7 +502,7 @@ func crosshair() -> bool:
 ## one orange, owned ones grey) and the context bar of 26 cells (red over three quarters; blinking red with
 ## OVERFLOW while overflowed); the weapon's name over Clawd after a switch; the crosshair at the mouse. A sword or
 ## an axe (docs/endgame-plan.md E14) has no context: its class instead, and a sword's combo as three pips (the
-## swings done lit, the finisher's red).
+## swings done lit, the finisher's red); a bow's bar is its draw (blinking white once full).
 func _draw_weapon() -> void:
 	var main := get_tree().get_first_node_in_group("main")
 	if main == null or not main.gun.armed or main.mode != Main.Mode.PLAY:
@@ -523,7 +523,15 @@ func _draw_weapon() -> void:
 		draw_rect(Rect2(sx, y + 3, 8, 8), ORANGE if cur else Color("#5A5A5A") if has else Color("#2A2A2A"))
 		PixelFont.draw(self, str(i + 1), Vector2(sx + 2, y + 4), Color("#161616") if cur else TEXT if has else Color("#444444"))
 	var hot := gun.overheated > 0
-	if Weapons.is_melee(gun.weapon):
+	if Weapons.is_bow(gun.weapon):
+		PixelFont.draw(self, "DRAW", Vector2(x + 6, y + 13), TEXT_DIM)
+		var p: float = gun.bow.power()
+		for i in 26:
+			var c := Color("#2E2E2E")
+			if float(i) / 26 < p:
+				c = (Color.WHITE if floori(_t * 10) % 2 == 0 else ORANGE_LIGHT) if gun.bow.full else ORANGE
+			draw_rect(Rect2(x + 44 + i * 4, y + 14, 3, 4), c)
+	elif Weapons.is_melee(gun.weapon):
 		PixelFont.draw(self, Weapons.CLASS_NAME[Weapons.class_of(gun.weapon)], Vector2(x + 6, y + 13), TEXT_DIM)
 		var combo := int(gun.weapon.combo)
 		for i in combo if combo > 1 else 0:

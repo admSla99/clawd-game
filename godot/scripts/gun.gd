@@ -10,8 +10,10 @@ extends Node3D
 ## wheel) through the owned weapons, 1-5 for a slot (not while a weapon item is equipped: then Clawd holds its gun); the weapon's name shows over Clawd for a moment.
 ## Drawn as the voxel gun (GunSprite) in Clawd's hands, turned to the aim around its grip (upside down when
 ## aiming left, like the 2D sprite), kicking back on each shot, with a muzzle flash.
-## A melee weapon item (a sword or an axe, Weapons.MELEE; docs/endgame-plan.md E14) swings instead of shooting:
-## the attack goes to `melee` (scripts/melee.gd), no context heat, and the blade is drawn sweeping.
+## A melee weapon item (a sword, an axe or a staff, Weapons.MELEE; docs/endgame-plan.md E14) swings instead of
+## shooting: the attack goes to `melee` (scripts/melee.gd), no context heat, and the blade is drawn sweeping. A bow
+## (Weapons.BOWS, E14.2) is drawn while the attack is held and shoots on its release (`bow`, scripts/bow.gd), pulled
+## back towards Clawd as it draws.
 
 const SHOT_SFX := {"token": "gunToken", "pellet": "gunPellet", "glyph": "gunGlyph", "beam": "gunBeam", "orb": "gunOrb"}
 const CELL := 2.0
@@ -41,8 +43,10 @@ var label_t := 0.0
 ## PAD larger on every side) and when it last moved (poll_mouse()).
 var mouse_view := Vector2.ZERO
 var mouse_moved := -1_000_000
-## Swings a sword or an axe (Weapons.is_melee(weapon)).
+## Swings a sword, an axe or a staff (Weapons.is_melee(weapon)).
 var melee: Melee
+## Draws and shoots a bow (Weapons.is_bow(weapon)).
+var bow: Bow
 var _hand: Node3D
 var _gun: MeshInstance3D
 var _flash: MeshInstance3D
@@ -52,6 +56,7 @@ func setup(m: Node, p: Player) -> void:
 	main = m
 	player = p
 	melee = Melee.new(self)
+	bow = Bow.new(self)
 	process_physics_priority = 10
 	_hand = Node3D.new()
 	_hand.name = "Gun"
@@ -75,6 +80,7 @@ func arm(on: bool, id := "blaster") -> void:
 	recoil = 0.0
 	shrink = 1.0
 	melee.reset()
+	bow.reset()
 	label_t = 2.5 if on else 0.0
 	# An equipped weapon item (Gear) decides the gun.
 	if not Gear.weapon().is_empty():
@@ -156,6 +162,9 @@ func _physics_process(dt: float) -> void:
 	var can_shoot: bool = main.complete_t < 0 and player.state != &"spin" and player.hurt_timer <= 0 and not player.frozen
 	if Weapons.is_melee(weapon):
 		melee.update(dt, can_shoot and Input.is_action_pressed("attack"))
+	elif Weapons.is_bow(weapon):
+		bow.update(dt, Input.is_action_pressed("attack"), can_shoot)
+		recoil = bow.power() * 0.8 if bow.drawing else maxf(0.0, recoil - dt * 6)
 	else:
 		fire(dt, can_shoot and Input.is_action_pressed("attack"))
 	_update_visual()
@@ -242,7 +251,7 @@ func fire(dt: float, trigger: bool) -> bool:
 ## exit), shrunk towards his middle by `shrink`.
 func _update_visual() -> void:
 	_hand.visible = armed and player.state != &"spin" and player.visual.visible and shrink > 0
-	_flash.visible = _hand.visible and flash > 0 and not Weapons.is_melee(weapon)
+	_flash.visible = _hand.visible and flash > 0 and Weapons.class_of(weapon) == "gun"
 	if not _hand.visible:
 		return
 	var a := melee.blade_angle() if Weapons.is_melee(weapon) else player.aim

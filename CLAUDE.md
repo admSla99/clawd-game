@@ -114,8 +114,9 @@ the prompt tree redrawn (137 nodes in eight sectors, written by a generator into
 leech, ailments; keystones Temperature 0., Air-gapped., Gradient Leech., Robustness.; `Prompts.VERSION` refunds an
 old layout once; checked in `tools/checks/tree.gd`), are done. Now E14 (planned in endgame-plan.md, the user's
 priority over E10-E13): swords, axes, bows and staves besides the guns, skill gems in a four-slot bar with support
-Hooks, COMPUTE as mana, endgame only. E14.1 is done: swords and axes (`Weapons.MELEE`, `scripts/melee.gd` swung by
-`Gun`, `tools/checks/weapons.gd`); E14.2, bows and staves, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
+Hooks, COMPUTE as mana, endgame only. E14.1-E14.2 are done: swords, axes and staves (`Weapons.MELEE`,
+`scripts/melee.gd` swung by `Gun`) and bows (`Weapons.BOWS`, `scripts/bow.gd`, falling arrows), checked in
+`tools/checks/weapons.gd`; E14.3, COMPUTE and the skill system, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
 endgame too, stays a 2.5D side-view platformer.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
