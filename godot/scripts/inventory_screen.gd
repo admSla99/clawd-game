@@ -838,13 +838,13 @@ func _draw_device() -> void:
 		lines.append(["TIER %d · AREA LEVEL %d" % [it.tier, it.ilvl], Hud.TEXT_DIM])
 		for l in Items.lines(it) + Maps.extra_lines(it):
 			lines.append([l[0], ItemTooltip.IMPLICIT if l[2] else ItemTooltip.AFFIX])
-		lines.append(["%d PORTALS" % Main.MAP_PORTALS, Hud.TEXT_DIM])
+		lines.append(["%d PORTALS" % Main.map_portals(), Hud.TEXT_DIM])
 	else:
 		lines.append(["PUT A MAP IN THE SLOT", Hud.TEXT_DIM])
 	if not main.map_run.is_empty():
 		lines.append(["", Hud.TEXT_DIM])
 		lines.append(["OPEN: " + Items.name_of(main.map_run.item), Items.color(main.map_run.item)])
-		lines.append(["%d / %d PORTALS LEFT" % [main.map_run.portals, Main.MAP_PORTALS], Hud.ORANGE_LIGHT])
+		lines.append(["%d / %d PORTALS LEFT" % [main.map_run.portals, main.map_run.max_portals], Hud.ORANGE_LIGHT])
 		if not Progress.device.is_empty():
 			lines.append(["(a new map gives it up)", ItemTooltip.DIM])
 	for l in lines:

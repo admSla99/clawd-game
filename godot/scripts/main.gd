@@ -308,6 +308,8 @@ func use_station(st: Station) -> void:
 			open_items_in_level("vendor")
 		"terminal":
 			open_tree_in_level()
+		"atlas":
+			open_tree_in_level(true)
 		"device":
 			Maps.ensure_starter()
 			open_items_in_level("device")
@@ -319,12 +321,12 @@ func use_station(st: Station) -> void:
 				show_map(level_ids.find("3-B"))
 
 
-## The prompt tree over a level (the hideout's terminal): the game pauses until it closes.
-func open_tree_in_level() -> void:
+## The prompt tree (or the Atlas's) over a level (the hideout's terminal, its Atlas): the game pauses until it closes.
+func open_tree_in_level(atlas := false) -> void:
 	Sound.play("confirm")
 	Game.paused = true
 	hud.visible = false
-	tree.open()
+	tree.open(atlas)
 	tree.overlay = true
 
 
@@ -667,7 +669,8 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 ## Enemy.die() in src/entities/entity.ts: two bursts from the enemy's middle, enemyDie, hitstop and shake.
 func enemy_died(e: Enemy, at: Vector2) -> void:
 	gain_xp(e.xp_worth())
-	roll_drop(e.xp_worth(), at)
+	if not e.no_loot:
+		roll_drop(e.xp_worth(), at)
 	if not map_run.is_empty() and is_same(e, map_run.boss):
 		map_complete(e.pos)
 	particles.emit(at, {count = 22, speed = 140, life = 0.6, color = [Color.WHITE, Color("#BDBDBD"), RED], gravity = 300, size = 1.5})
@@ -682,7 +685,10 @@ func enemy_died(e: Enemy, at: Vector2) -> void:
 func gain_xp(hp: float) -> void:
 	if mode != Mode.PLAY:
 		return
-	var gained := Progress.add_xp(Experience.kill_xp(hp, area_level, Progress.char_level))
+	var xp := Experience.kill_xp(hp, area_level, Progress.char_level)
+	if level_id == MAP:
+		xp = roundi(xp * (1.0 + Atlas.stat("xp") / 100.0))
+	var gained := Progress.add_xp(xp)
 	if gained <= 0:
 		return
 	var at := player.pos + Vector2(0, -34)
@@ -718,43 +724,54 @@ func roll_drop(hp: float, at: Vector2) -> void:
 	if mode != Mode.PLAY:
 		return
 	# A map's item quantity makes everything likelier; maps drop maps.
+	# The Atlas adds to both, and to the orbs, in maps.
 	var quantity := 1.0
+	var orbs := 1.0
 	if level_id == MAP and not map_run.is_empty():
-		quantity += Maps.quantity(map_run.item) / 100.0
-		if loot_rng.randf() < Maps.MAP_DROP * quantity:
+		quantity += Maps.run_quantity(map_run.item) / 100.0
+		orbs += Atlas.stat("currency") / 100.0
+		if loot_rng.randf() < Maps.MAP_DROP * quantity * (1.0 + Atlas.stat("map_drop") / 100.0):
 			drop_map(at)
 	if loot_rng.randf() < minf(DROP_MAX, (DROP_BASE + hp * DROP_PER_HP) * quantity):
 		drop_item(at)
-	if loot_rng.randf() < Currency.CHANCE * quantity:
+	if loot_rng.randf() < Currency.CHANCE * quantity * orbs:
 		drop_currency(at)
 
 
 ## A random item of the area level at `at`, rarer with item rarity (Stats, a map's) and `rarity_bonus` per cent.
 func drop_item(at: Vector2, rarity_bonus := 0.0) -> ItemDrop:
 	if level_id == MAP and not map_run.is_empty():
-		rarity_bonus += Maps.rarity(map_run.item)
+		rarity_bonus += Maps.run_rarity(map_run.item)
 	var it := Items.roll(area_level, loot_rng, "", "", Stats.total("rarity") + rarity_bonus)
 	return ItemDrop.drop(level, at, it)
 
 
-## A map of this map's tier (or one higher) at `at`.
+## A map of this map's tier (or one higher, as far as the Atlas is open) at `at`.
 func drop_map(at: Vector2) -> ItemDrop:
 	var tier: int = map_run.item.tier if not map_run.is_empty() else 1
-	return ItemDrop.drop(level, at, Maps.roll(Maps.drop_tier(tier, loot_rng), loot_rng))
+	return ItemDrop.drop(level, at, Maps.roll(Maps.drop_tier(tier, loot_rng, Atlas.stat("map_up")), loot_rng))
 
 
 # --- Maps (docs/endgame-plan.md E5) ---------------------------------------------------------------------------
 
-## Opens `it` from the Map Device (it is used up): a new level from MapGen, MAP_PORTALS portals. An open map is
+## Opens `it` from the Map Device (it is used up): a new level from MapGen of its tier's world's chunks and its
+## pack size (more with the Atlas), in its theme with the theme's music, with map_portals() portals. An open map is
 ## given up.
 func start_map(it: Dictionary) -> void:
 	_end_map()
-	var rows := MapGen.generate(int(it.seed), int(it.tier), Items.stat(it, "pack_size"), it.get("theme", "plains"))
+	var theme: String = it.get("theme", "plains")
+	var rows := MapGen.generate(int(it.seed), int(it.tier), Items.stat(it, "pack_size") + Atlas.stat("pack"))
 	var lvl := Level.build(rows)
-	map_run = {"item": it, "level": lvl, "portals": MAP_PORTALS, "area": Maps.area_level(it.tier), "boss": null, "done": false,
-		"info": {"id": MAP, "world": 4, "name": Items.name_of(it), "theme": it.get("theme", "plains"),
-			"music": levels[0].get("music", ""), "terrainSeed": int(it.seed) % 997}}
+	var portals := map_portals()
+	map_run = {"item": it, "level": lvl, "portals": portals, "max_portals": portals, "area": Maps.area_level(it.tier), "boss": null,
+		"done": false, "info": {"id": MAP, "world": 4, "name": Items.name_of(it), "theme": theme, "music": theme,
+			"terrainSeed": int(it.seed) % 997}}
 	enter_map()
+
+
+## The portals a map opens: MAP_PORTALS and the Atlas's.
+static func map_portals() -> int:
+	return MAP_PORTALS + int(Atlas.stat("portals"))
 
 
 ## Into the open map (again): its level as it was left, at its last checkpoint.
@@ -768,10 +785,12 @@ func enter_map() -> void:
 	var first: bool = map_run.boss == null and not map_run.done
 	load_level(MAP, map_run.level)
 	if first:
+		# The boss of the tier's world (Maps.BOSSES), RISE px over its marker.
 		var marker := level.get_node_or_null("Boss")
-		var b := MapBoss.new()
+		var b = load(Maps.BOSSES[Maps.world_of(int(map_run.item.tier))]).new()
 		b.name = "MapBoss"
-		b.position = marker.position if marker else Px.to3(Vector2(level.pixel_size.x - 64, 14 * 16))
+		var at := Px.of(marker.position) if marker else Vector2(level.pixel_size.x - 64, 15 * 16)
+		b.position = Px.to3(at + Vector2(0, -b.RISE))
 		level.add_child(b)
 		b.hp *= Maps.life_mult(area_level) * (1.0 + Items.stat(map_run.item, "monster_life") / 100.0)
 		b.max_hp = b.hp
@@ -781,7 +800,7 @@ func enter_map() -> void:
 		for st: Station in get_tree().get_nodes_in_group("stations"):
 			st.label = "HIDEOUT"
 	boss = map_run.boss if map_run.boss and is_instance_valid(map_run.boss) and not map_run.boss.dead else null
-	overlay.popup("%d / %d PORTALS" % [map_run.portals, MAP_PORTALS], player.pos + Vector2(0, -34), Hud.ORANGE_LIGHT, 2.0)
+	overlay.popup("%d / %d PORTALS" % [map_run.portals, map_run.max_portals], player.pos + Vector2(0, -34), Hud.ORANGE_LIGHT, 2.0)
 
 
 ## Out of the map to the hideout (its portal, or the pause menu): the tokens are banked; a completed map closes.
@@ -802,7 +821,7 @@ func leave_map() -> void:
 func _map_death() -> void:
 	if map_run.is_empty() or level_id != MAP:
 		return
-	var lost := Progress.lose_xp(MAP_DEATH_XP)
+	var lost := Progress.lose_xp(MAP_DEATH_XP * (1.0 - Atlas.stat("death_xp") / 100.0))
 	map_run.portals -= 1
 	Progress.wallet += tokens
 	tokens = 0
@@ -817,16 +836,21 @@ func _map_death() -> void:
 		overlay.popup("-%d XP · %d PORTALS LEFT" % [lost, map_run.portals], player.pos + Vector2(0, -34), Hud.RED, 3.0)
 
 
-## The map boss fell at `at`: MAP COMPLETE, its maps and items, the tier counted, and a portal home where it fell.
+## The map boss fell at `at`: MAP COMPLETE, the tier counted on the Atlas (a new tier or the world's first rare
+## map: an Atlas point), its maps and items, and a portal home where it fell.
 func map_complete(at: Vector2) -> void:
 	map_run.done = true
 	boss = null
 	var tier: int = map_run.item.tier
-	Progress.maps_done[str(tier)] = int(Progress.maps_done.get(str(tier), 0)) + 1
-	Progress.save()
+	var gave := Atlas.complete(tier, map_run.item.rarity == "rare")
 	Sound.play("complete")
 	overlay.popup("MAP COMPLETE", at + Vector2(0, -70), Experience.COLOR, 3.0)
-	for i in Maps.BOSS_MAPS:
+	if "tier" in gave:
+		var next := "T%d OPEN" % (tier + 1) if tier < Maps.MAX_TIER else "THE ATLAS COMPLETED"
+		overlay.popup("+1 ATLAS POINT · " + next, at + Vector2(0, -60), Hud.ORANGE_LIGHT, 3.5)
+	if "bonus" in gave:
+		overlay.popup("+1 ATLAS POINT · WORLD %d'S RARE MAP" % Maps.world_of(tier), at + Vector2(0, -50), Hud.ORANGE_LIGHT, 3.5)
+	for i in Maps.BOSS_MAPS + int(Atlas.stat("boss_maps")):
 		drop_map(at + Vector2(0, -24))
 	for i in BOSS_DROPS:
 		drop_item(at + Vector2(0, -24), Maps.BOSS_RARITY)
@@ -894,9 +918,9 @@ func pick_currency(d: ItemDrop) -> void:
 	d.queue_free()
 
 
-## A random orb at `at`.
+## A random orb at `at` (in a map, some likelier by the Atlas).
 func drop_currency(at: Vector2) -> ItemDrop:
-	return ItemDrop.drop(level, at, {"currency": Currency.roll(loot_rng)})
+	return ItemDrop.drop(level, at, {"currency": Currency.roll(loot_rng, Atlas.orb_bonus() if level_id == MAP else {})})
 
 
 ## Into the inventory with its name popping up, or INVENTORY FULL. Returns whether it was taken.
@@ -1088,11 +1112,11 @@ func _apply_loadout() -> void:
 	var res_penalty := 0.0
 	if level_id == MAP and not map_run.is_empty():
 		var it: Dictionary = map_run.item
-		res_penalty = Stats.RES_PENALTY * int(it.tier) + Items.stat(it, "less_res")
+		res_penalty = maxf(0.0, Stats.RES_PENALTY - Atlas.stat("res_penalty")) * int(it.tier) + Items.stat(it, "less_res")
 		for k in ["fire", "cold", "lightning"]:
 			if Items.stat(it, "monster_" + k) > 0:
 				player.map_ele[k] = Items.stat(it, "monster_" + k)
-		player.hit_mult = 1.0 + Items.stat(it, "monster_damage") / 100.0
+		player.hit_mult = 1.0 + (Items.stat(it, "monster_damage") + Atlas.stat("monster_damage")) / 100.0
 		player.max_life *= 1.0 - Items.stat(it, "less_life") / 100.0
 		player.regen *= 1.0 - Items.stat(it, "less_regen") / 100.0
 		player.armour *= 1.0 - Items.stat(it, "less_defence") / 100.0

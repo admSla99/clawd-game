@@ -23,7 +23,9 @@ func run(c) -> bool:
 		and mg.affixes.all(func(a): return "map" in items.AFFIXES[a.id].kinds) and items.name_of(mg).ends_with("Map")
 		and not items.equippable(mg) and maps.quantity(mg) == 8.0 * mg.affixes.size(),
 		"a rare T3 map: area level 36, %d map mods, +%d%% quantity, not wearable (%s)" % [mg.affixes.size(), maps.quantity(mg), items.name_of(mg)])
-	c.ok(items.name_of(maps.roll(2, rng, "normal")) == "Latent Map T2", "a normal map's name: Latent Map T2")
+	var t2: Dictionary = maps.roll(2, rng, "normal")
+	c.ok(items.name_of(t2) == "%s Map T2" % maps.THEME_NAMES[t2.theme] and t2.theme in maps.THEMES[1],
+		"a normal map's name: %s (a theme of world 1's)" % items.name_of(t2))
 	# The generator.
 	var a: PackedStringArray = gen.generate(77, 2)
 	var b: PackedStringArray = gen.generate(77, 2)
@@ -80,8 +82,9 @@ func run(c) -> bool:
 	var life: float = maps.life_mult(32)
 	var bugs: Array = c.get_nodes_in_group("enemies").filter(func(e): return e.get_script() == load("res://scripts/bug.gd"))
 	var boss = m.map_run.boss
-	c.ok(not bugs.is_empty() and is_equal_approx(bugs[0].hp, 2.0 * 3.0 * life) and is_equal_approx(boss.hp, 9 * boss.BOSS_HP * life) and m.boss == boss
-		and boss.max_hp == boss.hp, "its enemies have x%.2f life (a bug %.1f), the boss %d with the HUD's bar" % [life, bugs[0].hp if not bugs.is_empty() else 0.0, boss.hp])
+	c.ok(not bugs.is_empty() and is_equal_approx(bugs[0].hp, 2.0 * 3.0 * life) and is_equal_approx(boss.hp, boss.LIFE * life) and m.boss == boss
+		and boss.max_hp == boss.hp and boss.TITLE == "THE OVERFITTER",
+		"its enemies have x%.2f life (a bug %.1f), the boss %d with the HUD's bar" % [life, bugs[0].hp if not bugs.is_empty() else 0.0, boss.hp])
 	var map_level = m.level
 	# Home through the start's portal, and back in.
 	m.tokens = 30
@@ -92,7 +95,7 @@ func run(c) -> bool:
 	await c.frames(2)
 	m.items.handle(key)
 	await c.frames(5)
-	c.ok(m.level_id == "map" and is_same(m.level, map_level) and is_same(m.map_run.boss, boss) and is_equal_approx(boss.hp, 9 * boss.BOSS_HP * life),
+	c.ok(m.level_id == "map" and is_same(m.level, map_level) and is_same(m.map_run.boss, boss) and is_equal_approx(boss.hp, boss.LIFE * life),
 		"O goes back into the same map, its enemies not scaled twice")
 	# Dying costs a portal and a tenth of the level's XP.
 	p.invuln = 0
@@ -149,6 +152,7 @@ func run(c) -> bool:
 	progress.char_level = saved.level
 	progress.xp = saved.xp
 	progress.maps_done = {}
+	progress.atlas_bonus = []
 	progress.inventory = []
 	progress.device = []
 	progress.save_items()

@@ -44,8 +44,11 @@ var vendor: Array = []
 var vendor_at := -1
 ## Levels cleared, all runs counted (the vendor restocks after each).
 var runs := 0
-## Maps completed per tier ("1" -> count; the Atlas, later).
+## Maps completed per tier ("1" -> count), the Atlas's nodes allocated (scripts/atlas.gd) and the worlds whose
+## rare map was completed (an Atlas point each).
 var maps_done := {}
+var atlas: Array = []
+var atlas_bonus: Array = []
 ## The map lying in the Map Device (0 or 1 items, a 1 x 1 grid).
 var device: Array = []
 ## Currency orbs (scripts/currency.gd): id -> count.
@@ -80,6 +83,8 @@ func load_file() -> void:
 	xp = 0
 	runs = 0
 	maps_done = {}
+	atlas = []
+	atlas_bonus = []
 	_load_items()
 	if not FileAccess.file_exists(path):
 		return
@@ -101,6 +106,8 @@ func load_file() -> void:
 		xp = maxi(0, int(data.get("xp", 0)))
 		runs = int(data.get("runs", 0))
 		maps_done = data.get("maps_done", {})
+		atlas = data.get("atlas", [])
+		atlas_bonus = data.get("atlas_bonus", []).map(func(w): return int(w))
 		# World 3's first System Prompts (bought, then switched on within a budget) are refunded.
 		for id in data.get("prompts", []):
 			if OLD_PROMPTS.has(id):
@@ -133,7 +140,8 @@ func save() -> void:
 	if f:
 		f.store_string(JSON.stringify({"levels": levels, "wallet": wallet, "upgrades": upgrades, "sparks_spent": sparks_spent,
 			"stock": stock, "hinted": hinted, "fortune": fortune, "weapons": weapons, "equipped": equipped, "tools": tools,
-			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp, "runs": runs, "maps_done": maps_done}))
+			"tree": tree, "points_bought": points_bought, "char_level": char_level, "xp": xp, "runs": runs, "maps_done": maps_done,
+			"atlas": atlas, "atlas_bonus": atlas_bonus}))
 
 
 ## Where the items are saved: next to the progress, "<name>_items.json".

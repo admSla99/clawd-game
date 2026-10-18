@@ -41,6 +41,8 @@ var consume_on_hit := true
 var tokens := 2 * TOKEN_FACTOR
 ## What it is worth in XP, in hit points (Experience.kill_xp()); 0: its full hit points.
 var xp_hp := 0.0
+## Drops no items, maps or orbs (what Retry Loops and map bosses spawn, so they can't be farmed).
+var no_loot := false
 ## Seconds of white flash and of immunity left after a hit.
 var flash := 0.0
 var immune := 0.0

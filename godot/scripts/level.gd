@@ -57,7 +57,7 @@ const STATION := "res://scripts/station.gd"
 # (Main puts the level's `boss` there). Positions are the tile's
 # bottom-centre, like Spawn.x / Spawn.y in src/world/level.ts. Every spawned node keeps its map character in
 # the meta "spawn".
-const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "*": "timeout_anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop", "K": "stash", "N": "vendor", "U": "terminal", "O": "device", "Q": "portal"}
+const SPAWNS := {"@": "start", "E": "bug", "o": "token", "C": "checkpoint", "G": "goal", "?": "sign", "M": "platform_h", "V": "platform_v", "A": "agent", "S": "spark", "F": "spambot", "R": "ratelimiter", "T": "turret", "Y": "ceilturret", "D": "drone", "H": "shieldbot", "I": "injector", "B": "boss", "+": "anchor", "*": "timeout_anchor", "P": "parser", "W": "webhook", "%": "brittle", "L": "retryloop", "K": "stash", "N": "vendor", "U": "terminal", "O": "device", "Q": "portal", "J": "atlas"}
 
 ## Brittle blocks by tile (scripts/brittle.gd adds itself).
 var brittle := {}
@@ -399,7 +399,7 @@ static func _add_spawn(level: Level, kind: String, pos: Vector2) -> Node3D:
 		"gate":
 			node = load(GATE_SCRIPT).new()
 			node.name = "Gate"
-		"stash", "vendor", "terminal", "device", "portal":
+		"stash", "vendor", "terminal", "device", "portal", "atlas":
 			node = load(STATION).new()
 			node.name = "Station"
 			node.kind = kind

@@ -104,10 +104,13 @@ E1-E5, the vertical slice, are done and played (2026-10-16), then tuned harder: 
 points in the endgame, the inventory and stash (`inventory_screen.gd`, `item_tooltip.gd`), the hideout
 (`levels/hideout.txt` + `hideout.json`, outside index.json's play order, O on the map once 3-B is beaten;
 `station.gd`, `vendor.gd`) and maps (`maps.gd`, `map_gen.gd` building levels at runtime from
-`levels/chunks/<theme>/*.txt`, checked by `reach.gd -- chunks` / `-- maps`; `map_boss.gd`; `Main.map_run`). E6, the
-currency orbs (`currency.gd`, a pouch in `Progress.currency`, used from the inventory window), and E7, damage types,
-resistances and ailments (`Stats` elements, `Enemy.element` / `afflict()` / `held()`, `Player._mitigate()`), are
-done; E8, the Atlas, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
+`levels/chunks/world<n>/*.txt`, checked by `reach.gd -- chunks` / `-- maps`; `map_boss.gd`; `Main.map_run`). E6, the
+currency orbs (`currency.gd`, a pouch in `Progress.currency`, used from the inventory window), E7, damage types,
+resistances and ailments (`Stats` elements, `Enemy.element` / `afflict()` / `held()`, `Player._mitigate()`), and E8,
+the Atlas (tiers T1-T16 in bands by world: `MapGen.world_of()`, chunks in `levels/chunks/world<n>/`, the map's
+theme one of its world's levels', bosses `map_boss.gd` / `jailbreak.gd` / `infinite_loop.gd` via `Maps.BOSSES`;
+`atlas.gd`: tiers opened, points, a tree drawn by `TreeScreen` with `atlas` set, the hideout's globe `J`), are
+done; E9, the prompt tree to ~120 nodes, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
 endgame too, stays a 2.5D side-view platformer.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
@@ -123,12 +126,14 @@ The endgame's (keep them too): items drop in the campaign as well, at the area l
 E picks items up and uses stations (next weapon moved to R); one equipped weapon item is the gun Clawd holds (no
 switching then); hit points only in the hideout and maps, the campaign keeps hearts; prompt points from character
 levels, world 3's sparks and bought ones; maps have six portals, a death costs one and 10 % of the level's XP and
-the map waits in the device; tokens fly to the HUD fast (a pile lands at once).
+the map waits in the device; tokens fly to the HUD fast (a pile lands at once); map tiers go by world (T1-5 world
+1, T6-10 world 2, T11-16 world 3), a tier's first completion opens the next and gives an Atlas point, a world's
+first rare map one more; map bosses are giant enemies (Codex and the Router are kept for the pinnacle bosses).
 
 A new level: write `levels/<id>.txt` and its `index.json` entry, `convert_level.gd -- <id>`, `reach.gd -- <id>`, a
 `tools/checks/<id>.gd` section, then check it looks right (capture screenshots of the real window).
 
-A new map chunk: a 20-row `levels/chunks/<theme>/<name>.txt` whose first and last columns are open above row 15
+A new map chunk: a 20-row `levels/chunks/world<n>/<name>.txt` whose first and last columns are open above row 15
 and solid from it, then `reach.gd -- chunks` and `reach.gd -- maps`. Capture scripts must point `Progress.path` at
 a file of their own (kills and drops write XP and items).
 

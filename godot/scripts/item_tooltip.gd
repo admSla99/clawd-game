@@ -23,7 +23,7 @@ static func rows(it: Dictionary, endgame: bool, header := "") -> Array:
 	if it.rarity != "normal":
 		out.append([Items.BASES[it.base].name, Hud.TEXT_DIM])
 	if Maps.is_map(it):
-		out.append(["MAP · TIER %d · AREA LEVEL %d" % [it.get("tier", 1), it.ilvl], Hud.TEXT_DIM])
+		out.append(["MAP · TIER %d · WORLD %d · AREA LEVEL %d" % [it.get("tier", 1), Maps.world_of(int(it.get("tier", 1))), it.ilvl], Hud.TEXT_DIM])
 	else:
 		out.append(["%s · ITEM LEVEL %d" % [Items.KIND_NAME[Items.kind(it)], it.ilvl], Hud.TEXT_DIM])
 	var lines: Array = Items.lines(it)

@@ -18,6 +18,10 @@ const DEPTH := {"r": 6, "R": 8, "W": 8, "k": 4}
 static var FRAMES := _frames()
 
 var timer := 1.5
+## How near Clawd has to be, the seconds between spawns and how many of its own may live (THE INFINITE LOOP's differ).
+var spawn_range := RANGE
+var spawn_every := SPAWN_EVERY
+var max_alive := MAX_ALIVE
 var spawned: Array = []
 var t := 0.0
 var _body: MeshInstance3D
@@ -51,24 +55,25 @@ func _physics_process(dt: float) -> void:
 	t += dt
 	spawned = spawned.filter(func(b): return is_instance_valid(b) and not b.dead)
 	var player: Player = get_tree().get_first_node_in_group("player")
-	var near := player != null and player.in_play() and player.pos.distance_to(pos) < RANGE
+	var near := player != null and player.in_play() and player.pos.distance_to(pos) < spawn_range
 	if near:
 		timer -= dt
 		if timer <= 0:
-			timer = SPAWN_EVERY
-			if spawned.size() < MAX_ALIVE:
+			timer = spawn_every
+			if spawned.size() < max_alive:
 				_spawn()
 	else:
 		timer = maxf(timer, 1.5)
 	_update_visual()
 
 
-## A bug drops out of its bottom (world 3's tough bug: 2 hp × 3).
+## A bug drops out of its bottom (world 3's tough bug: 2 hp × 3; it drops no loot, so a loop can't be farmed).
 func _spawn() -> void:
 	var bug: Enemy = load("res://scenes/bug.tscn").instantiate()
 	level.add_child(bug)
 	bug.pos = pos
 	bug.hp = 2.0 * HP_FACTOR
+	bug.no_loot = true
 	bug.set("dir", -1.0 if randf() < 0.5 else 1.0)
 	spawned.append(bug)
 	Sound.play("shoot")

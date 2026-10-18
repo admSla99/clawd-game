@@ -295,7 +295,7 @@ static func size(item: Dictionary) -> Vector2i:
 static func name_of(item: Dictionary) -> String:
 	var base: String = BASES[item.base].name
 	if item.base == "map":
-		base = "%s Map T%d" % [Maps.THEME_NAMES.get(item.get("theme", "plains"), "Latent"), item.get("tier", 1)]
+		base = "%s Map T%d" % [Maps.THEME_NAMES.get(item.get("theme", ""), "Latent"), item.get("tier", 1)]
 	if item.rarity == "rare" and item.has("name"):
 		return item.name
 	if item.rarity == "magic":

@@ -1,9 +1,10 @@
 # Endgame plan: THE ATLAS (2026-10-15)
 
 > **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
-> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) and E7 (damage types) are done; E8 (the
-> Atlas: worlds 2 and 3 as map themes, tiers to T16) is next. The view stays 2.5D from the side: a top-down
-> prototype was tried on a branch on 2026-10-16 and the user turned it down (2026-10-18).
+> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs), E7 (damage types) and E8 (the Atlas:
+> worlds 2 and 3 as maps, tiers to T16, the Atlas's tree) are done; E9 (the prompt tree to ~120 nodes) is next.
+> The view stays 2.5D from the side: a top-down prototype was tried on a branch on 2026-10-16 and the user turned
+> it down (2026-10-18).
 
 After world 3 the game grows an ARPG endgame in the manner of Path of Exile: farming maps for gear, currency and
 levels that feed the prompt tree. Chosen by the user in an interview on 2026-10-15 (every pick below is theirs).
@@ -127,7 +128,14 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
       and then the item (it stays on the cursor).
 - [x] E7 Damage types, resistances and ailments on enemies, gear and map mods. Ailments work both ways (ignite,
       chill / freeze, shock); resistances drop 5 % a map tier; Corruption resistance from item level 20.
-- [ ] E8 Chunks of worlds 2 and 3, tiers up to T16, the Atlas screen and its points.
+- [x] E8 Chunks of worlds 2 and 3, tiers up to T16, the Atlas screen and its points. The user's calls
+      (2026-10-18): tiers in bands by world (T1-5 world 1, T6-10 world 2, T11-16 world 3); a set of chunks per
+      world, the map's theme (palette, motif, music) one of that world's levels'; new giant bosses made from
+      enemies (world 2 THE JAILBREAK, an injector; world 3 THE INFINITE LOOP, a Retry Loop; Codex and the Router
+      stay for the pinnacle); a small Atlas tree (22 nodes) with a point per new tier and per world's first rare
+      map (19). Area levels grow 2 / 3 / 4 a tier by world (T16 79, so the top affix tiers drop), enemy life
+      x1.045 a level past area level 40; maps drop no higher than the open tier; the hideout has a globe for the
+      Atlas, Tab switches it with the prompt tree.
 - [ ] E9 The prompt tree grows to ~120 nodes for levels up to 100, new keystones.
 - [ ] E10 Delirium fog.
 - [ ] E11 Breaches.

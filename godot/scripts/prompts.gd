@@ -103,9 +103,10 @@ static func stat(key: String) -> float:
 	return n
 
 
-static func neighbours(id: String) -> Array:
+## The nodes linked to `id` (in `links`: the Atlas's tree uses these too).
+static func neighbours(id: String, links := LINKS) -> Array:
 	var out := []
-	for l in LINKS:
+	for l in links:
 		if l[0] == id:
 			out.append(l[1])
 		elif l[1] == id:
@@ -157,12 +158,12 @@ static func can_refund(id: String) -> bool:
 	return joined(rest).size() == rest.size()
 
 
-## The nodes of `ids` joined to the start through `ids`.
-static func joined(ids: Array) -> Array:
-	var seen := {START: true}
-	var queue := [START]
+## The nodes of `ids` joined to the start through `ids` (of the tree of `links` and `start`).
+static func joined(ids: Array, links := LINKS, start := START) -> Array:
+	var seen := {start: true}
+	var queue := [start]
 	while not queue.is_empty():
-		for n in neighbours(queue.pop_front()):
+		for n in neighbours(queue.pop_front(), links):
 			if ids.has(n) and not seen.has(n):
 				seen[n] = true
 				queue.append(n)
@@ -187,6 +188,10 @@ static func toggle(id: String) -> String:
 	Progress.tree.append(id)
 	Progress.save()
 	return "allocated"
+
+
+static func allocated() -> Array:
+	return Progress.tree
 
 
 ## Refunds every node.

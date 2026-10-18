@@ -9,6 +9,9 @@ extends Node2D
 ## move to the nearest node that way, Space / Enter (or a click) allocates or refunds, U buys a point, R twice
 ## refunds everything, Escape or T goes back to the map; dragging with the mouse pans, and the view follows the
 ## selection.
+## The same window draws the Atlas's tree (scripts/atlas.gd, docs/endgame-plan.md E8) while `atlas` is set: its nodes,
+## a strip of the sixteen map tiers over the field (completed, open, locked; coloured by world) and no point to buy.
+## Tab switches between the two once the hideout is open.
 
 ## The field's margin around the view's edges and how much room the card takes at the bottom.
 const CARD_H := 46
@@ -18,6 +21,12 @@ const HALF := {"start": 7, "small": 3, "notable": 5, "keystone": 7}
 ## The branches' names, dim, by where they grow (tree px).
 const LABELS := [["OFFENSE", Vector2(115, -36)], ["TOOL CALL", Vector2(62, -72)], ["SUB-AGENTS", Vector2(-115, -36)],
 	["SURVIVAL", Vector2(-62, 72)], ["TOKENS", Vector2(112, 56)]]
+const ATLAS_LABELS := [["LOOT", Vector2(100, -38)], ["MAPS", Vector2(0, -72)], ["ORBS", Vector2(-100, -38)],
+	["SUSTAIN", Vector2(0, 70)]]
+## The Atlas's tier strip: its height over the field, a cell's size, and each world's colour.
+const STRIP_H := 18
+const TIER_CELL := Vector2(21, 11)
+const WORLD_COLOR := {1: Color("#968CD2"), 2: Color("#EA7C3E"), 3: Color("#5FD8C8")}
 const LINK_OFF := Color("#34343A")
 const NODE_OFF := Color("#4A4A50")
 const FILL_OFF := Color(0.06, 0.06, 0.07, 1.0)
@@ -25,6 +34,12 @@ const FILL_OFF := Color(0.06, 0.06, 0.07, 1.0)
 const STAT_NAMES := [["damage", "% damage"], ["rate", "% fire rate"], ["tokens", "% tokens"], ["reach", "% hook reach"],
 	["zip", "% zip speed"], ["hover", "% hover"], ["run", "% run speed"], ["hearts", " heart(s)"], ["slots", " sub-agent(s)"],
 	["stand", " s standing"], ["magnet", " px magnet"], ["minion_damage", "% sub-agent damage"], ["minion_rate", "% sub-agent fire rate"]]
+const ATLAS_STAT_NAMES := [["quantity", "% item quantity"], ["rarity", "% item rarity"], ["pack", "% more enemies"],
+	["mod_loot", "% loot from mods"], ["monster_damage", "% enemy damage"], ["map_drop", "% maps dropped"],
+	["map_up", "% maps a tier higher"], ["boss_maps", " map(s) from bosses"], ["currency", "% orbs"],
+	["orb_distill", "% distillations"], ["orb_temperature", "% temperature spikes"], ["orb_finetune", "% fine-tunes"],
+	["xp", "% experience"], ["death_xp", "% less experience lost"], ["portals", " portal(s)"],
+	["res_penalty", "% less resistance penalty a tier"]]
 
 var main: Main
 var sel := Prompts.START
@@ -46,6 +61,8 @@ var flash_t := 0.0
 var _field: Node2D
 ## Opened over a level (the hideout's terminal): back closes it there instead of going to the map.
 var overlay := false
+## Showing the Atlas's tree instead of the prompt tree.
+var atlas := false
 
 
 func _ready() -> void:
@@ -55,10 +72,16 @@ func _ready() -> void:
 	_field.draw.connect(_draw_field)
 
 
-func open() -> void:
+## The tree shown: Prompts or Atlas (both have the same static functions).
+func src():
+	return Atlas if atlas else Prompts
+
+
+func open(show_atlas := false) -> void:
+	atlas = show_atlas
 	visible = true
 	t = 0.0
-	sel = Prompts.START
+	sel = src().START
 	cam = centre()
 	note = ""
 	reset_armed = 0.0
@@ -90,7 +113,7 @@ func handle(event: InputEvent) -> bool:
 		if _dragging:
 			_dragging = false
 			return true
-		if _buy_rect().has_point(_mouse):
+		if not atlas and _buy_rect().has_point(_mouse):
 			buy()
 			return true
 		var id := node_at(_mouse)
@@ -106,20 +129,23 @@ func handle(event: InputEvent) -> bool:
 			main.close_tree_in_level()
 		else:
 			main.show_map(main.front.sel)
-	elif event.physical_keycode == KEY_U:
+	elif event.physical_keycode == KEY_TAB and Main.hideout_open():
+		Sound.play("select")
+		open(not atlas)
+	elif event.physical_keycode == KEY_U and not atlas:
 		buy()
 	elif event.physical_keycode == KEY_R:
 		if reset_armed > 0:
-			Prompts.reset()
+			src().reset()
 			reset_armed = 0.0
 			Sound.play("agentGone")
 			say("EVERY POINT REFUNDED")
-		elif not Progress.tree.is_empty():
+		elif not src().allocated().is_empty():
 			reset_armed = 1.5
 			Sound.play("select")
 			say("PRESS R AGAIN TO REFUND ALL")
 	elif _dir(event) != Vector2.ZERO:
-		var next := step(sel, _dir(event))
+		var next := step(src().NODES, sel, _dir(event))
 		if next != "":
 			sel = next
 			Sound.play("select")
@@ -142,15 +168,15 @@ func _dir(event: InputEvent) -> Vector2:
 	return Vector2.ZERO
 
 
-## The nearest node from `from` towards `dir` (within 60° of it, nearer and straighter first), or "".
-static func step(from: String, dir: Vector2) -> String:
-	var at: Vector2 = Prompts.NODES[from].at
+## The nearest node of `nodes` from `from` towards `dir` (within 60° of it, nearer and straighter first), or "".
+static func step(nodes: Dictionary, from: String, dir: Vector2) -> String:
+	var at: Vector2 = nodes[from].at
 	var best := ""
 	var best_score := INF
-	for id in Prompts.NODES:
+	for id in nodes:
 		if id == from:
 			continue
-		var d: Vector2 = Prompts.NODES[id].at - at
+		var d: Vector2 = nodes[id].at - at
 		var off := absf(dir.angle_to(d))
 		if off > deg_to_rad(60):
 			continue
@@ -163,7 +189,7 @@ static func step(from: String, dir: Vector2) -> String:
 
 ## Allocates or refunds the selected node.
 func activate() -> void:
-	var r := Prompts.toggle(sel)
+	var r: String = src().toggle(sel)
 	match r:
 		"allocated", "refunded":
 			Sound.play("confirm" if r == "allocated" else "agentGone")
@@ -171,7 +197,7 @@ func activate() -> void:
 			flash_t = 0.35
 		"no points":
 			Sound.play("denied")
-			say("NO FREE POINTS · U BUYS ONE")
+			say("NO FREE POINTS · COMPLETE A NEW TIER" if atlas else "NO FREE POINTS · U BUYS ONE")
 		"far":
 			Sound.play("denied")
 			say("NOT NEXT TO YOUR TREE")
@@ -207,21 +233,21 @@ func _view() -> Rect2:
 
 
 ## The box round the tree's nodes, with room for the biggest.
-static func bounds() -> Rect2:
+static func bounds(nodes: Dictionary) -> Rect2:
 	var box := Rect2(Vector2.ZERO, Vector2.ZERO)
-	for id in Prompts.NODES:
-		box = box.expand(Prompts.NODES[id].at)
+	for id in nodes:
+		box = box.expand(nodes[id].at)
 	return box.grow(8)
 
 
-## The middle of the tree (where the view starts).
-static func centre() -> Vector2:
-	return bounds().get_center().round()
+## The middle of the tree shown (where the view starts).
+func centre() -> Vector2:
+	return bounds(src().NODES).get_center().round()
 
 
-## Keeps the view on the tree: along an axis where the whole tree fits it stays in the middle.
-static func clamp_cam(c: Vector2, size: Vector2) -> Vector2:
-	var b := bounds()
+## Keeps the view on the tree of `nodes`: along an axis where the whole tree fits it stays in the middle.
+static func clamp_cam(nodes: Dictionary, c: Vector2, size: Vector2) -> Vector2:
+	var b := bounds(nodes)
 	for i in 2:
 		var lo := b.position[i] + size[i] / 2
 		var hi := b.end[i] - size[i] / 2
@@ -229,15 +255,16 @@ static func clamp_cam(c: Vector2, size: Vector2) -> Vector2:
 	return c
 
 
-## Where the tree is drawn.
+## Where the tree is drawn (lower in the Atlas, under its tier strip).
 func field() -> Rect2:
 	var v := _view()
-	return Rect2(v.position.x + 6, v.position.y + FIELD_TOP, maxf(0, v.size.x - 12), maxf(0, v.size.y - FIELD_TOP - CARD_H - 18))
+	var top := FIELD_TOP + (STRIP_H if atlas else 0)
+	return Rect2(v.position.x + 6, v.position.y + top, maxf(0, v.size.x - 12), maxf(0, v.size.y - top - CARD_H - 18))
 
 
 ## A node's place on the screen.
 func screen_of(id: String) -> Vector2:
-	var at: Vector2 = Prompts.NODES[id].at
+	var at: Vector2 = src().NODES[id].at
 	return (field().get_center() + at - cam).round()
 
 
@@ -245,8 +272,9 @@ func screen_of(id: String) -> Vector2:
 func node_at(p: Vector2) -> String:
 	if not field().has_point(p):
 		return ""
-	for id in Prompts.NODES:
-		var h: int = HALF[Prompts.NODES[id].kind] + 2
+	var nodes: Dictionary = src().NODES
+	for id in nodes:
+		var h: int = HALF[nodes[id].kind] + 2
 		if Rect2(screen_of(id) - Vector2(h, h), Vector2(h, h) * 2 + Vector2.ONE).has_point(p):
 			return id
 	return ""
@@ -277,7 +305,7 @@ func _process(dt: float) -> void:
 	# The view follows the selection once it nears the field's edge (not while the mouse drags it).
 	if not _dragging:
 		var f := field().grow(-26)
-		var s: Vector2 = field().get_center() + Prompts.NODES[sel].at - cam
+		var s: Vector2 = field().get_center() + src().NODES[sel].at - cam
 		var want := cam
 		if s.x < f.position.x:
 			want.x -= f.position.x - s.x
@@ -288,7 +316,7 @@ func _process(dt: float) -> void:
 		elif s.y > f.end.y:
 			want.y += s.y - f.end.y
 		cam = cam.lerp(want, minf(1.0, dt * 10))
-	cam = clamp_cam(cam, field().size)
+	cam = clamp_cam(src().NODES, cam, field().size)
 	var hover := node_at(_mouse)
 	if hover != "" and not _dragging:
 		sel = hover
@@ -301,19 +329,55 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	var v := _view()
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.02, 0.02, 0.04, 0.72))
-	_big("PROMPT TREE", v.position + Vector2(14, 8), Hud.ORANGE)
-	var free := Prompts.points_free()
-	var pts := "%d FREE · %d / %d POINTS" % [free, Progress.tree.size(), Prompts.points_total()]
-	var x := v.position.x + 14 + PixelFont.width("PROMPT TREE") * 2 + 12
+	var title := "ATLAS" if atlas else "PROMPT TREE"
+	_big(title, v.position + Vector2(14, 8), Hud.ORANGE)
+	var free: int = src().points_free()
+	var pts := "%d FREE · %d / %d POINTS" % [free, src().allocated().size(), src().points_total()]
+	var x := v.position.x + 14 + PixelFont.width(title) * 2 + 12
 	_text(pts, Vector2(x, v.position.y + 12), Hud.ORANGE_LIGHT if free > 0 else Hud.TEXT_DIM)
-	# Clawd's level: a point per level gained.
-	Hud.draw_xp(self, Vector2(x + PixelFont.width(pts) + 14, v.position.y + 12), Progress.char_level, Experience.fraction())
-	_draw_buy(v)
+	if atlas:
+		_draw_tiers(v)
+	else:
+		# Clawd's level: a point per level gained.
+		Hud.draw_xp(self, Vector2(x + PixelFont.width(pts) + 14, v.position.y + 12), Progress.char_level, Experience.fraction())
+		_draw_buy(v)
 	var fr := field()
 	Hud.panel(self, fr.grow(1), Color("#26262A"), Color(0.03, 0.03, 0.04, 0.55))
 	_draw_card()
-	var help := "ARROWS MOVE   SPACE ALLOCATE / REFUND   U BUY POINT   R R RESET   DRAG PAN   ESC BACK"
+	var tab := "   TAB %s" % ("PROMPT TREE" if atlas else "ATLAS") if Main.hideout_open() else ""
+	var help := "ARROWS MOVE   SPACE ALLOCATE / REFUND%s   R R RESET   DRAG PAN   ESC BACK%s" % ["" if atlas else "   U BUY POINT", tab]
 	_text(help, Vector2(v.get_center().x - PixelFont.width(help) / 2.0, v.end.y - 10), Color("#5C5C5C"))
+
+
+## The Atlas's sixteen tiers in a row under the title, grouped by world: completed ones filled in the world's colour
+## (with how many times), the open one outlined and pulsing, locked ones dim.
+func _draw_tiers(v: Rect2) -> void:
+	var gap := 2.0
+	var group := 6.0
+	var w := Maps.MAX_TIER * (TIER_CELL.x + gap) - gap + group * 2
+	var x := v.get_center().x - w / 2.0
+	var y := v.position.y + FIELD_TOP - 2
+	var open := Atlas.unlocked_tier()
+	var pulse := 0.5 + 0.5 * sin(t * 5)
+	for tier in range(1, Maps.MAX_TIER + 1):
+		if tier > 1 and Maps.world_of(tier) != Maps.world_of(tier - 1):
+			x += group
+		var r := Rect2(Vector2(x, y).round(), TIER_CELL)
+		var c: Color = WORLD_COLOR[Maps.world_of(tier)]
+		var label := "T%d" % tier
+		if Atlas.done(tier):
+			draw_rect(r, c)
+			draw_rect(r.grow(-1), c.darkened(0.25))
+			PixelFont.draw_centred(self, label, r.get_center().x, r.position.y + 3, Color(0.05, 0.05, 0.06))
+		elif tier == open:
+			draw_rect(r, c.lerp(Color.WHITE, pulse * 0.4))
+			draw_rect(r.grow(-1), Color(0.05, 0.05, 0.06, 0.95))
+			PixelFont.draw_centred(self, label, r.get_center().x, r.position.y + 3, c)
+		else:
+			draw_rect(r, Color("#2E2E34"))
+			draw_rect(r.grow(-1), Color(0.04, 0.04, 0.05, 0.95))
+			PixelFont.draw_centred(self, label, r.get_center().x, r.position.y + 3, Color("#4E4E56"))
+		x += TIER_CELL.x + gap
 
 
 func _draw_buy(v: Rect2) -> void:
@@ -341,18 +405,19 @@ func _draw_field() -> void:
 	# A window too small for the tree (headless runs) draws none of it.
 	if fr.size.x < 40 or fr.size.y < 40:
 		return
-	for l in LABELS:
+	for l in ATLAS_LABELS if atlas else LABELS:
 		var at: Vector2 = (fr.get_center() + l[1] - cam).round()
 		if fr.grow(-4).has_point(at):
 			PixelFont.draw_centred(_field, l[0], at.x, at.y - 3, Color("#4E4E56"))
-	for l in Prompts.LINKS:
+	var tree = src()
+	for l in tree.LINKS:
 		var a: String = l[0]
 		var b: String = l[1]
-		var both := Prompts.on(a) and Prompts.on(b)
-		var one := Prompts.on(a) or Prompts.on(b)
+		var both: bool = tree.on(a) and tree.on(b)
+		var one: bool = tree.on(a) or tree.on(b)
 		var c := Hud.ORANGE if both else Color(Hud.ORANGE_LIGHT, 0.45) if one else LINK_OFF
 		_line(screen_of(a), screen_of(b), c, 2 if both else 1)
-	for id in Prompts.NODES:
+	for id in tree.NODES:
 		_draw_node(id)
 	if note_t > 0:
 		var w := PixelFont.width(note) + 12
@@ -373,11 +438,12 @@ func _line(a: Vector2, b: Vector2, c: Color, w: int) -> void:
 
 
 func _draw_node(id: String) -> void:
-	var node: Dictionary = Prompts.NODES[id]
+	var tree = src()
+	var node: Dictionary = tree.NODES[id]
 	var p := screen_of(id)
 	var h: int = HALF[node.kind]
-	var on := Prompts.on(id)
-	var open := not on and Prompts.reachable(id)
+	var on: bool = tree.on(id)
+	var open: bool = not on and tree.reachable(id)
 	var pulse := 0.5 + 0.5 * sin(t * 5)
 	var border := Hud.ORANGE_LIGHT if on else Hud.ORANGE.lerp(Hud.ORANGE_LIGHT, pulse) if open else NODE_OFF
 	var fill := Hud.ORANGE if on else FILL_OFF
@@ -403,7 +469,7 @@ func _draw_node(id: String) -> void:
 			_field.draw_rect(r.grow_individual(-k, 0, -k, 0), border)
 			_field.draw_rect(r.grow_individual(0, -k, 0, -k), border)
 			_field.draw_rect(r.grow(-1), border)
-			_field.draw_rect(r.grow(-2), fill if id != Prompts.START else Color("#2A1A16"))
+			_field.draw_rect(r.grow(-2), fill if id != tree.START else Color("#2A1A16"))
 			_field.draw_rect(r.grow(-4), border)
 			_field.draw_rect(r.grow(-5), fill)
 	if id == sel:
@@ -417,31 +483,36 @@ func _draw_node(id: String) -> void:
 
 func _draw_card() -> void:
 	var d := _card_rect()
-	var node: Dictionary = Prompts.NODES[sel]
+	var tree = src()
+	var node: Dictionary = tree.NODES[sel]
 	Hud.panel(self, d, Color("#4A4A4A"), Color(0.07, 0.07, 0.08, 0.95), true)
 	var kind: String = {"small": "", "notable": "NOTABLE", "keystone": "KEYSTONE", "start": ""}[node.kind]
 	_text(String(node.name).to_upper(), d.position + Vector2(8, 6), Hud.TEXT)
 	if kind != "":
 		PixelFont.draw(self, kind, d.position + Vector2(14 + PixelFont.width(String(node.name).to_upper()), 6), Hud.ORANGE if kind == "KEYSTONE" else Hud.ORANGE_LIGHT)
 	var desc: String = node.desc
-	if sel == Prompts.START:
-		desc = totals()
+	if sel == tree.START:
+		desc = (atlas_totals() if not Progress.atlas.is_empty() else node.desc) if atlas else totals()
 	var lines := wrap_text(desc, d.size.x - 16)
 	for i in mini(2, lines.size()):
 		PixelFont.draw(self, lines[i], d.position + Vector2(8, 17 + i * 8), Hud.TEXT_DIM)
 	var hint := ""
 	var col := Hud.ORANGE
-	if sel == Prompts.START:
+	if sel == tree.START and atlas:
+		hint = "%d / %d TIERS COMPLETED · %d / 3 RARE MAP BONUSES · T%d OPEN" % [Atlas.tiers_done(), Maps.MAX_TIER,
+			Progress.atlas_bonus.size(), Atlas.unlocked_tier()]
+		col = Hud.TEXT_DIM
+	elif sel == tree.START:
 		hint = "%d FROM LEVELS · %d FROM WORLD 3'S SPARKS · %d BOUGHT" % [Progress.char_level - 1, Progress.tree_sparks(), Progress.points_bought]
 		col = Hud.TEXT_DIM
-	elif Prompts.on(sel):
-		hint = "ALLOCATED · SPACE / CLICK: REFUND" if Prompts.can_refund(sel) else "ALLOCATED · OTHER NODES HANG ON IT"
-		col = Hud.ORANGE_LIGHT if Prompts.can_refund(sel) else Hud.TEXT_DIM
-	elif not Prompts.reachable(sel):
+	elif tree.on(sel):
+		hint = "ALLOCATED · SPACE / CLICK: REFUND" if tree.can_refund(sel) else "ALLOCATED · OTHER NODES HANG ON IT"
+		col = Hud.ORANGE_LIGHT if tree.can_refund(sel) else Hud.TEXT_DIM
+	elif not tree.reachable(sel):
 		hint = "NOT NEXT TO YOUR TREE YET"
 		col = Hud.TEXT_DIM
-	elif Prompts.points_free() <= 0:
-		hint = "NO FREE POINTS · U: BUY ONE"
+	elif tree.points_free() <= 0:
+		hint = "NO FREE POINTS · COMPLETE A NEW TIER" if atlas else "NO FREE POINTS · U: BUY ONE"
 		col = Hud.RED
 	else:
 		hint = "SPACE / CLICK: ALLOCATE (1 POINT)"
@@ -478,6 +549,16 @@ static func totals() -> String:
 		if Prompts.on(id):
 			parts.append(String(Prompts.NODES[id].short).to_lower())
 	return "Nothing allocated yet." if parts.is_empty() else ", ".join(PackedStringArray(parts))
+
+
+## What the Atlas's allocated nodes add up to, for its start's card.
+static func atlas_totals() -> String:
+	var parts := []
+	for s in ATLAS_STAT_NAMES:
+		var v := Atlas.stat(s[0])
+		if v != 0:
+			parts.append("%s%d%s" % ["+" if v > 0 else "", roundi(v), s[1]])
+	return "Nothing allocated yet." if parts.is_empty() else ", ".join(PackedStringArray(parts)) + "."
 
 
 func _text(s: String, at: Vector2, color: Color) -> void:

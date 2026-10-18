@@ -88,11 +88,11 @@ func check_chunks() -> bool:
 	return failed
 
 
-## Generated maps (MapGen): from the start, the boss's spot can be reached; three seeds a tier, T1-T5.
+## Generated maps (MapGen): from the start, the boss's spot can be reached; three seeds a tier, T1-T16.
 func check_maps() -> bool:
 	var gen = load("res://scripts/map_gen.gd")
 	var failed := false
-	for tier in range(1, 6):
+	for tier in range(1, gen.WORLD_TIERS[-1] + 1):
 		for seed in [1, 2, 3]:
 			var t0 := Time.get_ticks_msec()
 			var test := PackedStringArray()

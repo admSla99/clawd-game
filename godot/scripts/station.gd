@@ -4,7 +4,8 @@ extends Node3D
 ## A station in the hideout (docs/endgame-plan.md E4): something Clawd uses by standing at it and pressing the
 ## `pickup` action (E). `kind`: "stash" (a vault crate: the inventory with the stash), "vendor" (a merchant bot:
 ## buys and sells items, Vendor), "terminal" (the prompt tree), "device" (the Map Device; maps come in E5), "portal"
-## (back to the world map). Main finds the one in reach (station_target) and uses it (use_station()); LootView
+## (back to the world map), "atlas" (a globe: the Atlas's tree, docs/endgame-plan.md E8). Main finds the one in reach
+## (station_target) and uses it (use_station()); LootView
 ## draws its prompt. Voxel art at 2 px a cell (CELL), behind the gameplay plane like a checkpoint, with a GlowLight.
 
 ## How close Clawd's middle has to be (px), horizontally.
@@ -12,7 +13,8 @@ const REACH := 26.0
 ## Px per art cell.
 const CELL := 2
 const Z := -0.6
-const TITLES := {"stash": "STASH", "vendor": "VENDOR", "terminal": "PROMPT TREE", "device": "MAP DEVICE", "portal": "WORLD MAP"}
+const TITLES := {"stash": "STASH", "vendor": "VENDOR", "terminal": "PROMPT TREE", "device": "MAP DEVICE", "portal": "WORLD MAP",
+	"atlas": "ATLAS"}
 const ART := {
 	"stash": [
 		"..oooooooooooooo..",
@@ -126,10 +128,43 @@ static func device_rows() -> Array:
 	return rows
 
 
+## The Atlas: a globe of the maps on a stand, its sea dark, its lands gold, a lit equator and meridians.
+static func atlas_rows() -> Array:
+	var w := 19
+	var h := 27
+	var rows := []
+	for y in h:
+		var row := ""
+		for x in w:
+			var dx := x - (w - 1) / 2.0
+			var dy := y - 9.0
+			var r := sqrt(dx * dx + dy * dy)
+			var ch := "."
+			if r < 9.0:
+				if r >= 8.0:
+					ch = "o"
+				elif dy == 0 or absf(dx) < 0.5 or absf(absf(dx) - r * 0.55) < 0.5:
+					ch = "c"
+				elif sin(x * 0.9 + 1.0) + cos(y * 0.7) > 0.7:
+					ch = "r"
+				else:
+					ch = "s"
+			elif y >= 18 and y < 23 and absf(dx) < 1.5:
+				ch = "g"
+			elif y >= 23 and absf(dx) < 6.5:
+				ch = "o" if y == h - 1 or absf(dx) >= 5.5 else "k"
+			row += ch
+		rows.append(row)
+	return rows
+
+
+static func rows_for(k: String) -> Array:
+	return device_rows() if k == "device" else atlas_rows() if k == "atlas" else ART[k]
+
+
 static func mesh_for(k: String) -> ArrayMesh:
 	if not _meshes.has(k):
-		var rows: Array = device_rows() if k == "device" else ART[k]
-		_meshes[k] = Voxel.mesh(rows, PALETTE, DEPTH, CELL * Px.M)
+		_meshes[k] = Voxel.mesh(rows_for(k), PALETTE, DEPTH, CELL * Px.M)
 	return _meshes[k]
 
 
@@ -162,7 +197,7 @@ func title() -> String:
 
 ## The art's height in px (the prompt goes above it).
 func height() -> int:
-	return (device_rows() if kind == "device" else ART[kind]).size() * CELL
+	return rows_for(kind).size() * CELL
 
 
 func in_reach(player: Player) -> bool:

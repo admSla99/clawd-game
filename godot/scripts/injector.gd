@@ -34,6 +34,12 @@ var t := 0.0
 var _body: MeshInstance3D
 
 
+## How near Clawd has to be for a hop and how high and far it goes (THE JAILBREAK hops bigger).
+var hop_range := RANGE
+var hop := HOP
+var hop_x := HOP_X
+
+
 func _init() -> void:
 	element = "chaos"
 	size = SIZE
@@ -65,17 +71,25 @@ func _physics_process(dt: float) -> void:
 	vel.y = minf(vel.y + GRAVITY * dt, MAX_FALL)
 	if move_x(vel.x * dt):
 		vel.x = -vel.x * 0.5
+	var was := grounded
 	grounded = move_y(vel.y * dt) == 1
+	if grounded and not was:
+		_landed()
 	if grounded:
 		vel = Vector2.ZERO
 		timer -= dt
-		if timer <= 0 and absf(dx) < RANGE:
-			vel = Vector2(signf(dx) * minf(HOP_X, absf(dx) * 1.3), -HOP)
+		if timer <= 0 and absf(dx) < hop_range:
+			vel = Vector2(signf(dx) * minf(hop_x, absf(dx) * 1.3), -hop)
 			timer = 1 + randf() * 0.5
 	if pos.y > level.pixel_size.y + 50:
 		remove()
 		return
 	_update_visual()
+
+
+## Back on the ground after a hop (or a fall).
+func _landed() -> void:
+	pass
 
 
 ## Splits into two bugs (1 hp even in world 2, times HP_FACTOR like every enemy) that run off to either side.

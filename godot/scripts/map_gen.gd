@@ -1,26 +1,49 @@
 class_name MapGen
 extends RefCounted
 
-## Builds a map's level (docs/endgame-plan.md E5) from hand-drawn chunks: `levels/chunks/<theme>/*.txt`, 20 rows
-## each with the ground's surface at row 15 on their first and last columns, so any two join. A map is the
-## `start` chunk (the portal home and '@'), MID_MIN + tier / 2 middle chunks drawn at random (never the same one
-## twice in a row) and the `boss` chunk (its 'B' is where the map boss stands; a wall closes it on the right).
-## Slots in the chunks become enemies by the tier: '&' a ground enemy (a bug, a spam bot, a shield bot, from tier 3
-## a turret too), '~' an air one (a drone); each is filled with a chance raised by the map's pack size, which may
-## also put a second enemy next to it. Every third middle chunk starts with a checkpoint. Seeded: the same seed,
-## tier and pack size give the same map. Static and free of autoloads, so tools/reach.gd can use it.
+## Builds a map's level (docs/endgame-plan.md E5, E8) from hand-drawn chunks: `levels/chunks/world<n>/*.txt`, the
+## chunks of the tier's world (world_of(): T1-5 world 1, T6-10 world 2, T11-16 world 3), 20 rows each with the
+## ground's surface at row 15 on their first and last columns, so any two join. A map is the `start` chunk (the
+## portal home and '@'), MID_MIN + tier / 2 middle chunks (at most MID_TIER of the tier counts) drawn at random
+## (never the same one twice in a row) and the `boss` chunk (its 'B' is where the map boss stands; a wall closes
+## it on the right). Slots in the chunks become enemies of the world's POOLS: '&' a ground enemy, '~' an air one;
+## each is filled with a chance raised by the map's pack size, which may also put a second enemy next to it. Every
+## third middle chunk starts with a checkpoint. Seeded: the same seed, tier and pack size give the same map. Static
+## and free of autoloads, so tools/reach.gd can use it.
 
 const ROWS := 20
 const GROUND := 15
 const MID_MIN := 8
-## A slot's chance to hold an enemy, and the ground pool [char, weight, lowest tier].
+const MID_TIER := 8
+## The highest tier of each world's maps.
+const WORLD_TIERS := [5, 10, 16]
+## A slot's chance to hold an enemy, and each world's pools [char, weight, lowest tier]: world 1 bugs, spam bots,
+## shield bots (from T2) and turrets (from T3), drones in the air; world 2 adds injectors, world 3 parsers and
+## webhooks.
 const FILL := 0.8
-const GROUND_POOL := [["E", 5, 1], ["F", 2, 1], ["H", 2, 2], ["T", 1, 3]]
+const POOLS := {
+	1: {"&": [["E", 5, 1], ["F", 2, 1], ["H", 2, 2], ["T", 1, 3]], "~": [["D", 1, 1]]},
+	2: {"&": [["E", 3, 1], ["F", 2, 1], ["H", 2, 1], ["T", 2, 1], ["I", 3, 1]], "~": [["D", 1, 1]]},
+	3: {"&": [["E", 2, 1], ["P", 3, 1], ["H", 2, 1], ["I", 2, 1], ["F", 1, 1]], "~": [["D", 2, 1], ["W", 1, 1]]},
+}
 
 static var _chunks := {}
 
 
-## The chunks of `theme`: name -> rows.
+## The world a map of `tier` belongs to.
+static func world_of(tier: int) -> int:
+	for i in WORLD_TIERS.size():
+		if tier <= WORLD_TIERS[i]:
+			return i + 1
+	return WORLD_TIERS.size()
+
+
+## A tier's chunks: its world's folder.
+static func chunk_set(tier: int) -> String:
+	return "world%d" % world_of(tier)
+
+
+## The chunks of `theme` (a folder of levels/chunks): name -> rows.
 static func chunks(theme: String) -> Dictionary:
 	if not _chunks.has(theme):
 		var out := {}
@@ -41,12 +64,14 @@ static func mids(theme: String) -> Array:
 
 
 ## The chunk names a map of this seed and tier is made of, in order.
-static func layout(seed: int, tier: int, theme := "plains") -> Array:
+static func layout(seed: int, tier: int, theme := "") -> Array:
+	if theme == "":
+		theme = chunk_set(tier)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var pool := mids(theme)
 	var names := ["start"]
-	for i in MID_MIN + tier / 2:
+	for i in MID_MIN + mini(tier, MID_TIER) / 2:
 		var pick: String = pool[rng.randi() % pool.size()]
 		while pick == names[-1] and pool.size() > 1:
 			pick = pool[rng.randi() % pool.size()]
@@ -56,7 +81,9 @@ static func layout(seed: int, tier: int, theme := "plains") -> Array:
 
 
 ## The map's rows: the chunks side by side, the slots filled, checkpoints added.
-static func generate(seed: int, tier: int, pack_size := 0.0, theme := "plains") -> PackedStringArray:
+static func generate(seed: int, tier: int, pack_size := 0.0, theme := "") -> PackedStringArray:
+	if theme == "":
+		theme = chunk_set(tier)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed * 7919 + tier
 	var names := layout(seed, tier, theme)
@@ -64,7 +91,8 @@ static func generate(seed: int, tier: int, pack_size := 0.0, theme := "plains") 
 	for y in ROWS:
 		grid.append([])
 	var fill := minf(1.0, FILL * (1.0 + pack_size / 100.0))
-	var pool: Array = GROUND_POOL.filter(func(e): return e[2] <= tier)
+	var pools: Dictionary = POOLS[world_of(tier)]
+	var ground: Array = pools["&"].filter(func(e): return e[2] <= tier)
 	for i in names.size():
 		var rows: PackedStringArray = chunks(theme)[names[i]]
 		var x0: int = grid[0].size()
@@ -87,11 +115,12 @@ static func generate(seed: int, tier: int, pack_size := 0.0, theme := "plains") 
 			grid[y][x] = " "
 			if rng.randf() >= fill:
 				continue
-			var e := "D" if ch == "~" else _weighted(pool, rng)
+			var pool: Array = pools["~"] if ch == "~" else ground
+			var e := _weighted(pool, rng)
 			grid[y][x] = e
 			# Pack size can put a second one beside it.
 			if pack_size > 0 and rng.randf() < pack_size / 100.0 and x + 2 < width and grid[y][x + 2] == " ":
-				grid[y][x + 2] = "D" if ch == "~" else _weighted(pool, rng)
+				grid[y][x + 2] = _weighted(pool, rng)
 	var out := PackedStringArray()
 	for y in ROWS:
 		out.append("".join(grid[y]))

@@ -45,14 +45,14 @@ static func add(id: String, n := 1) -> void:
 	Progress.save_items()
 
 
-## A random orb by the drop weights.
-static func roll(rng: RandomNumberGenerator) -> String:
+## A random orb by the drop weights, each `bonus[id]` % more (the Atlas's, in maps).
+static func roll(rng: RandomNumberGenerator, bonus := {}) -> String:
 	var total := 0.0
 	for id in ORDER:
-		total += ORBS[id].weight
+		total += ORBS[id].weight * (1.0 + bonus.get(id, 0.0) / 100.0)
 	var r := rng.randf() * total
 	for id in ORDER:
-		r -= ORBS[id].weight
+		r -= ORBS[id].weight * (1.0 + bonus.get(id, 0.0) / 100.0)
 		if r < 0:
 			return id
 	return ORDER[0]

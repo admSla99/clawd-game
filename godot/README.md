@@ -70,7 +70,7 @@ Map legend:
 | `E` `F` `R` | Bug, spam bot, rate limiter (2×2, hangs from its top-left) |
 | `T` `Y` `D` `H` `I` | Turret on the floor / under the ceiling, drone, shield bot, injector |
 | `B` | Where `Main` places the level's boss |
-| `K` `N` `U` `O` `Q` | The hideout's stations: stash, vendor, terminal (prompt tree), Map Device, portal to the world map |
+| `K` `N` `U` `O` `Q` `J` | The hideout's stations: stash, vendor, terminal (prompt tree), Map Device, portal to the world map, the Atlas |
 | `&` `~` | Map chunks only (`levels/chunks/`): a ground and an air enemy slot, filled by `MapGen` |
 
 `index.json` lists the levels in play order (each one unlocks the next): `id`, `world`, `name`, `subtitle`,
@@ -1028,6 +1028,7 @@ the notables (rounded, with a ring) and keystones (octagons) are world 3's eight
 four more; every node's `mods` add up in `Prompts.stat()`, and a flag (Temperature, Reflect, Tool use., Parallel
 tool calls.) is read with `Prompts.on()`.
 
+- **The Atlas** (*The Atlas* below) uses the same window: Tab switches between the two once the hideout is open.
 - **Points**: one per character level gained (*Character level* below), every spark found in world 3 (or later)
   is one (`Progress.tree_sparks()`; those sparks are not the shop's, `sparks_available()` leaves them out), and up
   to 10 more are bought with tokens: 60, then 30 more each (1950 for all). A point allocates a node next to one Clawd has; refunds are free, a node at a time when the rest
@@ -1078,12 +1079,13 @@ metadata in `levels/hideout.json` (not in index.json's play order; theme `hideou
 music). Once 3-B is beaten the world map has `O · HIDEOUT` (and the O key; `Main.hideout_open()`):
 `Main.show_hideout()` plays it with `Main.endgame` on, so Clawd has hit points there (`play()` turns it off for
 the campaign). A 56 x 18 room: the portal, the start, the stash, the vendor under a shelf, the Map Device on a
-stage, the terminal and a sign.
+stage, the Atlas's globe, the terminal and a sign.
 
-- **Stations** (`scripts/station.gd`, `Station`, group `stations`; map characters `K` `N` `U` `O` `Q`, `kind`
+- **Stations** (`scripts/station.gd`, `Station`, group `stations`; map characters `K` `N` `U` `O` `Q` `J`, `kind`
   exported so the converted scene keeps it): voxel art at 2 px a cell behind the gameplay plane with a breathing
   GlowLight, a vault crate, a merchant bot with a screen face, a terminal showing the tree, the Map Device (a stone
-  arch on a plinth with a ring of runes) and an arched portal. `Main._update_loot()` finds the one Clawd stands
+  arch on a plinth with a ring of runes), an arched portal and the Atlas (a globe on a stand, gold lands on a dark
+  sea, a lit equator and meridians; *The Atlas* below). `Main._update_loot()` finds the one Clawd stands
   at (when no item is in reach: `station_target`) and E (`pickup`) uses it (`use_station()`); LootView puts each
   one's name over it, dim, and "E · NAME" in orange over the one in reach.
 - **Stash**: the inventory with the stash (`open_items_in_level("stash")`). **Terminal**: the prompt tree over
@@ -1095,52 +1097,110 @@ stage, the terminal and a sign.
   magic 3, rare 8): the vendor pays that and sells for four times as much. A click on its stock buys (NOT ENOUGH
   TOKENS / INVENTORY FULL), Ctrl + click / C on an item in the inventory or putting a held item down on its grid
   sells; the tooltips show the prices.
-- Checks (`tools/checks/hideout.gd`): O only after 3-B, the hideout with hit points, five stations and no
+- Checks (`tools/checks/hideout.gd`): O only after 3-B, the hideout with hit points, six stations and no
   enemies, E at the stash, the vendor's stock, buying and selling and too few tokens, the stock staying until a
   level is cleared, the prices, the terminal's tree and Escape back, the Map Device, the portal, hearts again in
   the campaign.
 
 ## Maps
 
-The endgame's loop (`docs/endgame-plan.md`, E5): maps drop as items, the hideout's Map Device opens one, and a
+The endgame's loop (`docs/endgame-plan.md`, E5, E8): maps drop as items, the hideout's Map Device opens one, and a
 map is a generated level with a boss that drops more maps.
 
 - **Map items** (`scripts/maps.gd`, `Maps`): the base `map` in `Items.BASES` (never rolled as gear) with `tier`
-  (T1-T5 for now), `theme` and `seed`; rarity and mods roll like an item's from six map mods in `Items.AFFIXES`
-  (kind `map`): more enemies (pack size), enemies' life, enemies' damage, Clawd's less life, less regeneration,
-  less armour and evasion. Area level 30 + 2 x tier (T1 32, T5 40); every mod adds 8 % item quantity and 5 % item
-  rarity. Named like "Latent Map T2" (magic: "Fine-tuned Latent Map T2 of Low Context", rare: "Hollow Wastes
-  Map"); a scroll icon; the tooltip shows tier, area level, quantity and rarity. They cannot be worn.
+  (T1-T16), `theme` and `seed`; rarity and mods roll like an item's from the map mods in `Items.AFFIXES` (kind
+  `map`): more enemies (pack size), enemies' life, enemies' damage, enemies' added elements, Clawd's less life,
+  less regeneration, less armour and evasion, lower resistances. A tier belongs to a world (`MapGen.world_of()`:
+  T1-5 world 1, T6-10 world 2, T11-16 world 3) whose chunks and boss it has; the theme is one of that world's
+  levels' (`Maps.THEMES`: plains, caves, window; mesa, forge, swamp, towers; canopy, cliffs, sandbox, ravine), for
+  the palette, scenery, motif and music. The area level grows 2 a tier in world 1, 3 in world 2 and 4 in world 3
+  (T1 32, T5 40, T10 55, T16 79: item levels high enough for the top affix tiers); every mod adds 8 % item quantity
+  and 5 % item rarity. Named by the theme, like "Latent Map T2" or "Endpoint Map T12" (magic: "Fine-tuned Latent
+  Map T2 of Low Context", rare: "Hollow Wastes Map"); a scroll icon; the tooltip shows tier, world, area level,
+  quantity and rarity. They cannot be worn.
 - **The generator** (`scripts/map_gen.gd`, `MapGen`, static and free of autoloads): chunks drawn by hand in
-  `levels/chunks/<theme>/*.txt` (world 1's `plains`: start, boss and ten middle ones: meadow, pit, steps, corrupt,
-  planks, mound, spikebed, limiter, ferry, decks), 20 rows each with the ground's surface at row 15 on their edge
-  columns so any two join. A map is the start (the portal home, '@'), 8 + tier / 2 middle chunks drawn by the seed
-  (never one twice in a row) and the boss arena (closed by a wall). Every third middle chunk starts with a
-  checkpoint; '&' becomes a bug, spam bot, shield bot (T2+) or turret (T3+), '~' a drone, each with an 80 % chance
-  raised by pack size, which can also put a second one beside it. `tools/reach.gd -- chunks` crosses every chunk
-  between a flat start and exit; `-- maps` generates three maps a tier (T1-T5, +30 % pack size) and reaches each
-  boss from the start (all pass, 7-12 s a map).
+  `levels/chunks/world<n>/*.txt`, 20 rows each with the ground's surface at row 15 on their edge columns so any two
+  join. World 1 (`world1`): start, boss and ten middle ones (meadow, pit, steps, corrupt, planks, mound, spikebed,
+  limiter, ferry, decks). World 2 (`world2`): nine (vents: a spike bed of forge vents under one-way planks;
+  ceiling: a low slab with two ceiling turrets; mesa: two steps up to a turret; nest: a turret on a block, a drone;
+  pools: three corrupted pools; towers: a tower climbed by a plank; crusher: two rate limiters; ferry: a moving
+  platform over spikes; corrupt: a shield bot on corrupted floor over tokens). World 3 (`world3`): eight (canopy: a
+  chasm crossed on two anchors; crates: a wall of brittle crates; loop: a Retry Loop over two planks; cliffs: a
+  ledge only the Tool Call reaches; timeout: three timeout anchors over a spike bed; sandbox: a tower in brittle
+  crates; ravine: planks and an anchor over a pit; callbacks: drones and webhooks over planks). A map is the start
+  (the portal home, '@'), 8 + tier / 2 middle chunks (no more than at T8: 12) drawn by the seed (never one twice in
+  a row) and the boss arena (closed by a wall). Every third middle chunk starts with a checkpoint; the slots are
+  filled from the world's pools (`MapGen.POOLS`), each with an 80 % chance raised by pack size, which can also put
+  a second one beside it: '&' in world 1 a bug, spam bot, shield bot (T2+) or turret (T3+), in world 2 an injector
+  too, in world 3 a bug, parser, shield bot, injector or spam bot; '~' a drone, in world 3 a webhook too.
+  `tools/reach.gd -- chunks` crosses every chunk between a flat start and exit; `-- maps` generates three maps a
+  tier (T1-T16, +30 % pack size) and reaches each boss from the start (all pass, 6-25 s a map).
 - **The Map Device** (the hideout's `O` station): the inventory with the device on the left: one slot for a map
   (put it there, or right click / Ctrl + click / X / C a map in the inventory), its lines, and `O · OPEN THE MAP`
   (O or a click). With none anywhere and none open, the device gives a normal T1 map, so Clawd is never stuck.
 - **A run** (`Main.map_run`, `start_map()`, `enter_map()`): `Level.build()` on the generated rows; the level id
-  `map`, `Main.endgame` on (hit points), its area level; enemies get x 1.08^(area level - 24) life (x1.85 at T1, x3.4 at T5)
-  and the map's mod on top, once (a level entered again keeps its enemies, decor and scaling: `entered` meta,
-  `SideWalls` added once). The map boss, THE OVERFITTER (`scripts/map_boss.gd`, `MapBoss`: a shield bot 1.8
-  times as big with 40 times its life, the HUD's boss bar within 320 px), stands at 'B'. The map's mods on Clawd go
-  in through `_apply_loadout()` (`Player.hit_mult`, less life, regeneration, armour, evasion). Six portals: the
+  `map`, `Main.endgame` on (hit points), its area level, its theme and the theme's music; enemies get
+  x 1.08^(area level - 24) life up to area level 40 and x 1.045 a level past it (x1.85 at T1, x3.4 at T5, x7.6 at
+  T10, x19 at T16) and the map's mod on top, once (a level entered again keeps its enemies, decor and scaling:
+  `entered` meta, `SideWalls` added once). The map boss of the tier's world (`Maps.BOSSES`; each has `TITLE`, `LIFE`
+  360 hit points before the map's scaling, `RISE` over its 'B' and the HUD's boss bar within 320 px,
+  `MapBoss.near()`):
+  - World 1: THE OVERFITTER (`scripts/map_boss.gd`, `MapBoss`), a shield bot 1.8 times as big, Voltage.
+  - World 2: THE JAILBREAK (`scripts/jailbreak.gd`, `Jailbreak`), an injector 2.5 times as big that hops at Clawd
+    higher and farther (`Injector.hop`, `hop_x`, `hop_range`); every landing (`Injector._landed()`) shakes the
+    ground and sprays seven Corruption shots up in a fan, every third an injector jumps out; no bugs when it dies.
+  - World 3: THE INFINITE LOOP (`scripts/infinite_loop.gd`, `InfiniteLoop`), a Retry Loop three times as big
+    hanging 64 px over its spot: a bug every 2.5 s (four at most, `RetryLoop.spawn_every`, `max_alive`) and every
+    2.6 s a ring of ten Overheat shots, turned a little each time.
+  What bosses and Retry Loops spawn drops no items, maps or orbs (`Enemy.no_loot`), so they can't be farmed. The
+  map's mods on Clawd go in through `_apply_loadout()` (`Player.hit_mult`, less life, regeneration, armour,
+  evasion, resistances). Six portals (more with the Atlas, `Main.map_portals()`): the
   start's portal (HIDEOUT) or QUIT TO MAP goes home with the tokens banked and the level kept, and the device's
   `O · BACK INTO THE MAP` goes back in at the last checkpoint. Dying there (`_map_death()`) costs a tenth of the
   level's XP and a portal and goes home; with the last portal THE MAP COLLAPSED. RESTART LEVEL in a map is the
   checkpoint.
-- **Drops**: in a map items drop more often by its quantity and rarer by its rarity; an enemy drops a map 3 % of
-  the time (times the quantity), of the map's tier or a tier higher a quarter of the time. The boss's death
-  (`map_complete()`): MAP COMPLETE, two maps and three items (+300 % rarity), the tier counted in
-  `Progress.maps_done` (for the Atlas), and a portal home where it fell; through it the map closes.
+- **Drops**: in a map items drop more often by its quantity and rarer by its rarity (`Maps.run_quantity()`,
+  `run_rarity()`: with the Atlas's); an enemy drops a map 3 % of the time (times the quantity), of the map's tier
+  or a tier higher a quarter of the time, but never above the Atlas's open tier. The boss's death
+  (`map_complete()`): MAP COMPLETE, the map counted on the Atlas (`Atlas.complete()`, its points pop up), two maps
+  and three items (+300 % rarity), and a portal home where it fell; through it the map closes.
 - Checks (`tools/checks/maps.gd`): a rare map's mods and quantity, names, the generator's determinism, rows and
   slots, pack size, no turrets in T1, the device's first map, O, the area level and portals, enemies' and the
   boss's life and bar, the portal home and the tokens, going back into the same level unscaled, dying (a portal,
   the XP), the boss's drops and portal, the collapse on the last portal, maps from enemies, QUIT TO MAP.
+
+## The Atlas
+
+The endgame's progress (`docs/endgame-plan.md`, E8; `scripts/atlas.gd`, `Atlas`):
+
+- **Tiers**: a map's boss beaten in a tier for the first time opens the next (`Atlas.unlocked_tier()`, one above
+  the highest in `Progress.maps_done`): maps drop no higher than that (`Maps.drop_tier()`), so the tiers are
+  climbed one at a time, world 1's T1-T5 into world 2's T6-T10 and world 3's T11-T16. The popups say it: "+1
+  ATLAS POINT · T2 OPEN".
+- **Points**: one per tier completed and one per world whose rare map was completed (`Progress.atlas_bonus`), 19
+  at most, for a tree of 22 nodes (`Atlas.NODES`, `LINKS`; `Progress.atlas`), so not all of it can be taken.
+  The same rules as the prompt tree's (next to an allocated node, free refunds that keep the rest joined;
+  `Prompts.neighbours()` and `joined()` take the tree's links), but its points are never sold. Four branches:
+  loot east (item quantity, rarity; Scaling Laws: more quantity and enemies; the keystone Emergence: every map mod
+  gives twice its quantity and rarity, but enemies deal 15 % more), maps north (more maps dropped; Curriculum
+  Learning: maps a tier higher more often; Self-Play: a map boss drops one more map), orbs west (more orbs;
+  Knowledge Distillation and High Temperature: three times the Distillations / Temperature Spikes; the keystone
+  Fine-tuning Run: five times the Fine-tunes but fewer orbs) and sustain south (more experience; Warm Start: half
+  the experience lost on a death; Robust Training: resistances drop 2 % less a tier; Redundancy: two more portals).
+  `Atlas.stat()` and `orb_bonus()` count only in maps (Main: drops, `Currency.roll()`'s bonus, `start_map()`,
+  `map_portals()`, `_map_death()`, `gain_xp()`, `_apply_loadout()`).
+- **The window**: `TreeScreen` with `atlas` set (`open(true)`): the Atlas's nodes and branches (LOOT, MAPS, ORBS,
+  SUSTAIN), the title ATLAS with its points, no point to buy, and a strip of the sixteen tiers over the field
+  grouped by world (`WORLD_COLOR`): completed ones filled, the open one pulsing, locked ones dim. The start's card
+  adds up the allocated nodes and tells the tiers completed, the rare map bonuses and the open tier. It opens from
+  the hideout's globe (`J`, `use_station()` -> `open_tree_in_level(true)`); Tab switches between the prompt tree
+  and the Atlas once the hideout is open (from the world map's T too).
+- Checks (`tools/checks/atlas.gd`): the tiers' worlds, area levels and enemy life, themes and names, each world's
+  chunks and enemies, no drop above the open tier, the points from tiers and rare maps, allocating and holding,
+  the run's quantity, Emergence, Redundancy's portals, an orb's bonus, a T7 map's theme, music, portals and THE
+  JAILBREAK (its life, a landing's fan of shots and injector, hopping), no loot from `no_loot` enemies, the tier
+  counted; a T12 map's THE INFINITE LOOP (hanging, its ring, its bugs without loot) and the two points of a new
+  tier's rare map; the globe opening the Atlas, Tab both ways, a click allocating, the field under the strip.
 
 ## Damage types, resistances, ailments
 
@@ -1505,7 +1565,9 @@ without COOP/COEP headers.
 | `scripts/item_drop.gd`, `scripts/loot_view.gd` | An item lying in a level; the labels and the tooltip over items |
 | `scripts/item_tooltip.gd`, `scripts/inventory_screen.gd` | The item tooltip, comparison and icons; the inventory window with the stash |
 | `levels/hideout.txt`, `levels/hideout.json`, `scripts/station.gd`, `scripts/vendor.gd` | The hideout, its stations and the vendor |
-| `scripts/maps.gd`, `scripts/map_gen.gd`, `scripts/map_boss.gd`, `levels/chunks/` | Maps: map items and mods, the generator and its chunks, the map boss |
+| `scripts/maps.gd`, `scripts/map_gen.gd`, `levels/chunks/` | Maps: map items and mods, tiers and worlds, the generator and each world's chunks |
+| `scripts/map_boss.gd`, `scripts/jailbreak.gd`, `scripts/infinite_loop.gd` | The map bosses of worlds 1, 2 and 3 |
+| `scripts/atlas.gd` | The Atlas: tiers opened, Atlas points, its tree and the map bonuses (window: `tree_screen.gd`) |
 | `scripts/currency.gd` | Currency orbs: what each does, drop weights, the pouch |
 | `scripts/brittle.gd`, `scripts/retry_loop.gd` | World 3's brittle crates (`%`) and Retry Loops (`L`) |
 | `shaders/motif_sandbox.gdshader` | Sandbox motif (3-3): container stacks built and torn down |

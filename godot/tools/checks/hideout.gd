@@ -1,7 +1,8 @@
 extends RefCounted
 
 ## The hideout (docs/endgame-plan.md E4; a section of tools/check.gd, `c` is check.gd): opened from the map once
-## 3-B is beaten, hit points there, its five stations and what each does, the vendor buying and selling.
+## 3-B is beaten, hit points there, its six stations and what each does (the Atlas's in tools/checks/atlas.gd), the
+## vendor buying and selling.
 
 const TITLE := "the hideout: stations, stash, vendor, terminal, Map Device, portal (docs/endgame-plan.md E4)"
 
@@ -33,7 +34,7 @@ func run(c) -> bool:
 	var st := {}
 	for s in c.get_nodes_in_group("stations"):
 		st[s.kind] = s
-	c.ok(st.keys().size() == 5 and c.get_nodes_in_group("enemies").is_empty(), "five stations (%s), no enemies" % [st.keys()])
+	c.ok(st.keys().size() == 6 and c.get_nodes_in_group("enemies").is_empty(), "six stations (%s), no enemies" % [st.keys()])
 	var use := func(kind: String) -> void:
 		p.pos = st[kind].feet()
 		p.vel = Vector2.ZERO

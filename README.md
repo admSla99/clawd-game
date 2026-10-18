@@ -25,7 +25,7 @@ godot --path .                                   # play
 godot --headless --script tools/check.gd         # every check, exits non-zero on failure
 godot --headless --script tools/reach.gd         # every level's exit, sparks and sub-agents are reachable
 godot --headless --script tools/reach.gd -- chunks   # every map chunk can be crossed
-godot --headless --script tools/reach.gd -- maps     # generated maps T1-T5: the boss can be reached
+godot --headless --script tools/reach.gd -- maps     # generated maps T1-T16: the boss can be reached
 ```
 
 ## Controls
@@ -83,18 +83,23 @@ one per world 3 spark and more for tokens; small nodes and notables such as Be c
 Delegate. (one more sub-agent), Tool use. (sub-agents shoot) or Reflect. (the hook throws enemy shots back).
 Refunds are free.
 
-**Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T5, orbs)
+**Endgame** (`godot/docs/endgame-plan.md`; done: character level, items, inventory, hideout, maps T1-T16, orbs,
+elements, the Atlas)
 - Character level: XP from every enemy (less from ones far below Clawd), up to level 100; about 13 by the end of 3-B.
 - Items drop everywhere: weapons (the five guns), context windows, chassis, actuators, treads, cores and plugins,
   normal / magic / rare with tiered affixes; E picks them up, I opens the inventory (equip, compare, stash).
-- Hit points instead of hearts in the hideout and maps: life, armour, evasion, regeneration, resistances.
+- Hit points instead of hearts in the hideout and maps: life, armour, evasion, regeneration, resistances to
+  Overheat, Latency, Voltage and Corruption, and ailments (burning, chilled, frozen, shocked) both ways.
 - Currency orbs for crafting (Prompt Seed, Few-shot Example, Resample, Distillation, Context Reset, Temperature
   Spike, RLHF, Fine-tune), picked up on touch into a pouch: click an orb in the inventory, then an item.
 - The hideout (O on the map after 3-B): the stash, a vendor (buys anything, sells a stock that changes after each
-  cleared level), a terminal for the prompt tree, a portal, and the Map Device.
+  cleared level), a terminal for the prompt tree, the Atlas's globe, a portal, and the Map Device.
 - Maps: items with a tier and mods (more enemies, tougher enemies, less life ...) that raise item quantity and
-  rarity; the device turns one into a generated level of world 1's chunks with six portals (a death costs one and
-  some XP) and THE OVERFITTER at its end, who drops more maps.
+  rarity; the device turns one into a generated level with six portals (a death costs one and some XP) and a boss
+  at its end who drops more maps. T1-T5 are world 1's (THE OVERFITTER), T6-T10 world 2's (THE JAILBREAK), T11-T16
+  world 3's (THE INFINITE LOOP), each in the look of one of that world's levels.
+- The Atlas (the globe, or Tab in the prompt tree): a tier's boss beaten opens the next tier and gives an Atlas
+  point, a world's first rare map one more; the points go into a tree of map bonuses (loot, maps, orbs, sustain).
 
 Tokens collected in a level are added to your wallet when you finish it; every 300 tokens in a level give a heart.
 Sparks are spent in the shop but still count as found on the map.
