@@ -785,9 +785,12 @@ func _draw_stats() -> void:
 	Hud.panel(self, r.grow(2), Color("#2A2A30"), Color(0.03, 0.03, 0.04, 0.9))
 	_label("CLAWD   * ONLY IN THE ENDGAME", o)
 	var pct := func(k: String) -> String: return "%+d%%" % roundi(Stats.total(k))
+	var ele := Stats.elements()
+	var res := Stats.resistances()
 	var lines := [
-		["LEVEL", str(Progress.char_level)],
 		["DAMAGE", pct.call("damage")],
+		["ADDED HEAT/LAG/VOLT", "%d/%d/%d%%" % [roundi(ele.get("fire", 0.0) * 100), roundi(ele.get("cold", 0.0) * 100),
+			roundi(ele.get("lightning", 0.0) * 100)]],
 		["FIRE RATE", pct.call("rate")],
 		["CRITICAL CHANCE", "%d%%" % roundi(Stats.crit_chance() * 100)],
 		["CRITICAL DAMAGE", "%d%%" % roundi(Stats.crit_mult() * 100)],
@@ -795,15 +798,15 @@ func _draw_stats() -> void:
 		["HOVER TIME", pct.call("hover")],
 		["HOOK REACH", pct.call("reach")],
 		["ITEM RARITY", pct.call("rarity")],
-		["TOKENS", pct.call("tokens")],
 		[],
 		["LIFE *", str(roundi(Stats.max_life()))],
 		["ARMOUR *", str(roundi(Stats.total("armour")))],
 		["EVASION *", str(roundi(Stats.total("evasion")))],
 		["REGENERATION *", "%d/s" % roundi(Stats.total("regen"))],
-		["OVERHEAT RES. *", "%d%%" % roundi(Stats.total("res_fire"))],
-		["LATENCY RES. *", "%d%%" % roundi(Stats.total("res_cold"))],
-		["VOLTAGE RES. *", "%d%%" % roundi(Stats.total("res_lightning"))],
+		["OVERHEAT RES. *", "%d%%" % roundi(res.fire)],
+		["LATENCY RES. *", "%d%%" % roundi(res.cold)],
+		["VOLTAGE RES. *", "%d%%" % roundi(res.lightning)],
+		["CORRUPTION RES. *", "%d%%" % roundi(res.chaos)],
 	]
 	var y := o.y + 4
 	for l in lines:

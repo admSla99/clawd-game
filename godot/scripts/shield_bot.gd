@@ -101,7 +101,7 @@ func hook_hit(_dir: Vector2) -> bool:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	t += dt
@@ -132,7 +132,7 @@ func _physics_process(dt: float) -> void:
 	# Middles: Clawd's (p.y + 9) and its eye line (y + 9).
 	if near and fire_timer <= 0 and absf(player.pos.y - Player.SIZE.y / 2 - (pos.y - SIZE.y + 9)) < 40 and want == facing:
 		fire_timer = RELOAD
-		Shot.fire(level, pos + Vector2(facing * 10, -SIZE.y + 9), Vector2(facing * SHOT_SPEED, 0))
+		Shot.fire(level, pos + Vector2(facing * 10, -SIZE.y + 9), Vector2(facing * SHOT_SPEED, 0)).element = element
 		Sound.play("shoot")
 	if pos.y > level.pixel_size.y + 50:
 		remove()

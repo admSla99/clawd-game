@@ -15,6 +15,7 @@ func _init() -> void:
 	size = SIZE * SCALE
 	hp = 9 * BOSS_HP
 	tokens = 40 * TOKEN_FACTOR
+	element = "lightning"
 
 
 func _ready() -> void:

@@ -20,7 +20,7 @@ const KIND_NAME := {"weapon": "WEAPON", "helmet": "CONTEXT WINDOW", "body": "CHA
 const RARITY_COLOR := {"normal": Color("#E6E6E6"), "magic": Color("#8C9BFF"), "rare": Color("#F2E36B"),
 	"unique": Color("#E08A4A")}
 ## Stats that only count where Clawd has hit points (the hideout and maps).
-const ENDGAME := ["life", "armour", "evasion", "regen", "res_fire", "res_cold", "res_lightning"]
+const ENDGAME := ["life", "armour", "evasion", "regen", "res_fire", "res_cold", "res_lightning", "res_chaos"]
 
 ## id -> kind, name, size [w, h] in inventory cells, level (the lowest area level it drops in), implicit stats;
 ## weapons name the weapon they fire (Weapons.WEAPONS) and have a base critical strike chance.
@@ -96,6 +96,13 @@ const AFFIXES := {
 	"evasion": {"type": "prefix", "stat": "evasion", "kinds": ARMOUR, "text": "+%d evasion",
 		"tiers": [[1, 5, 12], [12, 13, 30], [25, 31, 60], [45, 61, 100], [70, 101, 150]],
 		"names": ["Agile", "Dancer's", "Elusive", "Phantasm's", "Ghostly"]},
+	# Damage added as an element (docs/endgame-plan.md E7): more damage, and its ailments.
+	"extra_fire": {"type": "prefix", "stat": "extra_fire", "kinds": ["weapon", "gloves", "amulet", "ring"], "text": "+%d%% of damage as overheat",
+		"tiers": [[5, 5, 9], [20, 10, 16], [40, 17, 25], [65, 26, 35]], "names": ["Heated", "Smouldering", "Blazing", "Molten"]},
+	"extra_cold": {"type": "prefix", "stat": "extra_cold", "kinds": ["weapon", "gloves", "amulet", "ring"], "text": "+%d%% of damage as latency",
+		"tiers": [[5, 5, 9], [20, 10, 16], [40, 17, 25], [65, 26, 35]], "names": ["Laggy", "Buffered", "Frozen", "Stalled"]},
+	"extra_lightning": {"type": "prefix", "stat": "extra_lightning", "kinds": ["weapon", "gloves", "amulet", "ring"], "text": "+%d%% of damage as voltage",
+		"tiers": [[5, 5, 9], [20, 10, 16], [40, 17, 25], [65, 26, 35]], "names": ["Charged", "Humming", "Arcing", "Surging"]},
 	"heat": {"type": "prefix", "stat": "heat", "kinds": ["weapon", "helmet"], "text": "+%d%% context window",
 		"tiers": [[1, 10, 15], [15, 16, 25], [35, 26, 40]], "names": ["Roomy", "Spacious", "Unbounded"]},
 	# Suffixes.
@@ -129,7 +136,17 @@ const AFFIXES := {
 	"res_lightning": {"type": "suffix", "stat": "res_lightning", "kinds": NOT_WEAPON, "text": "+%d%% voltage resistance",
 		"tiers": [[1, 6, 11], [12, 12, 17], [24, 18, 23], [36, 24, 29], [50, 30, 35], [70, 36, 41]],
 		"names": ["of Grounding", "of the Fuse", "of Insulation", "of the Breaker", "of Faraday", "of the Void"]},
+	"res_chaos": {"type": "suffix", "stat": "res_chaos", "kinds": NOT_WEAPON, "text": "+%d%% corruption resistance",
+		"tiers": [[20, 5, 8], [45, 9, 13], [70, 14, 19]], "names": ["of Sanitizing", "of Validation", "of Alignment"]},
 	# Map mods (scripts/maps.gd): harder maps that drop more.
+	"map_fire": {"type": "prefix", "stat": "monster_fire", "kinds": ["map"], "text": "enemies add +%d%% of their hits as overheat",
+		"tiers": [[1, 20, 30], [36, 31, 45]], "names": ["Overheated", "Molten"]},
+	"map_cold": {"type": "prefix", "stat": "monster_cold", "kinds": ["map"], "text": "enemies add +%d%% of their hits as latency",
+		"tiers": [[1, 20, 30], [36, 31, 45]], "names": ["Throttled", "Glacial"]},
+	"map_lightning": {"type": "prefix", "stat": "monster_lightning", "kinds": ["map"], "text": "enemies add +%d%% of their hits as voltage",
+		"tiers": [[1, 20, 30], [36, 31, 45]], "names": ["Charged", "Stormy"]},
+	"map_less_res": {"type": "suffix", "stat": "less_res", "kinds": ["map"], "text": "Clawd has -%d%% all resistances",
+		"tiers": [[1, 8, 12], [36, 13, 20]], "names": ["of Weakness", "of Frailty"]},
 	"map_pack": {"type": "prefix", "stat": "pack_size", "kinds": ["map"], "text": "+%d%% more enemies",
 		"tiers": [[1, 15, 25], [36, 26, 35]], "names": ["Crowded", "Swarming"]},
 	"map_life": {"type": "prefix", "stat": "monster_life", "kinds": ["map"], "text": "enemies have +%d%% life",

@@ -1,7 +1,9 @@
 # Endgame plan: THE ATLAS (2026-10-15)
 
 > **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
-> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) is done; E7 (damage types) is next.
+> tuned harder after it, see *Added beyond the plan*). E6 (currency orbs) and E7 (damage types) are done; E8 (the
+> Atlas: worlds 2 and 3 as map themes, tiers to T16) is next. The view stays 2.5D from the side: a top-down
+> prototype was tried on a branch on 2026-10-16 and the user turned it down (2026-10-18).
 
 After world 3 the game grows an ARPG endgame in the manner of Path of Exile: farming maps for gear, currency and
 levels that feed the prompt tree. Chosen by the user in an interview on 2026-10-15 (every pick below is theirs).
@@ -123,7 +125,8 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 - [x] E6 Currency orbs: drops, stacks, using them on items and maps. The eight orbs of the table above, in a pouch
       of their own shown in the inventory window (not in its grid), picked up on touch, used by clicking the orb
       and then the item (it stays on the cursor).
-- [ ] E7 Damage types, resistances and ailments on enemies, gear and map mods.
+- [x] E7 Damage types, resistances and ailments on enemies, gear and map mods. Ailments work both ways (ignite,
+      chill / freeze, shock); resistances drop 5 % a map tier; Corruption resistance from item level 20.
 - [ ] E8 Chunks of worlds 2 and 3, tiers up to T16, the Atlas screen and its points.
 - [ ] E9 The prompt tree grows to ~120 nodes for levels up to 100, new keystones.
 - [ ] E10 Delirium fog.

@@ -39,7 +39,8 @@ static func get_def(id: String) -> Dictionary:
 ## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level; times the prompt
 ## tree's and the gear's (Stats) and the equipped weapon item's own (local) damage and fire rate.
 static func damage_mult() -> float:
-	return (1.0 + 0.25 * Progress.upgrade("damage")) * Stats.damage_mult() * (1.0 + Gear.stat("local_damage") / 100.0)
+	return (1.0 + 0.25 * Progress.upgrade("damage")) * Stats.damage_mult() * (1.0 + Gear.stat("local_damage") / 100.0) \
+		* Stats.ele_mult()
 
 
 static func rate_mult() -> float:

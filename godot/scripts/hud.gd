@@ -292,6 +292,12 @@ func _draw_life(o: Vector2) -> void:
 	var text := "%d / %d" % [mini(ceili(_player.life), roundi(_player.max_life)), roundi(_player.max_life)]
 	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 2, SHADOW)
 	PixelFont.draw_centred(self, text, r.get_center().x, r.position.y + 1, TEXT)
+	# Ailments on Clawd, after the XP bar under the panel.
+	var ax := o.x + 1 + PixelFont.width("LV %d" % _xp_level) + 4 + 40 + 6
+	for k in [["BURNING", "fire", _player.burn_t], ["CHILLED", "cold", _player.chill_t], ["SHOCKED", "lightning", _player.shock_t]]:
+		if k[2] > 0:
+			_text_shadowed(k[0], Vector2(ax, o.y + H + 4), Stats.ELEMENT_COLOR[k[1]])
+			ax += PixelFont.width(k[0]) + 5
 
 
 func _slots() -> int:

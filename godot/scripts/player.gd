@@ -93,6 +93,16 @@ var area_level := 1
 var last_damage := 0.0
 ## Enemies' hits times this (a map's mod).
 var hit_mult := 1.0
+## Resistances (element -> per cent, capped, after a map's penalty) and a map's elements added to enemies' hits
+## (element -> per cent of the hit); set by Main._apply_loadout() (docs/endgame-plan.md E7).
+var res := {}
+var map_ele := {}
+## The last hit's main element (the popup's colour), and the ailments on Clawd: burning, chilled, shocked.
+var last_element := "physical"
+var burn_dps := 0.0
+var burn_t := 0.0
+var chill_t := 0.0
+var shock_t := 0.0
 var invuln := 0.0
 var hurt_timer := 0.0
 var coyote := 0.0
@@ -173,6 +183,7 @@ func enter_level(l: Level, start: Vector2, level_bottom: float) -> void:
 	kill_y = level_bottom + 24
 	hearts = max_hearts
 	life = max_life
+	clear_ailments()
 	respawn()
 
 
@@ -236,7 +247,7 @@ func hitbox() -> Rect2:
 ## A Firewall takes the hit instead: Clawd is knocked back and briefly invulnerable, but keeps his hearts.
 ## In the endgame (hp_mode) the hit takes `damage` life (an enemy's hit of the area level when negative), less
 ## armour; an `evadable` one may be evaded ("evade": no damage, no knock-back, a short grace).
-func hurt(from_x: float, damage := -1.0, evadable := true) -> bool:
+func hurt(from_x: float, damage := -1.0, evadable := true, element := "physical") -> bool:
 	if invuln > 0:
 		return false
 	var blocked := shield
@@ -248,7 +259,7 @@ func hurt(from_x: float, damage := -1.0, evadable := true) -> bool:
 			invuln = HURT_INVULN * 0.5
 			event.emit(&"evade", pos)
 			return false
-		last_damage = dmg * (1.0 - Stats.armour_reduction(armour, dmg))
+		last_damage = _mitigate(dmg, element, damage < 0)
 		life -= last_damage
 		if life <= 0:
 			event.emit(&"die", pos)
@@ -273,6 +284,62 @@ func hurt(from_x: float, damage := -1.0, evadable := true) -> bool:
 	return true
 
 
+## A hit of `dmg` in `element`, plus a map's added elements (`with_map`), each part less armour (physical) or its
+## resistance; shocked, the total is more. Ailments from the parts. Returns what it takes.
+func _mitigate(dmg: float, element: String, with_map: bool) -> float:
+	var parts := {element: dmg}
+	if with_map:
+		for k in map_ele:
+			parts[k] = parts.get(k, 0.0) + dmg * map_ele[k] / 100.0
+	var total := 0.0
+	var best := 0.0
+	for k in parts:
+		var p: float = parts[k]
+		if k == "physical":
+			p *= 1.0 - Stats.armour_reduction(armour, p)
+		else:
+			p *= 1.0 - res.get(k, 0.0) / 100.0
+		parts[k] = p
+		total += p
+		if p > best:
+			best = p
+			last_element = k
+	if shock_t > 0:
+		total *= 1.0 + Stats.SHOCK_TAKEN
+	if parts.get("fire", 0.0) > 0 and randf() < Stats.IGNITE_CHANCE:
+		burn_t = Stats.BURN_TIME
+		burn_dps = maxf(burn_dps, parts.fire * Stats.BURN_SHARE / Stats.BURN_TIME)
+	if parts.get("cold", 0.0) > 0:
+		chill_t = Stats.CHILL_TIME
+	if parts.get("lightning", 0.0) > 0 and randf() < Stats.SHOCK_CHANCE:
+		shock_t = Stats.SHOCK_TIME
+	return total
+
+
+## Ailments on Clawd in the endgame: burning takes life (and can kill), chill and shock run out.
+func _tick_ailments(dt: float) -> void:
+	chill_t = maxf(0.0, chill_t - dt)
+	shock_t = maxf(0.0, shock_t - dt)
+	if burn_t <= 0:
+		return
+	burn_t -= dt
+	life -= burn_dps * dt
+	if burn_t <= 0:
+		burn_dps = 0.0
+	if life <= 0:
+		clear_ailments()
+		event.emit(&"die", pos)
+		life = max_life
+		respawn()
+
+
+func clear_ailments() -> void:
+	burn_t = 0.0
+	burn_dps = 0.0
+	chill_t = 0.0
+	shock_t = 0.0
+
+
 func _physics_process(dt: float) -> void:
 	if Game.frozen():
 		return
@@ -286,6 +353,7 @@ func _physics_process(dt: float) -> void:
 	hurt_timer = maxf(0.0, hurt_timer - dt)
 	if hp_mode:
 		life = minf(max_life, life + regen * dt)
+		_tick_ailments(dt)
 	jump_buffer = maxf(0.0, jump_buffer - dt)
 	spin_cooldown -= dt
 	drop_timer -= dt
@@ -335,7 +403,7 @@ func _physics_process(dt: float) -> void:
 				accel = GROUND_ACCEL
 		else:
 			accel = AIR_DECEL if dir == 0 else AIR_ACCEL
-		vel.x = move_toward(vel.x, dir * run_speed, accel * dt)
+		vel.x = move_toward(vel.x, dir * run_speed * (Stats.CHILL_FACTOR if chill_t > 0 else 1.0), accel * dt)
 		if dir != 0 and not armed:
 			if int(dir) != facing and grounded:
 				squash = Vector2(0.8, 1.1) # a quick pinch when turning around
@@ -632,7 +700,7 @@ func _check_hazards() -> void:
 		if hurt_box.has_area() and hb.intersects(hurt_box):
 			if e.projectile and e.consume_on_hit:
 				e.remove()
-			hurt(er.get_center().x)
+			hurt(er.get_center().x, -1.0, true, e.element)
 
 
 ## Bounce off an enemy's head (bounce() in the TS player).

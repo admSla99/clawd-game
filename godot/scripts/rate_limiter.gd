@@ -81,7 +81,7 @@ func _ready() -> void:
 func _physics_process(dt: float) -> void:
 	dx = 0.0
 	dy = 0.0
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	var old_y := y

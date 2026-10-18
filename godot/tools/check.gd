@@ -99,6 +99,7 @@ func _init() -> void:
 	await section("hit points in the endgame (docs/endgame-plan.md E2)", check_life)
 	await section("the inventory and the stash (docs/endgame-plan.md E3)", check_inventory)
 	await section("currency orbs (docs/endgame-plan.md E6)", check_currency)
+	await section("damage types, resistances, ailments (docs/endgame-plan.md E7)", check_elements)
 	await section("HUD: hearts and tokens (src/render/hud.ts)", check_hud)
 	await section("pause, controls help and keybindings (src/scenes/game.ts, keybinds.ts)", check_menus)
 	await section("sound and music (src/core/audio.ts)", check_sound)
@@ -2087,6 +2088,118 @@ func check_currency() -> bool:
 	progress.currency = {}
 	progress.inventory = []
 	progress.save_items()
+	m.load_level("1-1")
+	await frames(3)
+	return true
+
+
+func check_elements() -> bool:
+	var m = current_scene
+	var p = m.player
+	var progress = root.get_node("Progress")
+	var stats = load("res://scripts/stats.gd")
+	var gear = load("res://scripts/gear.gd")
+	var weapons = load("res://scripts/weapons.gd")
+	progress.gear = {}
+	gear.invalidate()
+	# The enemies' elements.
+	var kinds := {"bug": "physical", "spam_bot": "chaos", "turret": "lightning", "drone": "cold", "injector": "chaos",
+		"webhook": "lightning", "shield_bot": "physical", "map_boss": "lightning"}
+	var wrong := []
+	for k in kinds:
+		var e = load("res://scenes/bug.tscn").instantiate() if k == "bug" else load("res://scripts/%s.gd" % k).new()
+		if e.element != kinds[k]:
+			wrong.append(k)
+		e.free()
+	ok(wrong.is_empty(), "spam bots and injectors deal corruption, turrets, webhooks and the map boss voltage, drones latency, the rest physical %s" % [wrong])
+	# Resistances: capped, lowered by a penalty.
+	gear.equip({"base": "scrap_plating", "rarity": "rare", "ilvl": 80, "name": "Test", "affixes": [
+		{"id": "res_fire", "tier": 5, "value": 90}, {"id": "res_cold", "tier": 0, "value": 10}, {"id": "res_chaos", "tier": 0, "value": 8}]})
+	var r: Dictionary = stats.resistances(15.0)
+	ok(stats.resistances().fire == 75.0 and r.fire == 75.0 and r.cold == -5.0 and r.chaos == -7.0 and r.lightning == -15.0,
+		"resistances cap at 75%%, a map's penalty lowers them (%s)" % [r])
+	# Hits: each part less armour or its resistance; ailments.
+	m.endgame = true
+	m.load_level("1-1")
+	await frames(3)
+	flat_ground(m)
+	p.pos = Vector2(10 * TILE, 16 * TILE)
+	p.evasion = 0.0
+	p.armour = 0.0
+	p.res = {"fire": 50.0, "cold": 0.0, "lightning": 0.0, "chaos": 0.0}
+	p.map_ele = {}
+	var hit: float = stats.enemy_hit(1)
+	p.invuln = 0
+	p.life = p.max_life
+	p.hurt(p.pos.x + 5, -1.0, false, "fire")
+	ok(is_equal_approx(p.last_damage, hit * 0.5) and p.last_element == "fire", "an overheat hit takes half with 50%% resistance (%.1f of %.1f)" % [p.last_damage, hit])
+	p.clear_ailments()
+	p.invuln = 0
+	p.hurt(p.pos.x + 5, -1.0, false, "cold")
+	ok(p.chill_t > 0 and is_equal_approx(p.last_damage, hit), "a latency hit chills Clawd")
+	var speed_full: float = p.run_speed
+	p.shock_t = 1.0
+	p.invuln = 0
+	p.hurt(p.pos.x + 5, -1.0, false, "physical")
+	ok(is_equal_approx(p.last_damage, hit * 1.2), "shocked, he takes 20% more")
+	p.clear_ailments()
+	p.map_ele = {"cold": 50.0}
+	p.invuln = 0
+	p.hurt(p.pos.x + 5, -1.0, false, "physical")
+	ok(is_equal_approx(p.last_damage, hit * 1.5) and p.chill_t > 0, "a map adding 50% as latency: 1.5x the hit, and a chill")
+	p.map_ele = {}
+	p.clear_ailments()
+	p.burn_t = 1.0
+	p.burn_dps = 20.0
+	p.life = p.max_life
+	await frames(30)
+	var burnt: float = p.max_life - p.life
+	ok(burnt > 7.0 and burnt < 13.0, "burning takes life (%.1f in half a second at 20 a second)" % burnt)
+	p.clear_ailments()
+	# Chilled, Clawd runs slower.
+	p.chill_t = 5.0
+	p.vel = Vector2.ZERO
+	Input.action_press("right")
+	await frames(40)
+	var chilled_speed: float = absf(p.vel.x)
+	Input.action_release("right")
+	p.clear_ailments()
+	ok(is_equal_approx(chilled_speed, speed_full * stats.CHILL_FACTOR), "chilled, he runs at %d%% speed" % roundi(stats.CHILL_FACTOR * 100))
+	# Enemies: shock, burn, chill and freeze.
+	var bug = load("res://scenes/bug.tscn").instantiate()
+	m.level.add_child(bug)
+	bug.pos = p.pos + Vector2(80, 0)
+	bug.hp = 100.0
+	bug.hit(&"shot", 10.0)
+	bug.immune = 0
+	bug.shock_t = 1.0
+	bug.hit(&"shot", 10.0)
+	ok(is_equal_approx(bug.hp, 100.0 - 10.0 - 12.0), "a shocked enemy takes 20% more")
+	bug.shock_t = 0.0
+	bug.burn_t = 1.0
+	bug.burn_dps = 30.0
+	var before: float = bug.hp
+	await frames(30)
+	ok(bug.hp < before - 10.0 and bug.hp > before - 20.0, "burning takes its life (%.1f)" % (before - bug.hp))
+	bug.burn_t = 0.0
+	bug.afflict({"cold": 1.0})
+	ok(bug.chill_t > 0 and bug.freeze_t == 0.0, "latency chills it")
+	bug.afflict({"cold": 50.0})
+	var at: Vector2 = bug.pos
+	await frames(20)
+	ok(bug.freeze_t > 0 and bug.pos == at, "a big latency part freezes it in place")
+	bug.burn_t = 2.0
+	bug.burn_dps = 10000.0
+	await frames(3)
+	ok(not is_instance_valid(bug) or bug.dead, "burning can kill")
+	# Clawd's damage added as an element: more damage and its ailments.
+	gear.equip({"base": "iron_plugin", "rarity": "magic", "ilvl": 80, "affixes": [{"id": "extra_cold", "tier": 3, "value": 30}]})
+	ok(is_equal_approx(stats.ele_mult(), 1.3) and stats.elements() == {"cold": 0.3} and is_equal_approx(weapons.damage_mult(), 1.3 * 1.05)
+		and is_equal_approx(stats.ailment_parts(13.0).cold, 3.0), "+30% as latency: x1.3 damage, 3 of a 13 hit a latency part")
+	progress.gear = {}
+	gear.invalidate()
+	progress.save_items()
+	m.endgame = false
 	m.load_level("1-1")
 	await frames(3)
 	return true

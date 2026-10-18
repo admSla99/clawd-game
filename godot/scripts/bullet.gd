@@ -158,6 +158,9 @@ func _check_enemies() -> void:
 			continue
 		hits.append(e)
 		if e.hit(&"shot", damage):
+			# Damage added as elements may ignite, chill or shock (docs/endgame-plan.md E7).
+			if not Stats.elements().is_empty():
+				e.afflict(Stats.ailment_parts(damage))
 			Sound.play("hit")
 			Fx.burst(self, pos, {count = 3, speed = 60, life = 0.2, color = [color, Color.WHITE]})
 		if not splash.is_empty() or pierce <= 0:

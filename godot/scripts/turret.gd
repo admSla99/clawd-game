@@ -78,6 +78,7 @@ var _barrel: MeshInstance3D
 
 
 func _init() -> void:
+	element = "lightning"
 	size = SIZE
 	hp = 6
 	tokens = 4 * TOKEN_FACTOR
@@ -124,7 +125,7 @@ func bar_y() -> float:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	var player: Player = get_tree().get_first_node_in_group("player")
@@ -154,7 +155,7 @@ func _physics_process(dt: float) -> void:
 		burst_t -= dt
 		if burst_t <= 0:
 			var dir := Vector2.from_angle(angle)
-			Shot.fire(level, pv + dir * 10, dir * SHOT_SPEED)
+			Shot.fire(level, pv + dir * 10, dir * SHOT_SPEED).element = element
 			Sound.play("shoot")
 			burst -= 1
 			burst_t = BURST_GAP

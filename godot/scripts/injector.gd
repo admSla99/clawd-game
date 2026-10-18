@@ -35,6 +35,7 @@ var _body: MeshInstance3D
 
 
 func _init() -> void:
+	element = "chaos"
 	size = SIZE
 	hp = 5
 	tokens = 3 * TOKEN_FACTOR
@@ -55,7 +56,7 @@ func token_total() -> int:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	t += dt

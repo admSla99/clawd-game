@@ -1142,6 +1142,33 @@ map is a generated level with a boss that drops more maps.
   boss's life and bar, the portal home and the tokens, going back into the same level unscaled, dying (a portal,
   the XP), the boss's drops and portal, the collapse on the last portal, maps from enemies, QUIT TO MAP.
 
+## Damage types, resistances, ailments
+
+The endgame's elements (`docs/endgame-plan.md`, E7; `Stats`), where Clawd has hit points:
+
+- **Types**: physical, Overheat (fire), Latency (cold), Voltage (lightning), Corruption (chaos), each with a
+  colour (`Stats.ELEMENT_COLOR`: the damage popup over Clawd takes the hit's main one). Every enemy has an
+  `element` that its touch and its shots deal (`Shot.fire(...).element`): spam bots and injectors Corruption,
+  turrets, webhooks and THE OVERFITTER Voltage, drones Latency, the rest physical. A map can add elements to every
+  enemy hit (mods "enemies add +n% of their hits as overheat / latency / voltage", `Player.map_ele`).
+- **Mitigation** (`Player._mitigate()`): a hit is split into its parts; the physical one is reduced by armour,
+  each other by its resistance (`Stats.resistances()`: the gear's and the tree's `res_*`, at most 75 %, lowered in a
+  map by 5 % a tier and the mod "Clawd has -n% all resistances"; Corruption only by its own, the new suffix
+  `res_chaos` from item level 20). Shocked, the total is 20 % more.
+- **Ailments**, on Clawd and on enemies alike (`Stats` constants): an Overheat part ignites 25 % of the time (60 % of
+  it burns over 2 s; burning can kill); a Latency part chills for 1.5 s (Clawd runs at 70 %; an enemy sits out one
+  physics frame in three, `Enemy.held()`), and one of a fifth of an enemy's life freezes it for 0.6 s; a Voltage part
+  shocks 30 % of the time (+20 % damage taken for 2 s). The HUD lists BURNING / CHILLED / SHOCKED after the XP bar;
+  sparks of the ailment's colour rise from whoever has one. `Main._tick_ailments()` runs the enemies' timers and
+  burns (`Enemy.tick_ailments()`, damage numbers every point or so).
+- **Clawd's elements**: the prefixes "+n% of damage as overheat / latency / voltage" (weapons, actuators, cores,
+  plugins; from item level 5) add that much damage (`Stats.ele_mult()`, in `Weapons.damage_mult()`) and their
+  part of every shot (`Stats.ailment_parts()`) can ignite, chill, freeze or shock what it hits (`Bullet`). The
+  inventory's stats show them (ADDED HEAT/LAG/VOLT) and the four resistances.
+- Checks: the enemies' elements, the cap and the penalty, a resisted hit, a chill, a shocked hit, a map's added
+  element, burning, running chilled, a shocked enemy, an enemy burning, chilled, frozen in place and burnt to death,
+  the added damage and its parts.
+
 ## Currency orbs
 
 Path of Exile's crafting (`docs/endgame-plan.md`, E6), `scripts/currency.gd` (`Currency`): eight orbs that change an

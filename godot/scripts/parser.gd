@@ -96,7 +96,7 @@ func hit(kind: StringName, damage := 1.0) -> bool:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	t += dt

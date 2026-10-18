@@ -105,8 +105,10 @@ points in the endgame, the inventory and stash (`inventory_screen.gd`, `item_too
 (`levels/hideout.txt` + `hideout.json`, outside index.json's play order, O on the map once 3-B is beaten;
 `station.gd`, `vendor.gd`) and maps (`maps.gd`, `map_gen.gd` building levels at runtime from
 `levels/chunks/<theme>/*.txt`, checked by `reach.gd -- chunks` / `-- maps`; `map_boss.gd`; `Main.map_run`). E6, the
-currency orbs (`currency.gd`, a pouch in `Progress.currency`, used from the inventory window), is done; E7, damage
-types and resistances, is next.
+currency orbs (`currency.gd`, a pouch in `Progress.currency`, used from the inventory window), and E7, damage types,
+resistances and ailments (`Stats` elements, `Enemy.element` / `afflict()` / `held()`, `Player._mitigate()`), are
+done; E8, the Atlas, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
+endgame too, stays a 2.5D side-view platformer.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).
 

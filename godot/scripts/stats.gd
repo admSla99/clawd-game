@@ -70,3 +70,65 @@ static func evade_chance(evasion: float, area: int) -> float:
 	if evasion <= 0:
 		return 0.0
 	return minf(EVADE_CAP, evasion / (evasion + 100.0 + 20.0 * area))
+
+
+# --- Damage types, resistances, ailments (docs/endgame-plan.md E7) ----------------------------------------------
+
+## The elements besides physical: Overheat (fire), Latency (cold), Voltage (lightning), Corruption (chaos).
+const ELEMENTS := ["fire", "cold", "lightning", "chaos"]
+const ELEMENT_NAME := {"physical": "PHYSICAL", "fire": "OVERHEAT", "cold": "LATENCY", "lightning": "VOLTAGE", "chaos": "CORRUPTION"}
+const ELEMENT_COLOR := {"physical": Color("#E0605A"), "fire": Color("#FF8A3D"), "cold": Color("#8CE0FF"),
+	"lightning": Color("#FFE45C"), "chaos": Color("#B07CFF")}
+## Resistances count up to RES_CAP; a map lowers them by RES_PENALTY a tier.
+const RES_CAP := 75.0
+const RES_PENALTY := 5.0
+## Ailments, on Clawd and on enemies alike: an Overheat part ignites IGNITE_CHANCE of the time (BURN_SHARE of it
+## over BURN_TIME s); a Latency part chills for CHILL_TIME s (CHILL_FACTOR speed), and one of FREEZE_SHARE of an
+## enemy's life freezes it for FREEZE_TIME s; a Voltage part shocks SHOCK_CHANCE of the time (SHOCK_TAKEN more
+## damage taken for SHOCK_TIME s). Corruption has none.
+const IGNITE_CHANCE := 0.25
+const BURN_SHARE := 0.6
+const BURN_TIME := 2.0
+const CHILL_TIME := 1.5
+const CHILL_FACTOR := 0.7
+const FREEZE_SHARE := 0.2
+const FREEZE_TIME := 0.6
+const SHOCK_CHANCE := 0.3
+const SHOCK_TIME := 2.0
+const SHOCK_TAKEN := 0.2
+
+
+## Clawd's resistances (element -> per cent) after `penalty`, at most RES_CAP each.
+static func resistances(penalty := 0.0) -> Dictionary:
+	var out := {}
+	for k in ELEMENTS:
+		out[k] = minf(RES_CAP, total("res_" + k) - penalty)
+	return out
+
+
+## The share of Clawd's damage added as each element (element -> fraction; fire, cold, lightning).
+static func elements() -> Dictionary:
+	var out := {}
+	for k in ["fire", "cold", "lightning"]:
+		var v := total("extra_" + k) / 100.0
+		if v > 0:
+			out[k] = v
+	return out
+
+
+## Damage times this for the elements added as extra (1 without any).
+static func ele_mult() -> float:
+	var n := 1.0
+	var e := elements()
+	for k in e:
+		n += e[k]
+	return n
+
+
+## The elemental parts of a hit of `damage` (that already includes ele_mult()), for the ailments.
+static func ailment_parts(damage: float) -> Dictionary:
+	var e := elements()
+	var out := {}
+	for k in e:
+		out[k] = damage * e[k] / ele_mult()
+	return out

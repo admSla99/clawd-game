@@ -46,6 +46,15 @@ var flash := 0.0
 var immune := 0.0
 var prev_pos := Vector2.ZERO
 var dead := false
+## Its damage type (Stats.ELEMENTS or "physical", docs/endgame-plan.md E7): what its touch and its shots deal.
+var element := "physical"
+## Ailments on it: burning (damage a second), chilled, frozen, shocked; seconds left of each.
+var burn_dps := 0.0
+var burn_t := 0.0
+var chill_t := 0.0
+var freeze_t := 0.0
+var shock_t := 0.0
+var _burn_shown := 0.0
 var pos: Vector2:
 	get: return Px.of(position)
 	set(v): position = Px.to3(v)
@@ -92,6 +101,9 @@ func hit(kind: StringName, damage := 1.0) -> bool:
 	if max_hp <= 0:
 		max_hp = hp
 		shown_hp = hp
+	# Shocked: it takes more.
+	if shock_t > 0:
+		damage *= 1.0 + Stats.SHOCK_TAKEN
 	hp -= damage
 	flash = 0.12
 	var main := get_tree().get_first_node_in_group("main")
@@ -130,6 +142,49 @@ func remove() -> void:
 
 func _die(_kind: StringName) -> void:
 	queue_free()
+
+
+## A frame it sits out: frozen solid, or one in three while chilled (subclasses ask at the top of their
+## _physics_process, with Game.frozen()).
+func held() -> bool:
+	return freeze_t > 0 or (chill_t > 0 and Engine.get_physics_frames() % 3 == 0)
+
+
+## Ailments from a hit whose elemental parts are `parts` (element -> damage): an Overheat part may ignite it, a
+## Latency part chills it (and freezes it when big), a Voltage part may shock it.
+func afflict(parts: Dictionary) -> void:
+	if dead or invincible:
+		return
+	if parts.get("fire", 0.0) > 0 and randf() < Stats.IGNITE_CHANCE:
+		burn_t = Stats.BURN_TIME
+		burn_dps = maxf(burn_dps, parts.fire * Stats.BURN_SHARE / Stats.BURN_TIME)
+	if parts.get("cold", 0.0) > 0:
+		chill_t = Stats.CHILL_TIME
+		if max_hp > 0 and parts.cold >= max_hp * Stats.FREEZE_SHARE:
+			freeze_t = Stats.FREEZE_TIME
+	if parts.get("lightning", 0.0) > 0 and randf() < Stats.SHOCK_CHANCE:
+		shock_t = Stats.SHOCK_TIME
+
+
+## The ailments' timers, and burning (Main, every physics frame): the burn's damage shows every point or so.
+func tick_ailments(dt: float) -> void:
+	chill_t = maxf(0.0, chill_t - dt)
+	freeze_t = maxf(0.0, freeze_t - dt)
+	shock_t = maxf(0.0, shock_t - dt)
+	if burn_t <= 0 or dead:
+		return
+	burn_t -= dt
+	var d := burn_dps * dt
+	hp -= d
+	_burn_shown += d
+	var main := get_tree().get_first_node_in_group("main")
+	if (_burn_shown >= 1.0 or hp <= 0) and main and not projectile:
+		main.overlay.damage_number(self, _burn_shown, hp <= 0)
+		_burn_shown = 0.0
+	if hp <= 0:
+		die(&"burn")
+	if burn_t <= 0:
+		burn_dps = 0.0
 
 
 ## Its worth in XP, in hit points: xp_hp if set, else its full hit points.

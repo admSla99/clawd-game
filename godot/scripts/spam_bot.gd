@@ -72,6 +72,7 @@ var _body: MeshInstance3D
 
 
 func _init() -> void:
+	element = "chaos"
 	size = SIZE
 	collision_layer = 0
 	collision_mask = 0
@@ -87,7 +88,7 @@ func _ready() -> void:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	t += dt
@@ -99,7 +100,7 @@ func _physics_process(dt: float) -> void:
 		var d := player.pos + Vector2(0, -9) - (pos + Vector2(0, -7))
 		if fire_timer <= 0 and d.length() < RANGE:
 			fire_timer = RELOAD
-			Shot.fire(level, pos + Vector2(0, -5), d.normalized() * SHOT_SPEED)
+			Shot.fire(level, pos + Vector2(0, -5), d.normalized() * SHOT_SPEED).element = element
 			Sound.play("shoot")
 	_update_visual()
 

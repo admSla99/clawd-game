@@ -537,6 +537,7 @@ func _physics_process(dt: float) -> void:
 	scenery.update(camera.top_left)
 	_update_complete(dt)
 	_update_loot()
+	_tick_ailments()
 	_update_shadows()
 	_update_reveal()
 	var decor: Decor = level.get_node_or_null("Decor")
@@ -638,7 +639,7 @@ func _on_player_event(kind: StringName, at: Vector2) -> void:
 			shake(0.35)
 			Game.hitstop(0.08)
 			if player.hp_mode:
-				overlay.popup("-%d" % ceili(player.last_damage), at + Vector2(0, -26), RED, 0.9)
+				overlay.popup("-%d" % ceili(player.last_damage), at + Vector2(0, -26), Stats.ELEMENT_COLOR[player.last_element], 0.9)
 		&"evade":
 			overlay.popup("EVADE", at + Vector2(0, -26), Color("#8CE0FF"), 0.9)
 		&"pound_land":
@@ -692,6 +693,23 @@ func gain_xp(hp: float) -> void:
 		color = [Experience.COLOR, Color.WHITE, Hud.ORANGE_LIGHT], gravity = -40, drag = 2, size = 1.5})
 	hud.level_up()
 	Sound.play("levelUp")
+
+
+## The enemies' ailments (docs/endgame-plan.md E7): their timers and burning, and a few sparks in the ailment's
+## colour now and then (Clawd's too).
+func _tick_ailments() -> void:
+	var dt := get_physics_process_delta_time()
+	var spark := Engine.get_physics_frames() % 6 == 0
+	for e: Enemy in get_tree().get_nodes_in_group("enemies"):
+		e.tick_ailments(dt)
+		if spark and not e.dead:
+			for k in [["fire", e.burn_t], ["cold", e.chill_t + e.freeze_t], ["lightning", e.shock_t]]:
+				if k[1] > 0:
+					particles.emit(e.rect().get_center(), {count = 2, speed = 30, life = 0.35, color = [Stats.ELEMENT_COLOR[k[0]]], gravity = -40})
+	if spark and player.hp_mode:
+		for k in [["fire", player.burn_t], ["cold", player.chill_t], ["lightning", player.shock_t]]:
+			if k[1] > 0:
+				particles.emit(player.pos + Vector2(0, -9), {count = 2, speed = 30, life = 0.35, color = [Stats.ELEMENT_COLOR[k[0]]], gravity = -40})
 
 
 ## A defeated enemy worth `hp` hit points drops an item (docs/endgame-plan.md E2) with a chance of DROP_BASE plus
@@ -1063,15 +1081,23 @@ func _apply_loadout() -> void:
 	player.evasion = Stats.total("evasion")
 	player.regen = Stats.total("regen")
 	player.area_level = area_level
-	# A map's mods on Clawd: enemies hit harder, less life, regeneration, armour and evasion.
+	# A map's mods on Clawd: enemies hit harder, less life, regeneration, armour and evasion; resistances lower by
+	# the tier and its mod, and enemies' hits with elements added (docs/endgame-plan.md E7).
 	player.hit_mult = 1.0
+	player.map_ele = {}
+	var res_penalty := 0.0
 	if level_id == MAP and not map_run.is_empty():
 		var it: Dictionary = map_run.item
+		res_penalty = Stats.RES_PENALTY * int(it.tier) + Items.stat(it, "less_res")
+		for k in ["fire", "cold", "lightning"]:
+			if Items.stat(it, "monster_" + k) > 0:
+				player.map_ele[k] = Items.stat(it, "monster_" + k)
 		player.hit_mult = 1.0 + Items.stat(it, "monster_damage") / 100.0
 		player.max_life *= 1.0 - Items.stat(it, "less_life") / 100.0
 		player.regen *= 1.0 - Items.stat(it, "less_regen") / 100.0
 		player.armour *= 1.0 - Items.stat(it, "less_defence") / 100.0
 		player.evasion *= 1.0 - Items.stat(it, "less_defence") / 100.0
+	player.res = Stats.resistances(res_penalty)
 	# The prompt tree's allocated nodes (scripts/prompts.gd).
 	player.max_hearts = maxi(1, player.max_hearts + int(Prompts.stat("hearts")))
 	# With the gear's (Stats).

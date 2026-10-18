@@ -45,7 +45,7 @@ func _die(kind: StringName) -> void:
 
 
 func _physics_process(dt: float) -> void:
-	if Game.frozen():
+	if Game.frozen() or held():
 		return
 	tick(dt)
 	t += dt
