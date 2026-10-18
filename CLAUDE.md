@@ -112,7 +112,9 @@ theme one of its world's levels', bosses `map_boss.gd` / `jailbreak.gd` / `infin
 `atlas.gd`: tiers opened, points, a tree drawn by `TreeScreen` with `atlas` set, the hideout's globe `J`), and E9,
 the prompt tree redrawn (137 nodes in eight sectors, written by a generator into `Prompts.NODES`; endgame stats,
 leech, ailments; keystones Temperature 0., Air-gapped., Gradient Leech., Robustness.; `Prompts.VERSION` refunds an
-old layout once; checked in `tools/checks/tree.gd`), are done; E10, Delirium fog, is next. The user tried a top-down (isometric) prototype and turned it down: the game, the
+old layout once; checked in `tools/checks/tree.gd`), are done. Next is E14 (planned in endgame-plan.md, the user's
+priority over E10-E13): swords, axes, bows and staves besides the guns, skill gems in a four-slot bar with support
+Hooks, COMPUTE as mana, endgame only. The user tried a top-down (isometric) prototype and turned it down: the game, the
 endgame too, stays a 2.5D side-view platformer.
 `godot/docs/port-plan.md` is the finished plan of the port (history, and its *Added beyond the plan* lists the
 extras made on top of the TS game).

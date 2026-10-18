@@ -2,8 +2,8 @@
 
 > **Status (2026-10-16):** E0-E5, the vertical slice, are done and the user played them ("everything works";
 > tuned harder after it, see *Added beyond the plan*). E6 (currency orbs), E7 (damage types) and E8 (the Atlas:
-> worlds 2 and 3 as maps, tiers to T16, the Atlas's tree) and E9 (the prompt tree redrawn, 137 nodes) are done;
-> E10 (Delirium fog) is next.
+> worlds 2 and 3 as maps, tiers to T16, the Atlas's tree) and E9 (the prompt tree redrawn, 137 nodes) are done.
+> Next is **E14, weapon classes and skills** (the user's priority, 2026-10-18); E10-E13 can wait.
 > The view stays 2.5D from the side: a top-down prototype was tried on a branch on 2026-10-16 and the user turned
 > it down (2026-10-18).
 
@@ -28,6 +28,7 @@ Tick the boxes in the commit that finishes a task; record extras the user asks f
 | Weapons | **The five weapons become item bases** (Blaster, Spreader, Stream, Beam, Cannon) that drop with affixes; the ones Clawd found become normal items. The shop and its gun mods stay as global upgrades. |
 | Health | **HP in the hideout and maps, hearts in the campaign.** Worlds 1-3 stay as they are; in the endgame Clawd has a number of HP (base + gear + tree), enemies hit for numbers scaled by the area level, armour and resistances reduce them, the HUD shows a bar. |
 | Order | **A vertical slice first** (E1-E5), then the systems one at a time. |
+| Weapons and skills (E14) | **Swords, axes, bows, staves** besides the guns; **a skill bar with gems** (four slots, a skill and two Hooks each, gems level up); **COMPUTE** as mana; **endgame only** (2026-10-18). |
 
 ## The design
 
@@ -106,6 +107,89 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 - **Pinnacle bosses**: uber Hallucination, Codex and Router, each opened with fragments that drop from T11+ maps,
   with unique items of their own.
 
+### Weapon classes and skills (E14)
+
+Asked for on 2026-10-18 ("other kinds of weapons, swords, axes, bows, and spells or skills like in PoE"), ahead of
+E10-E13, which the user called less needed. The user's calls: **swords, axes, bows and staves** next to the five
+guns; **a skill bar with gems** (PoE's gems with simplified linking); a new resource, **COMPUTE** (mana); all of it
+**in the endgame only** (maps and the hideout's vendor), the campaign stays as it is.
+
+**What there is now.** Every weapon is a gun: `Weapons.WEAPONS` (five, kinds token / pellet / glyph / beam / orb),
+fired by `Gun` (aim from the mouse or the keys, context heat, overheating), with bullets (`Bullet`), the beam
+(`Main.fire_beam()`) and the orb's splash (`Main.explode()`). A weapon item (`Items.BASES`, kind "weapon") names
+the gun it fires, and while one is equipped it decides the gun (no switching on 1-5). Clawd's own melee is the
+spin (C, or the attack unarmed), the stomp and the pound, for fixed damage (`Enemy.SPIN_DAMAGE` etc.). Damage
+goes through `Enemy.hit()`; `Stats` adds up the tree's and the gear's stats; `Main.endgame` gives Clawd hit points.
+Mouse: left attacks, right throws the hook, middle sends a sub-agent, the wheel switches guns.
+
+**Weapon classes.** A base gets a `class`: `gun` (the five), `sword`, `axe`, `bow`, `staff`; three tiers of base
+each (item levels 1 / 22 / 45 of the maps' areas, so from T1), with a base damage, attack speed and critical
+chance, and local affixes as guns have. `Gun` stays the hand (aim, the held voxel model, recoil) and hands the
+attack to a class:
+
+| Class | Bases (proposals) | The attack (left button / attack key) |
+|---|---|---|
+| Sword | Tokenizer Blade, Attention Sabre, Transformer Edge | A quick slash towards the aim: an arc hitbox (about 28 px, 110 deg) for a few frames, every enemy hit once a swing; a three-hit combo (the third wider and +50 %); a downward slash in the air bounces Clawd like a stomp (a pogo, hover back); a slash cuts cancellable enemy shots |
+| Axe | Pruning Axe, Gradient Cleaver, Dropout Reaver | A slow, heavy swing (about 0.6 s): a wider arc that cleaves behind too, more damage, knock-back; also the pogo |
+| Bow | Recurrent Bow, Backprop Longbow, Residual Bow | Hold to draw (0.15 to 0.7 s), release to shoot: the arrow's speed and damage grow with the draw (40 % to 100 %), it falls in an arc and pierces one enemy; a full draw flashes |
+| Staff | Inference Staff, Embedding Rod, Oracle Staff | A short, weak bonk; its implicit adds spell damage and COMPUTE: the weapon for casters |
+| Gun | the five guns | As now (context heat) |
+
+Melee and bows use no heat. Tags decide what stats apply: melee (sword, axe, staff), projectile (bow, gun),
+attack (every weapon). New voxel models (`WeaponSprite`, like `GunSprite`), a swing trail, arrows (a `Bullet` kind
+with gravity), synthesized sounds.
+
+**Skills.** Skill gems drop as items (1 x 1, drawn as a little SKILL.md page in its tag's colour; kind "skill"):
+**active skills** and **Hooks** (support gems). The inventory window gets a SKILLS page (beside the stats and the
+stash): four slots, each one skill and up to two Hooks that change it. The slots are cast with **1-4** (they do
+nothing in the endgame now, where the equipped item decides the gun), aimed with the mouse like the gun. A gem
+levels up (1-20) with the XP Clawd earns while it is slotted; its level raises its damage and effect and needs a
+character level. The HUD shows a skill bar (the four, their keys, cooldown sweeps, dim without COMPUTE).
+
+- **COMPUTE**: a blue bar under the life bar, maximum about 50 + 2 a level, regenerating a few per cent a second;
+  every skill costs some, some have a cooldown too. Gear, the tree and staves add maximum COMPUTE, its
+  regeneration and lower costs. "NOT ENOUGH COMPUTE" when short.
+- **Spells** (their own base damage by gem level, `spell_damage`, cast speed, no weapon needed):
+
+  | Skill | PoE's | What it does |
+  |---|---|---|
+  | Overheat Bolt | Fireball | A projectile that bursts in a small area; Overheat, ignites |
+  | Voltage Arc | Arc | A bolt that chains from enemy to enemy (3); Voltage, shocks |
+  | Cold Cache | Frost Nova | A ring around Clawd; Latency, chills and freezes |
+  | Prompt Injection | Essence Drain | A slow projectile that corrupts: Corruption damage over time |
+  | Rate Limit Strike | Lightning Strike from the sky | Marks the aimed spot; a bolt falls there 0.6 s later |
+  | Spawn Subprocess | Summon Raging Spirits | Two or three flying minions that seek enemies for a while |
+  | Context Switch | Flame Dash | Blinks a short way towards the aim, through enemies (a cooldown) |
+  | Guardrail | Steelskin | A shield that takes the next hits up to an amount for 4 s (a cooldown) |
+
+- **Attacks** (the weapon's damage and speed, they need its class):
+
+  | Skill | Needs | What it does |
+  |---|---|---|
+  | Gradient Slam | sword, axe, staff | A slam: a shockwave runs along the ground both ways |
+  | Batch Spin | sword, axe | Hold to spin, moving, hitting all around (Cyclone) |
+  | Beam Search | bow | A fan of arrows (Split Arrow) |
+  | Token Rain | bow | Arrows rain over the aimed area (Rain of Arrows) |
+
+- **Hooks** (support gems, they fit the skills with the right tags): Parallel (+2 projectiles, less damage each),
+  Pierce, Chain (+1), Wider Context (bigger area), Concentrated (more damage, smaller area), Added Overheat /
+  Latency / Voltage (a share of the damage added as the element), Low Latency (faster cast and attack), Efficient
+  (lower cost), Retry (a spell repeats once, weaker), Gradient Hook (leech from the skill's hits).
+- **Stats and drops**: new stats `spell_damage`, `melee_damage`, `projectile_damage`, `cast_speed`, `area`,
+  `projectiles`, `compute`, `compute_regen`, `cost`, `skill_levels` (+n to the gems' levels); affixes for them on the
+  new bases and on gear (staves spell damage, cores +1 to skill levels ...); the prompt tree gets nodes for them
+  (a ninth sector or branches; adding nodes refunds nothing). Weapon bases of the new classes and gems drop only
+  in maps (gems about as often as an orb), the vendor sells a few level-1 gems; the first visit to the hideout after
+  E14 gives two (Overheat Bolt and Context Switch), like the device's first map.
+- **Code** (proposals): `Weapons` and `Items.BASES` get classes; `scripts/melee.gd` (swings, combo, pogo, cutting
+  shots), `scripts/bow.gd` (drawing, arrows); `scripts/skills.gd` (`Skills`: the gems' table, levels, costs,
+  formulas, casting) with an effect script per skill where it needs one; `Progress.skills` (the four slots: a gem
+  and two Hooks each, items with their XP); `Player.compute`; the HUD's skill bar and COMPUTE bar; the inventory's
+  SKILLS page. Checks: `tools/checks/weapons.gd`, `tools/checks/skills.gd`.
+- **Risks**: melee in a platformer is short and dangerous (contact damage): the pogo, cutting shots and leech have
+  to make it worth it, and the playtest decides. Many new effects to draw readably at 480 x 270. The balance of
+  three ways to play (guns, melee, spells) is E14.7's work.
+
 ## Milestones
 
 - [x] E0 The interview and this plan.
@@ -148,6 +232,18 @@ prompt tree and the Atlas. It opens on the world map once 3-B is beaten; maps re
 - [ ] E11 Breaches.
 - [ ] E12 Pinnacle bosses and uniques.
 - [ ] E13 Balance pass, docs.
+- [ ] E14 Weapon classes and skills (*Weapon classes and skills* above; asked for on 2026-10-18, before E10-E13):
+  - [ ] E14.1 Weapon classes: `class` on the bases, the new bases drop only in maps, the hand handing attacks to
+        a class; swords and axes (the arc, the combo, the pogo, cutting shots, the cleave), their models, sounds,
+        checks.
+  - [ ] E14.2 Bows and staves: drawing, arcing arrows that pierce; the staff's bonk and its spell stats.
+  - [ ] E14.3 COMPUTE and the skill system: the bar, gems as items, the inventory's SKILLS page, four slots on 1-4,
+        the HUD's skill bar, gem XP and levels; the first skills: Overheat Bolt, Context Switch, Gradient Slam.
+  - [ ] E14.4 The other skills: Voltage Arc, Cold Cache, Prompt Injection, Rate Limit Strike, Spawn Subprocess,
+        Guardrail, Batch Spin, Beam Search, Token Rain.
+  - [ ] E14.5 Hooks (support gems).
+  - [ ] E14.6 Stats: affixes for the classes, spells and COMPUTE; the prompt tree's new nodes; gems at the vendor.
+  - [ ] E14.7 A playtest and balance of guns, melee and spells.
 
 ## Added beyond the plan
 
