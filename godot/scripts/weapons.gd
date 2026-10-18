@@ -24,6 +24,27 @@ const WEAPONS := {
 		"color": Color("#D97757")},
 }
 const ORDER := ["blaster", "spreader", "stream", "beam", "cannon"]
+## The endgame's melee weapons (docs/endgame-plan.md E14), the weapon items of swords and axes: `class` (the guns'
+## is "gun"), swings a second (`fire_rate`, so the gun's stats read the same), damage a swing, `reach` (px from
+## Clawd's arm), `arc` (radians round the aim it hits in), a combo of `combo` swings whose last deals `finisher`
+## times as much in an arc 1.3 times as wide, and `swing` (seconds the blade sweeps and hits). Scripts/melee.gd
+## swings them. Swords are quick; axes slow and heavy, their swing a whole circle round Clawd (a cleave).
+const MELEE := {
+	"tokenizer_blade": {"id": "tokenizer_blade", "name": "Tokenizer Blade", "class": "sword", "kind": "sword", "fire_rate": 2.6,
+		"damage": 5.0, "reach": 30.0, "arc": 1.9, "combo": 3, "finisher": 1.5, "swing": 0.16, "color": Color("#DDE8EE")},
+	"attention_sabre": {"id": "attention_sabre", "name": "Attention Sabre", "class": "sword", "kind": "sword", "fire_rate": 2.7,
+		"damage": 7.5, "reach": 32.0, "arc": 2.0, "combo": 3, "finisher": 1.5, "swing": 0.16, "color": Color("#8CE0FF")},
+	"transformer_edge": {"id": "transformer_edge", "name": "Transformer Edge", "class": "sword", "kind": "sword", "fire_rate": 2.8,
+		"damage": 11.0, "reach": 34.0, "arc": 2.1, "combo": 3, "finisher": 1.6, "swing": 0.15, "color": Color("#F2D27A")},
+	"pruning_axe": {"id": "pruning_axe", "name": "Pruning Axe", "class": "axe", "kind": "axe", "fire_rate": 1.15,
+		"damage": 13.0, "reach": 34.0, "arc": 6.3, "combo": 1, "finisher": 1.0, "swing": 0.28, "color": Color("#E0B070")},
+	"gradient_cleaver": {"id": "gradient_cleaver", "name": "Gradient Cleaver", "class": "axe", "kind": "axe", "fire_rate": 1.2,
+		"damage": 19.0, "reach": 36.0, "arc": 6.3, "combo": 1, "finisher": 1.0, "swing": 0.28, "color": Color("#FF8A3D")},
+	"dropout_reaver": {"id": "dropout_reaver", "name": "Dropout Reaver", "class": "axe", "kind": "axe", "fire_rate": 1.25,
+		"damage": 27.0, "reach": 38.0, "arc": 6.3, "combo": 1, "finisher": 1.0, "swing": 0.27, "color": Color("#B07CFF")},
+}
+## What each class is called (the item's tooltip, the HUD).
+const CLASS_NAME := {"gun": "GUN", "sword": "SWORD", "axe": "AXE"}
 ## The gun upgrades of UPGRADES (the others, Extra Heart, Jet Tuning and Token Magnet, are in Shop.ITEMS).
 const UPGRADES := [
 	{"id": "damage", "name": "Bigger Model", "desc": "+25% weapon damage per level.", "prices": [100, 220, 400], "sparks": [0, 2, 6]},
@@ -33,7 +54,20 @@ const UPGRADES := [
 
 
 static func get_def(id: String) -> Dictionary:
-	return WEAPONS.get(id, WEAPONS.blaster)
+	return WEAPONS.get(id, MELEE.get(id, WEAPONS.blaster))
+
+
+static func has(id: String) -> bool:
+	return WEAPONS.has(id) or MELEE.has(id)
+
+
+## A weapon's class: "gun", "sword" or "axe".
+static func class_of(w: Dictionary) -> String:
+	return w.get("class", "gun")
+
+
+static func is_melee(w: Dictionary) -> bool:
+	return class_of(w) in ["sword", "axe"]
 
 
 ## loadoutFromSave(): +25 % damage, +15 % fire rate per level, and 100 context plus 40 per level; times the prompt

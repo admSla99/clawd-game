@@ -233,9 +233,10 @@ character level. The HUD shows a skill bar (the four, their keys, cooldown sweep
 - [ ] E12 Pinnacle bosses and uniques.
 - [ ] E13 Balance pass, docs.
 - [ ] E14 Weapon classes and skills (*Weapon classes and skills* above; asked for on 2026-10-18, before E10-E13):
-  - [ ] E14.1 Weapon classes: `class` on the bases, the new bases drop only in maps, the hand handing attacks to
+  - [x] E14.1 Weapon classes: `class` on the bases, the new bases drop only in maps, the hand handing attacks to
         a class; swords and axes (the arc, the combo, the pogo, cutting shots, the cleave), their models, sounds,
-        checks.
+        checks. Done: `Weapons.MELEE`, `scripts/melee.gd`; base item levels 30 / 46 / 62; an axe's swing is a whole
+        circle; the HUD shows the class and the sword's combo.
   - [ ] E14.2 Bows and staves: drawing, arcing arrows that pierce; the staff's bonk and its spell stats.
   - [ ] E14.3 COMPUTE and the skill system: the bar, gems as items, the inventory's SKILLS page, four slots on 1-4,
         the HUD's skill bar, gem XP and levels; the first skills: Overheat Bolt, Context Switch, Gradient Slam.

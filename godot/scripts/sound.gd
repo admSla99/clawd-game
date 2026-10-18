@@ -61,7 +61,7 @@ const PRELOAD := ["jump", "land", "spin", "stomp", "pound", "poundLand", "break"
 	"select", "confirm", "complete", "heart", "enemyDie", "denied", "spark", "rescue", "buy", "deflect", "shoot", "crush",
 	"bossHit", "bossTeleport", "weaponGet", "gunToken", "gunPellet", "gunGlyph", "levelUp", "itemPick", "gunBeam", "gunOrb", "overheat",
 	"explode", "hit", "typing", "slam", "laser", "hookThrow", "hookCatch", "hookMiss", "zip", "agentSend", "agentGone",
-	"plateOn", "plateOff", "gateOpen", "gateShut"]
+	"plateOn", "plateOff", "gateOpen", "gateShut", "swordSwing", "axeSwing", "slashHit"]
 
 ## Name -> AudioStreamWAV.
 var sfx := {}
@@ -403,6 +403,16 @@ static func render_sfx(id: String) -> AudioStreamWAV:
 			noise(buf, 0.45, 0.5, 1500, 60, 0, 0.6)
 		"hit":
 			tone(buf, "square", 420, 300, 0.04, 0.05)
+		# The endgame's melee weapons (docs/endgame-plan.md E14): a quick airy whoosh, a heavier one, a meaty hit.
+		"swordSwing":
+			noise(buf, 0.12, 0.22, 1800, 5200, 0, 2.5)
+			tone(buf, "triangle", 900, 1500, 0.08, 0.04)
+		"axeSwing":
+			noise(buf, 0.22, 0.3, 500, 2400, 0, 1.6)
+			tone(buf, "triangle", 260, 420, 0.18, 0.07)
+		"slashHit":
+			noise(buf, 0.09, 0.32, 3500, 600, 0, 1.2)
+			tone(buf, "square", 320, 110, 0.08, 0.1)
 		"bossHit":
 			tone(buf, "sawtooth", 300, 60, 0.4, 0.2)
 			noise(buf, 0.4, 0.4, 4000, 200, 0, 0.8)
@@ -485,6 +495,9 @@ static func _sfx_length(id: String) -> float:
 		"gunOrb": return 0.35
 		"overheat", "explode": return 0.5
 		"hit": return 0.04
+		"swordSwing": return 0.12
+		"axeSwing": return 0.22
+		"slashHit": return 0.09
 		"bossTeleport": return 0.3
 		"weaponGet": return 6 * 0.08 + 0.25
 		"crush": return 0.35

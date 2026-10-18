@@ -31,6 +31,14 @@ const BASES := {
 	"stream": {"kind": "weapon", "name": "Stream Output", "size": [1, 3], "level": 13, "weapon": "stream", "implicit": {"crit": 4}},
 	"beam": {"kind": "weapon", "name": "Attention Beam", "size": [2, 3], "level": 19, "weapon": "beam", "implicit": {"crit": 3}},
 	"cannon": {"kind": "weapon", "name": "Opus Cannon", "size": [2, 3], "level": 25, "weapon": "cannon", "implicit": {"crit": 7}},
+	# Melee weapons (docs/endgame-plan.md E14, Weapons.MELEE): three swords and three axes from item level 30, so
+	# only maps drop them (the campaign's areas end at 27).
+	"tokenizer_blade": {"kind": "weapon", "name": "Tokenizer Blade", "size": [1, 3], "level": 30, "weapon": "tokenizer_blade", "implicit": {"crit": 6}},
+	"attention_sabre": {"kind": "weapon", "name": "Attention Sabre", "size": [1, 3], "level": 46, "weapon": "attention_sabre", "implicit": {"crit": 6}},
+	"transformer_edge": {"kind": "weapon", "name": "Transformer Edge", "size": [1, 3], "level": 62, "weapon": "transformer_edge", "implicit": {"crit": 7}},
+	"pruning_axe": {"kind": "weapon", "name": "Pruning Axe", "size": [2, 3], "level": 30, "weapon": "pruning_axe", "implicit": {"crit": 5}},
+	"gradient_cleaver": {"kind": "weapon", "name": "Gradient Cleaver", "size": [2, 3], "level": 46, "weapon": "gradient_cleaver", "implicit": {"crit": 5}},
+	"dropout_reaver": {"kind": "weapon", "name": "Dropout Reaver", "size": [2, 3], "level": 62, "weapon": "dropout_reaver", "implicit": {"crit": 5}},
 	# Context windows (helmets): armour or evasion, three tiers of base.
 	"tin_visor": {"kind": "helmet", "name": "Tin Visor", "size": [2, 2], "level": 1, "implicit": {"armour": 6}},
 	"mesh_hood": {"kind": "helmet", "name": "Mesh Hood", "size": [2, 2], "level": 1, "implicit": {"evasion": 8}},

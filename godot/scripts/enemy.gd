@@ -117,8 +117,8 @@ func hit(kind: StringName, damage := 1.0, own := true) -> bool:
 			main.player.leech_hit(took)
 	if hp <= 0:
 		die(kind)
-	elif kind != &"shot":
-		# Melee hits give a short grace period so one spin is one hit.
+	elif kind != &"shot" and kind != &"slash":
+		# Melee hits give a short grace period so one spin is one hit (a sword's swing keeps its own list, Melee).
 		immune = 0.3
 	return true
 

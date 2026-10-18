@@ -24,6 +24,12 @@ static func rows(it: Dictionary, endgame: bool, header := "") -> Array:
 		out.append([Items.BASES[it.base].name, Hud.TEXT_DIM])
 	if Maps.is_map(it):
 		out.append(["MAP · TIER %d · WORLD %d · AREA LEVEL %d" % [it.get("tier", 1), Maps.world_of(int(it.get("tier", 1))), it.ilvl], Hud.TEXT_DIM])
+	elif Items.kind(it) == "weapon":
+		# A weapon: its class, and its base damage and speed (docs/endgame-plan.md E14).
+		var w := Weapons.get_def(Items.BASES[it.base].weapon)
+		out.append(["%s · ITEM LEVEL %d" % [Weapons.CLASS_NAME[Weapons.class_of(w)], it.ilvl], Hud.TEXT_DIM])
+		out.append(["%s DAMAGE · %s %s A SECOND" % [_num(w.damage * w.get("pellets", 1)), _num(w.fire_rate),
+			"SWINGS" if Weapons.is_melee(w) else "SHOTS"], Hud.TEXT_DIM])
 	else:
 		out.append(["%s · ITEM LEVEL %d" % [Items.KIND_NAME[Items.kind(it)], it.ilvl], Hud.TEXT_DIM])
 	var lines: Array = Items.lines(it)
@@ -40,6 +46,11 @@ static func rows(it: Dictionary, endgame: bool, header := "") -> Array:
 		out.append([])
 		out.append(["* only in the endgame (hit points)", DIM])
 	return out
+
+
+## A number with at most one decimal, none when whole.
+static func _num(v: float) -> String:
+	return str(roundi(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
 
 
 ## What putting `new` on instead of `old` ({} for an empty slot) changes, stat by stat.

@@ -12,16 +12,32 @@ const SPRITES := {
 	"cannon": [".OOOOOOOOO.", "GGGGGGGGGOO", "GGGGGGGGGOO", "Gg.gg......"],
 	# World 3's Tool Call: a launcher with a three-pronged claw (not a weapon; Codex drops it).
 	"hook": ["....OO..", "GGGO..C.", "GgGOOOOC", "GGGO..C.", "....OO.."],
+	# The endgame's swords and axes (Weapons.MELEE): a grip (g) left, the guard (O), the blade (B, its edge b) or
+	# the axe's head (A, its edge a) right.
+	"tokenizer_blade": [".O..........", "gOBBBBBBBBBb", ".O.........."],
+	"attention_sabre": ["...........b", ".O......BBB.", "gOBBBBBB....", ".O.........."],
+	"transformer_edge": [".O...........", "gOBBBBBBBBBBb", "gOBBBBBBBBBB.", ".O..........."],
+	"pruning_axe": [".......AAa", "ggggggggAa", ".......AAa", "........a."],
+	"gradient_cleaver": ["......AAAa", ".......AAa", "gggggggggA", ".......AAa", "......AAAa"],
+	"dropout_reaver": ["aAA....AAa", ".AA....AA.", "gggggggggg", ".AA....AA.", "aAA....AAa"],
 }
+## The row (from the top) a sprite is held by: the guns by their top one, the blades by their grip.
+const GRIP_ROW := {"tokenizer_blade": 1, "attention_sabre": 2, "transformer_edge": 1, "pruning_axe": 1, "gradient_cleaver": 2,
+	"dropout_reaver": 2}
 const PALETTE := {
 	"G": Color("#CFCFCF"),
 	"g": Color("#7A7A7A"),
 	"O": Color("#D97757"),
 	"o": Color("#B35E40"),
 	"C": Color("#5FD0D8"),
+	"B": Color("#C9D6DE"),
+	"b": Color("#F4F8FA"),
+	"A": Color("#9AA6AE"),
+	"a": Color("#E6EEF2"),
 }
 ## Depth in cells: the grey body deeper than the grip, the orange and cyan muzzle as deep as the body.
-const DEPTH := {"G": 4, "g": 2, "O": 4, "o": 4, "C": 4}
+## Blades are thin, axe heads a little thicker.
+const DEPTH := {"G": 4, "g": 2, "O": 4, "o": 4, "C": 4, "B": 2, "b": 2, "A": 4, "a": 2}
 
 static var _cache := {}
 

@@ -10,6 +10,8 @@ extends Node3D
 ## wheel) through the owned weapons, 1-5 for a slot (not while a weapon item is equipped: then Clawd holds its gun); the weapon's name shows over Clawd for a moment.
 ## Drawn as the voxel gun (GunSprite) in Clawd's hands, turned to the aim around its grip (upside down when
 ## aiming left, like the 2D sprite), kicking back on each shot, with a muzzle flash.
+## A melee weapon item (a sword or an axe, Weapons.MELEE; docs/endgame-plan.md E14) swings instead of shooting:
+## the attack goes to `melee` (scripts/melee.gd), no context heat, and the blade is drawn sweeping.
 
 const SHOT_SFX := {"token": "gunToken", "pellet": "gunPellet", "glyph": "gunGlyph", "beam": "gunBeam", "orb": "gunOrb"}
 const CELL := 2.0
@@ -39,6 +41,8 @@ var label_t := 0.0
 ## PAD larger on every side) and when it last moved (poll_mouse()).
 var mouse_view := Vector2.ZERO
 var mouse_moved := -1_000_000
+## Swings a sword or an axe (Weapons.is_melee(weapon)).
+var melee: Melee
 var _hand: Node3D
 var _gun: MeshInstance3D
 var _flash: MeshInstance3D
@@ -47,6 +51,7 @@ var _flash: MeshInstance3D
 func setup(m: Node, p: Player) -> void:
 	main = m
 	player = p
+	melee = Melee.new(self)
 	process_physics_priority = 10
 	_hand = Node3D.new()
 	_hand.name = "Gun"
@@ -69,11 +74,12 @@ func arm(on: bool, id := "blaster") -> void:
 	flash = 0.0
 	recoil = 0.0
 	shrink = 1.0
+	melee.reset()
 	label_t = 2.5 if on else 0.0
 	# An equipped weapon item (Gear) decides the gun.
 	if not Gear.weapon().is_empty():
 		id = Items.BASES[Gear.weapon().base].weapon
-	set_weapon(id if Weapons.WEAPONS.has(id) else "blaster")
+	set_weapon(id if Weapons.has(id) else "blaster")
 	_update_visual()
 
 
@@ -144,9 +150,14 @@ func _physics_process(dt: float) -> void:
 	label_t = maxf(0.0, label_t - dt)
 	player.aim = compute_aim()
 	if player.state != &"spin":
-		player.facing = 1 if cos(player.aim) >= 0 else -1
+		# A swing keeps Clawd facing the way it goes.
+		var a := melee.angle if melee.swinging() else player.aim
+		player.facing = 1 if cos(a) >= 0 else -1
 	var can_shoot: bool = main.complete_t < 0 and player.state != &"spin" and player.hurt_timer <= 0 and not player.frozen
-	fire(dt, can_shoot and Input.is_action_pressed("attack"))
+	if Weapons.is_melee(weapon):
+		melee.update(dt, can_shoot and Input.is_action_pressed("attack"))
+	else:
+		fire(dt, can_shoot and Input.is_action_pressed("attack"))
 	_update_visual()
 
 
@@ -231,16 +242,17 @@ func fire(dt: float, trigger: bool) -> bool:
 ## exit), shrunk towards his middle by `shrink`.
 func _update_visual() -> void:
 	_hand.visible = armed and player.state != &"spin" and player.visual.visible and shrink > 0
-	_flash.visible = _hand.visible and flash > 0
+	_flash.visible = _hand.visible and flash > 0 and not Weapons.is_melee(weapon)
 	if not _hand.visible:
 		return
-	var a := player.aim
+	var a := melee.blade_angle() if Weapons.is_melee(weapon) else player.aim
 	var rows: int = GunSprite.SPRITES.get(weapon.id, GunSprite.SPRITES.blaster).size()
+	var grip: int = GunSprite.GRIP_ROW.get(weapon.id, 0)
 	var w := GunSprite.cells(weapon.id) * CELL
 	var basis := Basis(Vector3.BACK, -a)
 	if cos(a) < 0:
 		basis = basis * Basis(Vector3.RIGHT, PI)
 	_hand.transform = Transform3D(basis.scaled(Vector3.ONE * maxf(shrink, 0.01)), Vector3(player.facing * 5 * shrink, 9 + FRONT / 3, FRONT) * Px.M)
-	_gun.position = Vector3(w / 2 - recoil * 2.5, CELL - rows * CELL, 0) * Px.M
+	_gun.position = Vector3(w / 2 - recoil * 2.5, CELL - (rows - grip) * CELL, 0) * Px.M
 	var m := Vector2(cos(a), sin(a)) * 17
 	_flash.position = Vector3(player.facing * 5 + roundf(m.x), 9 - roundf(m.y) - 2 + FRONT / 3, FRONT) * Px.M

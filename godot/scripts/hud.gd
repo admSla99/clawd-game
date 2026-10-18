@@ -500,7 +500,9 @@ func crosshair() -> bool:
 
 ## drawWeaponHud() and drawCrosshair() in src/scenes/game.ts: bottom left, the weapon's name, slots 1-5 (the held
 ## one orange, owned ones grey) and the context bar of 26 cells (red over three quarters; blinking red with
-## OVERFLOW while overflowed); the weapon's name over Clawd after a switch; the crosshair at the mouse.
+## OVERFLOW while overflowed); the weapon's name over Clawd after a switch; the crosshair at the mouse. A sword or
+## an axe (docs/endgame-plan.md E14) has no context: its class instead, and a sword's combo as three pips (the
+## swings done lit, the finisher's red).
 func _draw_weapon() -> void:
 	var main := get_tree().get_first_node_in_group("main")
 	if main == null or not main.gun.armed or main.mode != Main.Mode.PLAY:
@@ -521,14 +523,22 @@ func _draw_weapon() -> void:
 		draw_rect(Rect2(sx, y + 3, 8, 8), ORANGE if cur else Color("#5A5A5A") if has else Color("#2A2A2A"))
 		PixelFont.draw(self, str(i + 1), Vector2(sx + 2, y + 4), Color("#161616") if cur else TEXT if has else Color("#444444"))
 	var hot := gun.overheated > 0
-	PixelFont.draw(self, "OVERFLOW" if hot else "CONTEXT", Vector2(x + 6, y + 13), RED if hot else TEXT_DIM)
-	var frac := minf(1.0, gun.heat / gun.heat_cap())
-	for i in 26:
-		var on := float(i) / 26 < frac
-		var c := Color("#2E2E2E")
-		if on:
-			c = (RED if floori(_t * 10) % 2 == 1 else Color("#8F3A37")) if hot else RED if float(i) / 26 > 0.75 else ORANGE
-		draw_rect(Rect2(x + 44 + i * 4, y + 14, 3, 4), c)
+	if Weapons.is_melee(gun.weapon):
+		PixelFont.draw(self, Weapons.CLASS_NAME[Weapons.class_of(gun.weapon)], Vector2(x + 6, y + 13), TEXT_DIM)
+		var combo := int(gun.weapon.combo)
+		for i in combo if combo > 1 else 0:
+			var lit: bool = i < gun.melee.combo or (gun.melee.combo == 0 and gun.melee.swinging() and gun.melee.finisher)
+			var c := (RED if i == combo - 1 else ORANGE) if lit else Color("#2E2E2E")
+			draw_rect(Rect2(x + 44 + i * 10, y + 14, 8, 4), c)
+	else:
+		PixelFont.draw(self, "OVERFLOW" if hot else "CONTEXT", Vector2(x + 6, y + 13), RED if hot else TEXT_DIM)
+		var frac := minf(1.0, gun.heat / gun.heat_cap())
+		for i in 26:
+			var on := float(i) / 26 < frac
+			var c := Color("#2E2E2E")
+			if on:
+				c = (RED if floori(_t * 10) % 2 == 1 else Color("#8F3A37")) if hot else RED if float(i) / 26 > 0.75 else ORANGE
+			draw_rect(Rect2(x + 44 + i * 4, y + 14, 3, 4), c)
 	if gun.label_t > 0:
 		var v: Vector2 = main.overlay.to_view(_player.pos + Vector2(0, -34))
 		var label := String(gun.weapon.name)

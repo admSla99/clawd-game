@@ -1372,6 +1372,36 @@ the campaign too (the user's call), at the area level.
   worth of tokens heals a quarter. The hit pops up as "-n"; the HUD shows a 64 px red life bar with "life / max"
   instead of the hearts (the part just lost drains after a hit), the Firewall's slot after it.
 
+## Melee weapons
+
+The endgame's swords and axes (`docs/endgame-plan.md` E14.1), weapon items like the guns but swung:
+
+- **Bases** (`Items.BASES`, `Weapons.MELEE`): swords Tokenizer Blade, Attention Sabre, Transformer Edge and axes
+  Pruning Axe, Gradient Cleaver, Dropout Reaver, at item levels 30 / 46 / 62, so only maps drop them (the
+  campaign's areas end at 27). Each def has `class` ("sword" / "axe"; the guns' is "gun", `Weapons.class_of()`,
+  `is_melee()`), `fire_rate` (swings a second), `damage` a swing, `reach` (px from Clawd's arm), `arc` (radians
+  round the aim), `combo`, `finisher` and `swing` (seconds the blade sweeps). Swords: 5 / 7.5 / 11 damage, 2.6-2.8
+  swings a second, 30-34 px, about 110 degrees, a combo of three whose last is 1.5 (1.6) times as hard in an arc
+  1.3 times as wide. Axes: 13 / 19 / 27 damage, 1.15-1.25 a second, 34-38 px, a whole circle (a cleave). The tooltip
+  says the class ("SWORD · ITEM LEVEL n") and "n DAMAGE · n SWINGS A SECOND" (guns: SHOTS).
+- **Swinging** (`scripts/melee.gd`, `Melee`, owned by `Gun` as `melee`): while the held weapon is melee, `Gun`
+  hands the attack to `Melee.update()` instead of `fire()` (no context heat). A swing starts towards the aim (mouse
+  or keys, as a gun's), its damage the weapon's times `Weapons.damage_mult()` (the tree, gear, elements; Temperature
+  1.5's doubles and critical strikes as a shot's); for `swing` seconds everything whose nearest point is within
+  `reach` of the arm and inside the arc is hit once (`Enemy.hit(&"slash")`: no melee grace, the swing keeps its own
+  list; elements may ignite, chill or shock), with a 0.04 s hitstop, a shake and "slashHit". Swords sweep down and
+  back up in turn; the combo goes on while the next swing comes within 0.35 s of the cooldown. A swing cuts the
+  cancellable enemy shots it meets ("deflect"), a shield blocks it as it blocks shots, and a brittle crate at its
+  tip takes a strike. A downward swing (sin of the aim 0.5 or more) that hits in the air bounces Clawd like a stomp
+  (a pogo, once a swing; down with the attack held does not pound).
+- **Look and sound**: `GunSprite` draws the blades (a grip `g`, the guard, blade `B` / edge `b`, an axe's head `A` /
+  `a`) held by their grip row (`GRIP_ROW`), turned through the arc as it swings (`Melee.blade_angle()`), sparks at
+  the tip as a trail; "swordSwing", "axeSwing", "slashHit". The HUD's weapon panel shows the class instead of the
+  context bar, and a sword's combo as three pips (the finisher's red).
+- Checks (`tools/checks/weapons.gd`): six bases from item level 30, none from the campaign's last area and some from
+  a T16 map's, the sprites' grips, the tooltip, the sword held, a swing hitting in front and not behind, the combo's
+  3.5 swings' worth with no heat, a cut shot, the pogo, an axe's cleave behind.
+
 ## Menus and key bindings
 
 `scripts/game_menu.gd` (`GameMenu`, `Ui/Menu`, drawn over everything) holds the in-level menus of
@@ -1584,6 +1614,7 @@ without COOP/COEP headers.
 | `scripts/tool_call.gd`, `scripts/anchor.gd` | World 3's Tool Call (hook, aim assist, zip) and the anchors it catches (`+`) |
 | `scripts/parser.gd` | World 3's armoured Parser (`P`): the hook tears its shell off |
 | `scripts/webhook.gd` | World 3's Webhook (`W`): patrols, dives, and is an anchor the hook stuns |
+| `scripts/melee.gd` | Swords' and axes' swings: the arc, the combo, cut shots, the pogo (for `Gun`) |
 | `scripts/prompts.gd`, `scripts/tree_screen.gd` | The prompt tree: 137 nodes in eight sectors, links, points, allocating, the stats others read; its window (small map, totals list) |
 | `scripts/experience.gd` | Character level: XP to the next level, area levels, an enemy's XP and the penalty far below Clawd |
 | `scripts/items.gd`, `scripts/gear.gd`, `scripts/stats.gd` | Items: bases, affixes, rolling, names, tooltip lines; the equipped gear and inventory; tree + gear stats |
