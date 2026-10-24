@@ -1609,6 +1609,10 @@ python3 -m http.server -d build/web 8080                # http://localhost:8080
 The "Web" preset in `export_presets.cfg` builds without threads, so the output runs on any static host
 without COOP/COEP headers.
 
+`.github/workflows/pages.yml` publishes it to GitHub Pages (<https://admsla99.github.io/clawd-game/>) on every
+push to `main` (or by hand, *Run workflow*): it installs Godot with `tools/install_godot.sh` (cached between
+runs), imports, runs `tools/check.gd` (a failure stops the deploy) and exports the "Web" preset.
+
 ## Layout
 
 | Path | Contents |

@@ -24,7 +24,7 @@ godot --headless --script tools/check.gd                       # headless checks
 godot --headless --script tools/reach.gd [-- 2-1]              # levels' exit/sparks/sub-agents reachable (5-12 s each)
 godot --headless --script tools/convert_level.gd -- 1-1        # levels/*.txt -> levels/*.tscn (no ids = all)
 godot --headless --script tools/build_meshlib.gd               # regenerate tiles/terrain_meshlib.tres
-godot --headless --export-release "Web" build/web/index.html   # web build (no threads, any static host)
+godot --headless --export-release "Web" build/web/index.html   # web build (no threads); CI deploys it to Pages
 godot --headless --path . --import                             # after adding a class_name, before running scripts
 ```
 
